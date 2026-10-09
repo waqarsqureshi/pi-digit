@@ -35,6 +35,8 @@ export default function App() {
     lastPingResult,
     isPinging,
     clearLcd,
+    setSensorSource,
+    setOperatingMode,
   } = useDigitalTwin();
 
   const handleSetMode = (mode: 'simulation' | 'emulation') => {
@@ -127,6 +129,10 @@ export default function App() {
                   isProbing={isProbingHardware}
                   lastPingResult={lastPingResult}
                   onSwitchMode={handleSetMode}
+                  sensorSource={state.sensorSource}
+                  onToggleSensorSource={setSensorSource}
+                  operatingMode={state.operatingMode}
+                  onToggleOperatingMode={setOperatingMode}
                 />
 
                 {/* Sense HAT Emulator (8x8 RGB LED Matrix & Telemetry) */}

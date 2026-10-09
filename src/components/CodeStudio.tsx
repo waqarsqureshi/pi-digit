@@ -21,6 +21,48 @@ interface BashLog {
   text: string;
 }
 
+function highlightTokens(line: string, language: ProgramLanguage): React.ReactNode[] {
+  if (!line) return [' '];
+
+  // Comment check
+  if (language === 'python' && line.trimStart().startsWith('#')) {
+    return [<span key="comment" className="text-[#6a9955] italic">{line}</span>];
+  }
+  if (language === 'c' && (line.trimStart().startsWith('//') || line.trimStart().startsWith('/*'))) {
+    return [<span key="comment" className="text-[#6a9955] italic">{line}</span>];
+  }
+
+  // Token regex for strings, numbers, keywords, identifiers, and symbols
+  const tokenRegex = /(".*?"|'.*?'|#.*|\/\/.*|\b(?:def|class|import|from|return|if|elif|else|for|while|in|try|except|finally|with|as|lambda|pass|break|continue|True|False|None|and|or|not|is|int|void|char|float|double|struct|const|static|sizeof)\b|\b\d+(?:\.\d+)?\b|\b(?:SenseHat|GPIO|EmulatorSenseHat|EmulatorGPIO|LCD|System)\b|[A-Za-z_][A-Za-z0-9_]*|[^\s\w]+|\s+)/g;
+
+  const matches = line.match(tokenRegex) || [line];
+  const pythonKeywords = new Set(['def', 'class', 'import', 'from', 'return', 'if', 'elif', 'else', 'for', 'while', 'in', 'try', 'except', 'finally', 'with', 'as', 'lambda', 'pass', 'break', 'continue', 'True', 'False', 'None', 'and', 'or', 'not', 'is']);
+  const cKeywords = new Set(['int', 'void', 'char', 'float', 'double', 'struct', 'const', 'static', 'sizeof', 'return', 'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', '#include', '#define']);
+  const hardwareTypes = new Set(['SenseHat', 'GPIO', 'EmulatorSenseHat', 'EmulatorGPIO', 'LCD', 'System']);
+
+  return matches.map((token, idx) => {
+    if (token.startsWith('#') || token.startsWith('//')) {
+      return <span key={idx} className="text-[#6a9955] italic">{token}</span>;
+    }
+    if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) {
+      return <span key={idx} className="text-[#ce9178]">{token}</span>;
+    }
+    if (/^\d+(?:\.\d+)?$/.test(token) || /^0x[0-9a-fA-F]+$/.test(token)) {
+      return <span key={idx} className="text-[#b5cea8]">{token}</span>;
+    }
+    if (pythonKeywords.has(token) || cKeywords.has(token)) {
+      return <span key={idx} className="text-[#c586c0] font-semibold">{token}</span>;
+    }
+    if (hardwareTypes.has(token)) {
+      return <span key={idx} className="text-[#4ec9b0] font-semibold">{token}</span>;
+    }
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(token) && idx + 1 < matches.length && matches[idx + 1].trim().startsWith('(')) {
+      return <span key={idx} className="text-[#dcdcaa]">{token}</span>;
+    }
+    return <span key={idx} className="text-[#d4d4d4]">{token}</span>;
+  });
+}
+
 export function CodeStudio({
   program,
   terminalOutputs,
@@ -53,18 +95,37 @@ export function CodeStudio({
   const [bashHistoryIndex, setBashHistoryIndex] = useState<number>(-1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const terminalBottomRef = useRef<HTMLDivElement>(null);
-  const bashBottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
+  const bashContainerRef = useRef<HTMLDivElement>(null);
 
+  // Sync scroll between textarea, syntax highlight pre, and line numbers
+  const handleEditorScroll = () => {
+    if (textareaRef.current) {
+      const top = textareaRef.current.scrollTop;
+      const left = textareaRef.current.scrollLeft;
+      if (preRef.current) {
+        preRef.current.scrollTop = top;
+        preRef.current.scrollLeft = left;
+      }
+      if (lineNumbersRef.current) {
+        lineNumbersRef.current.scrollTop = top;
+      }
+    }
+  };
+
+  // Fixed: Scroll ONLY inside the terminal container without moving the browser window/viewport
   useEffect(() => {
-    if (activeBottomTab === 'output') {
-      terminalBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeBottomTab === 'output' && terminalContainerRef.current) {
+      terminalContainerRef.current.scrollTop = terminalContainerRef.current.scrollHeight;
     }
   }, [terminalOutputs, activeBottomTab]);
 
   useEffect(() => {
-    if (activeBottomTab === 'terminal') {
-      bashBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeBottomTab === 'terminal' && bashContainerRef.current) {
+      bashContainerRef.current.scrollTop = bashContainerRef.current.scrollHeight;
     }
   }, [bashLogs, activeBottomTab]);
 
@@ -355,10 +416,13 @@ export function CodeStudio({
           </div>
         )}
 
-        {/* Code Editor Area */}
-        <div className="flex bg-[#1e1e1e] text-slate-100 overflow-hidden text-xs font-mono min-h-[300px] max-h-[350px]">
+        {/* Code Editor Area with Real-Time Syntax Highlighting */}
+        <div className="relative flex bg-[#1e1e1e] text-slate-100 overflow-hidden text-xs font-mono min-h-[300px] max-h-[350px]">
           {/* Line Numbers */}
-          <div className="w-10 py-2.5 bg-[#181818] text-[#858585] select-none text-right pr-2.5 font-mono border-r border-[#2d2d2d] shrink-0 text-[11px]">
+          <div
+            ref={lineNumbersRef}
+            className="w-10 py-2.5 bg-[#181818] text-[#858585] select-none text-right pr-2.5 font-mono border-r border-[#2d2d2d] shrink-0 text-[11px] overflow-hidden"
+          >
             {Array.from({ length: lineCount }).map((_, i) => (
               <div key={i} className="leading-5">
                 {i + 1}
@@ -366,13 +430,38 @@ export function CodeStudio({
             ))}
           </div>
 
-          {/* Textarea */}
-          <textarea
-            value={currentCode}
-            onChange={(e) => setCurrentCode(e.target.value)}
-            spellCheck={false}
-            className="flex-1 w-full p-2.5 bg-transparent text-slate-200 font-mono leading-5 resize-none focus:outline-none overflow-y-auto selection:bg-[#264f78] whitespace-pre"
-          />
+          {/* Syntax Highlighted Pre + Synced Editable Textarea */}
+          <div className="relative flex-1 overflow-hidden">
+            {/* Syntax Highlight Layer */}
+            <pre
+              ref={preRef}
+              aria-hidden="true"
+              className="absolute inset-0 p-2.5 font-mono text-xs leading-5 pointer-events-none whitespace-pre overflow-hidden selection:bg-[#264f78]"
+              style={{ margin: 0 }}
+            >
+              <code>
+                {currentCode.split('\n').map((line, i) => (
+                  <div key={i} className="leading-5">
+                    {highlightTokens(line, currentLanguage)}
+                  </div>
+                ))}
+              </code>
+            </pre>
+
+            {/* Transparent Textarea overlay with synced scroll */}
+            <textarea
+              ref={textareaRef}
+              value={currentCode}
+              onChange={(e) => setCurrentCode(e.target.value)}
+              onScroll={handleEditorScroll}
+              spellCheck={false}
+              className="absolute inset-0 w-full h-full p-2.5 bg-transparent text-transparent caret-white font-mono text-xs leading-5 resize-none focus:outline-none overflow-auto whitespace-pre selection:bg-[#264f78]/50"
+              style={{
+                fontFamily: 'inherit',
+                lineHeight: '1.25rem',
+              }}
+            />
+          </div>
         </div>
 
         {/* VS Code Bottom Panel: OUTPUT vs TERMINAL Tabs */}
@@ -449,7 +538,10 @@ export function CodeStudio({
 
           {/* TAB 1: OUTPUT CONSOLE */}
           {activeBottomTab === 'output' && (
-            <div className="p-2.5 text-xs font-mono overflow-y-auto flex flex-col gap-1 min-h-[170px] max-h-[220px] select-text bg-[#1e1e1e]">
+            <div
+              ref={terminalContainerRef}
+              className="p-2.5 text-xs font-mono overflow-y-auto flex flex-col gap-1 min-h-[170px] max-h-[220px] select-text bg-[#1e1e1e]"
+            >
               {terminalOutputs.length === 0 ? (
                 <div className="text-slate-500 italic text-[11px] p-1">
                   Ready. Click &quot;▶ Run&quot; above to execute the script in this console.
@@ -470,7 +562,6 @@ export function CodeStudio({
                   </div>
                 ))
               )}
-              <div ref={terminalBottomRef} />
             </div>
           )}
 
@@ -524,14 +615,17 @@ export function CodeStudio({
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('help')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-amber-300 border border-[#3e3e42] transition-colors shrink-0"
                 >
                   help
                 </button>
               </div>
 
               {/* Scrolling Terminal Output Buffer */}
-              <div className="flex-1 p-2.5 text-xs font-mono overflow-y-auto flex flex-col gap-1 select-text">
+              <div
+                ref={bashContainerRef}
+                className="flex-1 p-2.5 text-xs font-mono overflow-y-auto flex flex-col gap-1 select-text max-h-[160px]"
+              >
                 {bashLogs.map((log) => (
                   <div
                     key={log.id}
@@ -546,7 +640,6 @@ export function CodeStudio({
                     {log.text}
                   </div>
                 ))}
-                <div ref={bashBottomRef} />
               </div>
 
               {/* Bash Prompt Input Line */}

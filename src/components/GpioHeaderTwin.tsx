@@ -80,7 +80,7 @@ export function GpioHeaderTwin({
             >
               {pins.map((p) => (
                 <option key={p.pin} value={p.pin}>
-                  Pin {p.pin}: {p.name} - {isEmulationDisconnected ? 'INACTIVE' : p.value === 1 ? 'HIGH' : 'LOW'}
+                  Pin {p.pin}: {p.name} - {p.value === 1 ? 'HIGH' : 'LOW'}
                 </option>
               ))}
             </select>
@@ -118,19 +118,18 @@ export function GpioHeaderTwin({
           <div className="flex items-center gap-3">
             <span className="text-slate-600">
               Level:{' '}
-              {isEmulationDisconnected ? (
-                <strong className="text-slate-400">NOT CONNECTED</strong>
-              ) : inspectedPin.value === 1 ? (
+              {inspectedPin.value === 1 ? (
                 <strong className="text-rose-600 font-bold">HIGH (3.3V)</strong>
               ) : (
                 <strong className="text-slate-500">LOW (0.0V)</strong>
               )}
             </span>
 
-            {inspectedPin.isSafeToToggle && !isEmulationDisconnected && (
+            {inspectedPin.isSafeToToggle && (
               <button
                 onClick={() => onTogglePin(inspectedPin.pin)}
-                className="px-2.5 py-1 bg-slate-200 hover:bg-[#840038] hover:text-white rounded text-[11px] font-mono transition-colors border border-slate-300"
+                className="px-2.5 py-1 bg-slate-200 hover:bg-[#840038] hover:text-white rounded text-[11px] font-mono transition-colors border border-slate-300 cursor-pointer"
+                title="Toggle GPIO Pin logic level (updates digital twin and physical Pi pin)"
               >
                 Toggle Logic Level
               </button>
@@ -166,7 +165,7 @@ export function GpioHeaderTwin({
             {/* LED 1: Red on GPIO 17 (Pin 11) */}
             {(() => {
               const p = getPinByBcm(17);
-              const isLit = !isEmulationDisconnected && p?.value === 1;
+              const isLit = p?.value === 1;
               return (
                 <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-2 shadow-sm">
                   <div className="flex items-center justify-between w-full text-[11px] font-mono text-slate-600">
@@ -184,12 +183,13 @@ export function GpioHeaderTwin({
                   </div>
                   <div className="flex items-center justify-between w-full mt-1">
                     <span className={`text-[11px] font-mono font-bold ${isLit ? 'text-rose-600' : 'text-slate-400'}`}>
-                      {isEmulationDisconnected ? 'INACTIVE' : isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
+                      {isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
                     </span>
-                    {!isEmulationDisconnected && p && (
+                    {p && (
                       <button
                         onClick={() => onTogglePin(p.pin)}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-[#840038] hover:text-white text-slate-700 border border-slate-300 cursor-pointer transition-colors"
+                        title="Toggle GPIO 17 (Pin 11)"
                       >
                         Toggle
                       </button>
@@ -202,7 +202,7 @@ export function GpioHeaderTwin({
             {/* LED 2: Yellow on GPIO 27 (Pin 13) */}
             {(() => {
               const p = getPinByBcm(27);
-              const isLit = !isEmulationDisconnected && p?.value === 1;
+              const isLit = p?.value === 1;
               return (
                 <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-2 shadow-sm">
                   <div className="flex items-center justify-between w-full text-[11px] font-mono text-slate-600">
@@ -220,12 +220,13 @@ export function GpioHeaderTwin({
                   </div>
                   <div className="flex items-center justify-between w-full mt-1">
                     <span className={`text-[11px] font-mono font-bold ${isLit ? 'text-amber-600' : 'text-slate-400'}`}>
-                      {isEmulationDisconnected ? 'INACTIVE' : isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
+                      {isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
                     </span>
-                    {!isEmulationDisconnected && p && (
+                    {p && (
                       <button
                         onClick={() => onTogglePin(p.pin)}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-[#840038] hover:text-white text-slate-700 border border-slate-300 cursor-pointer transition-colors"
+                        title="Toggle GPIO 27 (Pin 13)"
                       >
                         Toggle
                       </button>
@@ -238,7 +239,7 @@ export function GpioHeaderTwin({
             {/* LED 3: Green on GPIO 22 (Pin 15) */}
             {(() => {
               const p = getPinByBcm(22);
-              const isLit = !isEmulationDisconnected && p?.value === 1;
+              const isLit = p?.value === 1;
               return (
                 <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-2 shadow-sm">
                   <div className="flex items-center justify-between w-full text-[11px] font-mono text-slate-600">
@@ -256,12 +257,13 @@ export function GpioHeaderTwin({
                   </div>
                   <div className="flex items-center justify-between w-full mt-1">
                     <span className={`text-[11px] font-mono font-bold ${isLit ? 'text-emerald-700' : 'text-slate-400'}`}>
-                      {isEmulationDisconnected ? 'INACTIVE' : isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
+                      {isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
                     </span>
-                    {!isEmulationDisconnected && p && (
+                    {p && (
                       <button
                         onClick={() => onTogglePin(p.pin)}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-[#840038] hover:text-white text-slate-700 border border-slate-300 cursor-pointer transition-colors"
+                        title="Toggle GPIO 22 (Pin 15)"
                       >
                         Toggle
                       </button>
@@ -274,7 +276,7 @@ export function GpioHeaderTwin({
             {/* LED 4: Blue on GPIO 23 (Pin 16) */}
             {(() => {
               const p = getPinByBcm(23);
-              const isLit = !isEmulationDisconnected && p?.value === 1;
+              const isLit = p?.value === 1;
               return (
                 <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col items-center gap-2 shadow-sm">
                   <div className="flex items-center justify-between w-full text-[11px] font-mono text-slate-600">
@@ -292,12 +294,13 @@ export function GpioHeaderTwin({
                   </div>
                   <div className="flex items-center justify-between w-full mt-1">
                     <span className={`text-[11px] font-mono font-bold ${isLit ? 'text-cyan-700' : 'text-slate-400'}`}>
-                      {isEmulationDisconnected ? 'INACTIVE' : isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
+                      {isLit ? 'LED ON (HIGH)' : 'OFF (LOW)'}
                     </span>
-                    {!isEmulationDisconnected && p && (
+                    {p && (
                       <button
                         onClick={() => onTogglePin(p.pin)}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 hover:bg-[#840038] hover:text-white text-slate-700 border border-slate-300 cursor-pointer transition-colors"
+                        title="Toggle GPIO 23 (Pin 16)"
                       >
                         Toggle
                       </button>
@@ -324,7 +327,7 @@ export function GpioHeaderTwin({
             {/* Toggle Switch A: GPIO 24 (Pin 18) */}
             {(() => {
               const p = getPinByBcm(24);
-              const isHigh = !isEmulationDisconnected && p?.value === 1;
+              const isHigh = p?.value === 1;
               return (
                 <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col gap-2 shadow-sm">
                   <div className="flex items-center justify-between text-xs font-mono">
@@ -332,9 +335,8 @@ export function GpioHeaderTwin({
                     <span className="text-slate-500">GPIO 24</span>
                   </div>
                   <button
-                    disabled={isEmulationDisconnected}
                     onClick={() => p && onTogglePin(p.pin)}
-                    className={`py-2 px-3 rounded-lg border font-mono text-xs font-bold flex items-center justify-between transition-all ${
+                    className={`py-2 px-3 rounded-lg border font-mono text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                       isHigh
                         ? 'bg-[#840038] text-white border-[#840038] shadow-sm'
                         : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
@@ -357,7 +359,7 @@ export function GpioHeaderTwin({
             {/* Toggle Switch B: GPIO 25 (Pin 22) */}
             {(() => {
               const p = getPinByBcm(25);
-              const isHigh = !isEmulationDisconnected && p?.value === 1;
+              const isHigh = p?.value === 1;
               return (
                 <div className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col gap-2 shadow-sm">
                   <div className="flex items-center justify-between text-xs font-mono">
@@ -365,9 +367,8 @@ export function GpioHeaderTwin({
                     <span className="text-slate-500">GPIO 25</span>
                   </div>
                   <button
-                    disabled={isEmulationDisconnected}
                     onClick={() => p && onTogglePin(p.pin)}
-                    className={`py-2 px-3 rounded-lg border font-mono text-xs font-bold flex items-center justify-between transition-all ${
+                    className={`py-2 px-3 rounded-lg border font-mono text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                       isHigh
                         ? 'bg-[#840038] text-white border-[#840038] shadow-sm'
                         : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
@@ -394,10 +395,9 @@ export function GpioHeaderTwin({
                 <span className="text-slate-500">GPIO 27</span>
               </div>
               <button
-                disabled={isEmulationDisconnected}
                 onMouseDown={() => onTriggerButton(27, true)}
                 onMouseUp={() => onTriggerButton(27, false)}
-                className="py-2 px-3 bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 hover:border-[#840038] rounded-lg font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95 shadow-sm"
+                className="py-2 px-3 bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 hover:border-[#840038] rounded-lg font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95 shadow-sm cursor-pointer select-none"
               >
                 <Zap className="w-3.5 h-3.5 text-amber-500" />
                 <span>Press Button (Push)</span>
@@ -414,10 +414,9 @@ export function GpioHeaderTwin({
                 <span className="text-slate-500">GPIO 26</span>
               </div>
               <button
-                disabled={isEmulationDisconnected}
                 onMouseDown={() => onTriggerButton(26, true)}
                 onMouseUp={() => onTriggerButton(26, false)}
-                className="py-2 px-3 bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 hover:border-[#840038] rounded-lg font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95 shadow-sm"
+                className="py-2 px-3 bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 hover:border-[#840038] rounded-lg font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95 shadow-sm cursor-pointer select-none"
               >
                 <Zap className="w-3.5 h-3.5 text-amber-500" />
                 <span>Press Button (Push)</span>
@@ -444,11 +443,11 @@ export function GpioHeaderTwin({
 
             <div className="flex items-center gap-3 text-xs font-mono">
               <span className="text-slate-600">
-                Duty Cycle: <strong className="text-[#840038] font-bold">{isEmulationDisconnected ? '--' : `${pwmDuty}%`}</strong>
+                Duty Cycle: <strong className="text-[#840038] font-bold">{pwmDuty}%</strong>
               </span>
               <span className="text-slate-400">|</span>
               <span className="text-slate-600">
-                Frequency: <strong className="text-slate-900">{isEmulationDisconnected ? '--' : `${pwmFreq} Hz`}</strong>
+                Frequency: <strong className="text-slate-900">{pwmFreq} Hz</strong>
               </span>
             </div>
           </div>
@@ -460,30 +459,26 @@ export function GpioHeaderTwin({
               type="range"
               min="0"
               max="100"
-              disabled={isEmulationDisconnected}
               value={pwmDuty}
               onChange={(e) => setPwmDuty(Number(e.target.value))}
-              className={`flex-1 accent-[#840038] ${isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''}`}
+              className="flex-1 accent-[#840038] cursor-pointer"
             />
             <div className="flex items-center gap-1">
               <button
-                disabled={isEmulationDisconnected}
                 onClick={() => setPwmDuty(25)}
-                className={`px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-[10px] ${isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''}`}
+                className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-[10px] cursor-pointer"
               >
                 25%
               </button>
               <button
-                disabled={isEmulationDisconnected}
                 onClick={() => setPwmDuty(50)}
-                className={`px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-[10px] ${isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''}`}
+                className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-[10px] cursor-pointer"
               >
                 50%
               </button>
               <button
-                disabled={isEmulationDisconnected}
                 onClick={() => setPwmDuty(75)}
-                className={`px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-[10px] ${isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''}`}
+                className="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-[10px] cursor-pointer"
               >
                 75%
               </button>
@@ -494,8 +489,8 @@ export function GpioHeaderTwin({
           <div className="bg-slate-900 p-3 rounded-lg border border-slate-700 flex flex-col gap-1 shadow-inner">
             <div className="flex justify-between text-[10px] font-mono text-slate-400 px-1">
               <span>VOLTAGE: +3.3V</span>
-              <span className={isEmulationDisconnected ? 'text-rose-400 font-bold' : 'text-amber-400'}>
-                {isEmulationDisconnected ? 'PWM0 INACTIVE (NOT CONNECTED)' : 'PWM0 CHANNEL ACTIVE'}
+              <span className="text-amber-400">
+                PWM0 CHANNEL ACTIVE
               </span>
               <span>GROUND: 0.0V</span>
             </div>
@@ -505,11 +500,11 @@ export function GpioHeaderTwin({
               <line x1="0" y1="12" x2="480" y2="12" stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
               <line x1="0" y1="52" x2="480" y2="52" stroke="#334155" strokeWidth="1" />
 
-              {/* Square wave (or flatline if disconnected) */}
+              {/* Square wave */}
               <path
-                d={isEmulationDisconnected ? 'M 0,52 L 480,52' : generateSquareWave(pwmDuty)}
+                d={generateSquareWave(pwmDuty)}
                 fill="none"
-                stroke={isEmulationDisconnected ? '#64748b' : '#38bdf8'}
+                stroke="#38bdf8"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"

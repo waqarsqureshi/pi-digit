@@ -462,6 +462,30 @@ export function useDigitalTwin() {
     }
   }, []);
 
+  const setSensorSource = useCallback(async (source: 'hardware' | 'simulated') => {
+    setState((prev) => (prev ? { ...prev, sensorSource: source, sensors: { ...prev.sensors, isSimulated: source === 'simulated' } } : prev));
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'sensors.setSource', payload: { source } }));
+    }
+    await fetch('/api/sensors/source', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source }),
+    });
+  }, []);
+
+  const setOperatingMode = useCallback(async (mode: 'execution' | 'emulation') => {
+    setState((prev) => (prev ? { ...prev, operatingMode: mode } : prev));
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'operatingMode.set', payload: { mode } }));
+    }
+    await fetch('/api/operating-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    });
+  }, []);
+
   return {
     state,
     isConnected,
@@ -480,6 +504,8 @@ export function useDigitalTwin() {
     connectHardware,
     probeHardware,
     pingHardware,
+    setSensorSource,
+    setOperatingMode,
     clearLcd,
     runProgram,
     stopProgram,

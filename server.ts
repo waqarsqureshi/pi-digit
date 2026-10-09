@@ -75,6 +75,8 @@ let sensors: SenseHatSensors = {
 };
 
 let lastJoystickEvent: JoystickEvent | null = null;
+let sensorSource: 'hardware' | 'simulated' = isSenseHatConnected ? 'hardware' : 'simulated';
+let operatingMode: 'execution' | 'emulation' = 'execution';
 
 let lcdState: LcdState = {
   lines: ['', ''],
@@ -189,6 +191,8 @@ function getFullState(): FullHardwareState {
     isPhysicalPi,
     isSenseHatConnected,
     simulationMode: !isSenseHatConnected,
+    sensorSource,
+    operatingMode,
     pollRateMs: 500,
     gpio: gpioPins,
     emulatedPeripherals,
@@ -215,7 +219,28 @@ function getFullState(): FullHardwareState {
 
 // Background sensor telemetry perturbation & recording loop
 setInterval(() => {
-  if (!isSenseHatConnected) {
+  if (sensorSource === 'hardware') {
+    if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
+      try {
+        const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
+        const hwData = JSON.parse(raw);
+        if (hwData && typeof hwData.temperature === 'number') {
+          sensors.temperature = hwData.temperature;
+          sensors.humidity = hwData.humidity;
+          sensors.pressure = hwData.pressure;
+          sensors.compassHeading = hwData.heading || hwData.compassHeading || 0;
+          if (hwData.accelerometer) sensors.accelerometer = hwData.accelerometer;
+          if (hwData.gyroscope) sensors.gyroscope = hwData.gyroscope;
+          sensors.isSimulated = false;
+
+          if (hwData.lastJoystick && (!lastJoystickEvent || hwData.lastJoystick.timestamp !== lastJoystickEvent.timestamp)) {
+            lastJoystickEvent = hwData.lastJoystick;
+            broadcast('joystick.event', lastJoystickEvent);
+          }
+        }
+      } catch (e) {}
+    }
+  } else {
     // Subtle realistic physical sensor drift when simulating
     const tNoise = (Math.random() - 0.5) * 0.15;
     const hNoise = (Math.random() - 0.5) * 0.3;
@@ -224,6 +249,7 @@ setInterval(() => {
     sensors.humidity = Number(Math.max(20, Math.min(90, sensors.humidity + hNoise)).toFixed(1));
     sensors.pressure = Number(Math.max(970, Math.min(1040, sensors.pressure + pNoise)).toFixed(2));
     sensors.compassHeading = Number(((sensors.compassHeading + 0.2) % 360).toFixed(1));
+    sensors.isSimulated = true;
   }
   sensors.timestamp = Date.now();
 
@@ -243,7 +269,7 @@ setInterval(() => {
   if (telemetryHistory.length > 60) telemetryHistory.shift();
 
   broadcast('sensor.update', sensors);
-}, 1000);
+}, 500);
 
 // --- WebSocket Connection Management ---
 wss.on('connection', (ws: WebSocket) => {
@@ -305,19 +331,132 @@ function handleClientWsMessage(ws: WebSocket, msg: { type: string; payload: any 
       triggerJoystick(msg.payload.direction, msg.payload.action || 'press');
       break;
     }
-    case 'sensehat.toggleConnection': {
-      isSenseHatConnected = !isSenseHatConnected;
-      sensors.isSimulated = !isSenseHatConnected;
-      addTimelineTrace(
-        'backend',
-        isSenseHatConnected ? 'Switched to Emulation Mode' : 'Switched to Simulation Mode',
-        isSenseHatConnected ? 'Physical Sense HAT bus linked' : 'Virtual sensor fallback engaged',
-        isSenseHatConnected ? 'success' : 'warn'
-      );
-      broadcast('init.state', getFullState());
+    case 'sensors.setSource': {
+      const src = msg.payload?.source;
+      if (src === 'hardware' || src === 'simulated') {
+        sensorSource = src;
+        sensors.isSimulated = (src === 'simulated');
+        addTimelineTrace('hardware', 'Sensor Source Changed', `Switched to ${src.toUpperCase()} sensor mode`, 'info');
+        broadcast('sensor.source', { source: sensorSource, isSimulated: sensors.isSimulated });
+        broadcast('init.state', getFullState());
+      }
+      break;
+    }
+    case 'operatingMode.set': {
+      const mode = msg.payload?.mode;
+      if (mode === 'execution' || mode === 'emulation') {
+        operatingMode = mode;
+        addTimelineTrace('backend', 'Operating Mode Changed', `Switched to ${mode.toUpperCase()} mode`, 'info');
+        broadcast('operatingMode.update', { mode: operatingMode });
+        broadcast('init.state', getFullState());
+      }
       break;
     }
   }
+}
+
+// --- Physical Hardware Control Functions (UI to Hardware Synchronization) ---
+
+function findSenseHatFbPath(): string | null {
+  try {
+    if (fs.existsSync('/sys/class/graphics')) {
+      const dirs = fs.readdirSync('/sys/class/graphics');
+      for (const d of dirs) {
+        const namePath = `/sys/class/graphics/${d}/name`;
+        if (fs.existsSync(namePath)) {
+          const name = fs.readFileSync(namePath, 'utf8').trim();
+          if (name.toLowerCase().includes('sense') || name.includes('RPi-Sense')) {
+            return `/dev/${d}`;
+          }
+        }
+      }
+    }
+  } catch {}
+  if (fs.existsSync('/dev/fb1')) return '/dev/fb1';
+  return null;
+}
+
+function writeHardwareCommand(cmd: Record<string, any>) {
+  try {
+    fs.appendFileSync('/tmp/pi_hw_commands.jsonl', JSON.stringify({ ...cmd, timestamp: Date.now() }) + '\n');
+  } catch {}
+}
+
+function writePhysicalSenseHatPixel(x: number, y: number, color: RgbColor) {
+  // 1. Direct Linux framebuffer write
+  try {
+    const fbPath = findSenseHatFbPath();
+    if (fbPath && fs.existsSync(fbPath)) {
+      const [r, g, b] = color;
+      const rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+      const buf = Buffer.alloc(2);
+      buf.writeUInt16LE(rgb565, 0);
+      const fd = fs.openSync(fbPath, 'r+');
+      fs.writeSync(fd, buf, 0, 2, (y * 8 + x) * 2);
+      fs.closeSync(fd);
+    }
+  } catch (err) {}
+
+  // 2. Queue for python bidirectional hardware daemon
+  writeHardwareCommand({ action: 'set_pixel', x, y, r: color[0], g: color[1], b: color[2] });
+}
+
+function clearPhysicalSenseHatMatrix(color: RgbColor = [0, 0, 0]) {
+  try {
+    const fbPath = findSenseHatFbPath();
+    if (fbPath && fs.existsSync(fbPath)) {
+      const [r, g, b] = color;
+      const rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+      const buf = Buffer.alloc(128);
+      for (let i = 0; i < 64; i++) {
+        buf.writeUInt16LE(rgb565, i * 2);
+      }
+      const fd = fs.openSync(fbPath, 'r+');
+      fs.writeSync(fd, buf, 0, 128, 0);
+      fs.closeSync(fd);
+    }
+  } catch (err) {}
+
+  writeHardwareCommand({ action: 'clear', r: color[0], g: color[1], b: color[2] });
+}
+
+function writePhysicalSenseHatFullMatrix(matrix: RgbColor[]) {
+  try {
+    const fbPath = findSenseHatFbPath();
+    if (fbPath && fs.existsSync(fbPath)) {
+      const buf = Buffer.alloc(128);
+      for (let i = 0; i < 64; i++) {
+        const [r, g, b] = matrix[i] || [0, 0, 0];
+        const rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+        buf.writeUInt16LE(rgb565, i * 2);
+      }
+      const fd = fs.openSync(fbPath, 'r+');
+      fs.writeSync(fd, buf, 0, 128, 0);
+      fs.closeSync(fd);
+    }
+  } catch (err) {}
+
+  writeHardwareCommand({ action: 'set_pixels', pixels: matrix });
+}
+
+function writePhysicalGpio(bcm: number | null, value: number) {
+  if (bcm === null) return;
+  try {
+    const valFlag = value ? 'dh' : 'dl';
+    exec(`pinctrl set ${bcm} op ${valFlag} 2>/dev/null || raspi-gpio set ${bcm} op ${valFlag} 2>/dev/null`, () => {});
+    const gpioPath = `/sys/class/gpio/gpio${bcm}`;
+    if (fs.existsSync('/sys/class/gpio')) {
+      if (!fs.existsSync(gpioPath)) {
+        try { fs.writeFileSync('/sys/class/gpio/export', String(bcm)); } catch (e) {}
+      }
+      try {
+        fs.writeFileSync(`${gpioPath}/direction`, 'out');
+        fs.writeFileSync(`${gpioPath}/value`, String(value ? 1 : 0));
+      } catch (e) {}
+    }
+  } catch (err) {}
+
+  writeHardwareCommand({ action: 'gpio_output', bcm, value });
 }
 
 // --- Hardware Helper Functions ---
@@ -333,6 +472,9 @@ function toggleGpioPin(pinNumber: number): boolean {
 
   pin.value = pin.value === 1 ? 0 : 1;
   syncEmulatedPeripheralsWithPins();
+
+  // Propagate UI action to physical GPIO pin
+  writePhysicalGpio(pin.bcm, pin.value);
 
   const stateLabel = pin.value === 1 ? 'HIGH (3.3V)' : 'LOW (0.0V)';
   addTimelineTrace(
@@ -356,6 +498,10 @@ function setMatrixPixel(x: number, y: number, color: RgbColor) {
     Math.min(255, Math.max(0, Math.round(color[2]))),
   ];
   matrixPixels[index] = clamped;
+
+  // Propagate UI action to physical Sense HAT framebuffer
+  writePhysicalSenseHatPixel(x, y, clamped);
+
   broadcast('matrix.update', { index, x, y, color: clamped, fullMatrix: matrixPixels });
 }
 
@@ -366,6 +512,10 @@ function clearMatrix(r = 0, g = 0, b = 0) {
     Math.min(255, Math.max(0, Math.round(b))),
   ];
   matrixPixels = Array(64).fill(color);
+
+  // Propagate UI action to physical Sense HAT framebuffer
+  clearPhysicalSenseHatMatrix(color);
+
   addTimelineTrace('backend', 'Sense HAT Matrix Cleared', `RGB(${color.join(',')})`, 'info');
   broadcast('matrix.full', { matrix: matrixPixels });
 }
@@ -724,7 +874,10 @@ app.post('/api/gpio', (req: Request, res: Response) => {
   if (!target.isSafeToToggle) return res.status(403).json({ error: 'Pin is protected' });
 
   if (mode) target.mode = mode;
-  if (value !== undefined) target.value = value ? 1 : 0;
+  if (value !== undefined) {
+    target.value = value ? 1 : 0;
+    writePhysicalGpio(target.bcm, target.value);
+  }
   syncEmulatedPeripheralsWithPins();
 
   broadcast('gpio.update', { pin: target.pin, bcm: target.bcm, value: target.value, mode: target.mode });
@@ -876,6 +1029,7 @@ app.post('/api/sensehat/matrix', (req: Request, res: Response) => {
   const { matrix } = req.body;
   if (Array.isArray(matrix) && matrix.length === 64) {
     matrixPixels = matrix;
+    writePhysicalSenseHatFullMatrix(matrixPixels);
     broadcast('matrix.full', { matrix: matrixPixels });
     res.json({ success: true });
   } else {
@@ -949,6 +1103,38 @@ app.post('/api/simulation/sensors', (req: Request, res: Response) => {
   broadcast('sensor.update', sensors);
   broadcast('init.state', getFullState());
   res.json({ success: true, sensors });
+});
+
+// Global Sensor Source Mode & Operating Mode Control Endpoints
+app.get('/api/sensors/source', (_req: Request, res: Response) => {
+  res.json({ source: sensorSource, isSimulated: sensors.isSimulated });
+});
+
+app.post('/api/sensors/source', (req: Request, res: Response) => {
+  const { source } = req.body;
+  if (source === 'hardware' || source === 'simulated') {
+    sensorSource = source;
+    sensors.isSimulated = (source === 'simulated');
+    addTimelineTrace('hardware', 'Sensor Source Switch', `Sensor mode set to ${source.toUpperCase()}`, 'info');
+    broadcast('sensor.source', { source: sensorSource, isSimulated: sensors.isSimulated });
+    broadcast('init.state', getFullState());
+  }
+  res.json({ success: true, source: sensorSource, isSimulated: sensors.isSimulated });
+});
+
+app.get('/api/operating-mode', (_req: Request, res: Response) => {
+  res.json({ mode: operatingMode });
+});
+
+app.post('/api/operating-mode', (req: Request, res: Response) => {
+  const { mode } = req.body;
+  if (mode === 'execution' || mode === 'emulation') {
+    operatingMode = mode;
+    addTimelineTrace('backend', 'Operating Mode Switch', `Operating mode set to ${mode.toUpperCase()}`, 'info');
+    broadcast('operatingMode.update', { mode: operatingMode });
+    broadcast('init.state', getFullState());
+  }
+  res.json({ success: true, mode: operatingMode });
 });
 
 // Hardware Connection Probe & Link Endpoints

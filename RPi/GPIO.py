@@ -1,80 +1,51 @@
 """
-RPi.GPIO Python Module for Pi-Digit Digital Twin
-Emulates Raspberry Pi 4 GPIO pins and wire-free peripheral LEDs.
+RPi.GPIO Python Module for Pi-Digit Digital Twin and Physical Computing.
+Supports dual-mode execution:
+1. Controls physical Raspberry Pi GPIO pins (via pinctrl/sysfs).
+2. Mirrors state to Web Emulator UI.
 """
-import sys
-import json
-import os
+from pi_emulator import EmulatorGPIO as GPIO
 
-BCM = 11
-BOARD = 10
-OUT = 0
-IN = 1
-HIGH = 1
-LOW = 0
-PUD_UP = 22
-PUD_DOWN = 21
+# Re-export module attributes expected by student code
+BCM = GPIO.BCM
+BOARD = GPIO.BOARD
+OUT = GPIO.OUT
+IN = GPIO.IN
+HIGH = GPIO.HIGH
+LOW = GPIO.LOW
+PUD_UP = GPIO.PUD_UP
+PUD_DOWN = GPIO.PUD_DOWN
+PUD_OFF = GPIO.PUD_OFF
 
-_mode = BCM
-_pins = {}
-
-def _emit(event_type, **kwargs):
-    payload = {"type": event_type, **kwargs}
-    print(f"__PI_TWIN_EVENT__:{json.dumps(payload)}", flush=True)
-
-def setmode(mode):
-    global _mode
-    _mode = mode
-
-def getmode():
-    return _mode
-
-def setwarnings(flag):
-    pass
-
-def setup(channel, direction, initial=0, pull_up_down=None):
-    _pins[channel] = {"direction": direction, "value": initial}
-    if direction == OUT and initial != 0:
-        output(channel, initial)
-
-def output(channel, value):
-    val = 1 if value else 0
-    _pins[channel] = {"direction": OUT, "value": val}
-    _emit("gpio_output", bcm=channel, value=val)
-
-def input(channel):
-    try:
-        if os.path.exists('/tmp/pi_twin_gpio.json'):
-            with open('/tmp/pi_twin_gpio.json', 'r') as f:
-                data = json.load(f)
-                for p in data:
-                    if p.get('bcm') == channel:
-                        return p.get('value', 0)
-    except Exception:
-        pass
-    return _pins.get(channel, {}).get("value", 0)
-
-def cleanup():
-    _pins.clear()
+setmode = GPIO.setmode
+setwarnings = GPIO.setwarnings
+setup = GPIO.setup
+output = GPIO.output
+input = GPIO.input
+cleanup = GPIO.cleanup
 
 class PWM:
-    def __init__(self, channel, frequency):
+    def __init__(self, channel, frequency_hz):
         self.channel = channel
-        self.frequency = frequency
-        self.duty_cycle = 0
+        self.freq = frequency_hz
+        self.duty = 0
+        GPIO.setup(channel, GPIO.OUT)
 
     def start(self, duty_cycle):
-        self.duty_cycle = duty_cycle
-        _emit("pwm_output", bcm=self.channel, duty=duty_cycle, freq=self.frequency)
+        self.duty = duty_cycle
+        GPIO.output(self.channel, 1 if duty_cycle > 0 else 0)
 
     def ChangeDutyCycle(self, duty_cycle):
-        self.duty_cycle = duty_cycle
-        _emit("pwm_output", bcm=self.channel, duty=duty_cycle, freq=self.frequency)
+        self.duty = duty_cycle
+        GPIO.output(self.channel, 1 if duty_cycle > 0 else 0)
 
-    def ChangeFrequency(self, frequency):
-        self.frequency = frequency
-        _emit("pwm_output", bcm=self.channel, duty=self.duty_cycle, freq=self.frequency)
+    def ChangeFrequency(self, frequency_hz):
+        self.freq = frequency_hz
 
     def stop(self):
-        self.duty_cycle = 0
-        _emit("pwm_output", bcm=self.channel, duty=0, freq=self.frequency)
+        GPIO.output(self.channel, 0)
+
+__all__ = [
+    'BCM', 'BOARD', 'OUT', 'IN', 'HIGH', 'LOW', 'PUD_UP', 'PUD_DOWN', 'PUD_OFF',
+    'setmode', 'setwarnings', 'setup', 'output', 'input', 'cleanup', 'PWM', 'GPIO'
+]

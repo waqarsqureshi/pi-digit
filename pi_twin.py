@@ -6,8 +6,10 @@ import sys
 import json
 import time
 import os
-from sense_hat import SenseHat
-import RPi.GPIO as GPIO
+from pi_emulator import EmulatorSenseHat, EmulatorGPIO
+
+SenseHat = EmulatorSenseHat
+GPIO = EmulatorGPIO
 
 class LCD:
     def __init__(self, cols=16, rows=2):
@@ -60,5 +62,4 @@ class System:
     def sleep(seconds):
         time.sleep(seconds)
 
-# Export SenseHat, GPIO, LCD, and System
-__all__ = ["SenseHat", "GPIO", "LCD", "System"]
+__all__ = ["EmulatorSenseHat", "EmulatorGPIO", "SenseHat", "GPIO", "LCD", "System"]

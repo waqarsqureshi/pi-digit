@@ -6,12 +6,12 @@ import {
   Zap,
   CheckCircle2,
   AlertTriangle,
-  Clock,
   Radio,
   Wifi,
-  PowerOff,
   ChevronDown,
-  Info,
+  Gauge,
+  Sliders,
+  Terminal,
 } from 'lucide-react';
 import { FullHardwareState } from '../types/digitalTwin';
 
@@ -23,6 +23,10 @@ interface HardwareStatusPanelProps {
   onPingHardware: () => Promise<any>;
   isPinging: boolean;
   isProbing: boolean;
+  sensorSource?: 'hardware' | 'simulated';
+  onToggleSensorSource?: (source: 'hardware' | 'simulated') => void;
+  operatingMode?: 'execution' | 'emulation';
+  onToggleOperatingMode?: (mode: 'execution' | 'emulation') => void;
   lastPingResult?: {
     latencyMs?: number;
     timestamp?: number;
@@ -42,6 +46,10 @@ export function HardwareStatusPanel({
   onPingHardware,
   isPinging,
   isProbing,
+  sensorSource = state?.sensorSource || 'simulated',
+  onToggleSensorSource,
+  operatingMode = state?.operatingMode || 'execution',
+  onToggleOperatingMode,
   lastPingResult,
   onSwitchMode,
 }: HardwareStatusPanelProps) {
@@ -58,9 +66,9 @@ export function HardwareStatusPanel({
     setLastActionTime(new Date().toLocaleTimeString());
   };
 
-  // Determine overall link status
   const isLinked = isPhysicalConnected;
   const isEmulationOffline = selectedMode === 'emulation' && !isPhysicalConnected;
+  const isRealSensorsOn = sensorSource === 'hardware';
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col gap-3 text-slate-800 min-w-0">
@@ -75,12 +83,12 @@ export function HardwareStatusPanel({
             {isLinked ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>LIVE LINK ACTIVE</span>
+                <span>LIVE HARDWARE LINKED</span>
               </span>
             ) : isEmulationOffline ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-rose-100 text-rose-800 border border-rose-300">
                 <span className="w-2 h-2 rounded-full bg-rose-500" />
-                <span>UNLINKED (STANDBY)</span>
+                <span>STANDBY (UNLINKED)</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-sky-100 text-sky-800 border border-sky-300">
@@ -90,11 +98,11 @@ export function HardwareStatusPanel({
             )}
           </div>
           <span className="text-[11px] text-slate-500">
-            Real-time physical hardware bus linkage & diagnostics (BCM2711 · I2C-1 · GPIO)
+            Real-time physical hardware bus linkage & remote control (BCM2711 · Sense HAT · GPIO)
           </span>
         </div>
 
-        {/* Action Button: Manual Reconnect / Ping */}
+        {/* Action Controls */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handlePing}
@@ -122,7 +130,75 @@ export function HardwareStatusPanel({
         </div>
       </div>
 
-      {/* Main Status Grid */}
+      {/* DUAL MODE & SENSOR SOURCE CONTROL BAR */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono p-2 bg-slate-50 border border-slate-200 rounded-lg">
+        {/* Operating Mode Selector */}
+        <div className="flex items-center justify-between gap-2 p-1.5 bg-white border border-slate-200 rounded">
+          <div className="flex items-center gap-1.5">
+            <Terminal className="w-3.5 h-3.5 text-[#840038]" />
+            <span className="font-semibold text-slate-700">Mode:</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onToggleOperatingMode && onToggleOperatingMode('execution')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                operatingMode === 'execution'
+                  ? 'bg-[#840038] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              title="Mode 1: User Python/C code runs on Pi and visualizes in emulator"
+            >
+              1: Code Execution
+            </button>
+            <button
+              onClick={() => onToggleOperatingMode && onToggleOperatingMode('emulation')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                operatingMode === 'emulation'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              title="Mode 2: UI directly controls physical hardware (Remote Control Panel)"
+            >
+              2: UI Controls Hardware
+            </button>
+          </div>
+        </div>
+
+        {/* Global Sensor Mode Switch */}
+        <div className="flex items-center justify-between gap-2 p-1.5 bg-white border border-slate-200 rounded">
+          <div className="flex items-center gap-1.5">
+            <Gauge className="w-3.5 h-3.5 text-[#840038]" />
+            <span className="font-semibold text-slate-700">Sensor Mode:</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onToggleSensorSource && onToggleSensorSource('hardware')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors flex items-center gap-1 ${
+                isRealSensorsOn
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              title="Read real sensor values from physical Sense HAT"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isRealSensorsOn ? 'bg-emerald-300 animate-pulse' : 'bg-slate-400'}`} />
+              <span>ON (Real Hardware)</span>
+            </button>
+            <button
+              onClick={() => onToggleSensorSource && onToggleSensorSource('simulated')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                !isRealSensorsOn
+                  ? 'bg-sky-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              title="Generate simulated data and allow manual overrides"
+            >
+              OFF (Simulated)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Status Metrics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-mono">
         {/* Metric 1: Connection Health */}
         <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-1">
@@ -134,7 +210,7 @@ export function HardwareStatusPanel({
             {isLinked ? 'Physical Online' : isEmulationOffline ? 'Not Connected' : 'Simulated Twin'}
           </span>
           <span className="text-[9px] text-slate-400">
-            {selectedMode === 'emulation' ? 'Mode: Emulation' : 'Mode: Simulation'}
+            {operatingMode === 'emulation' ? 'Remote Control' : 'Execution Mirror'}
           </span>
         </div>
 
@@ -166,17 +242,17 @@ export function HardwareStatusPanel({
           </span>
         </div>
 
-        {/* Metric 4: I2C-1 Peripherals */}
+        {/* Metric 4: Sensor Source */}
         <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-1">
           <span className="text-[10px] text-slate-500 flex items-center gap-1">
             <Wifi className="w-3 h-3 text-[#840038]" />
-            <span>I2C BUS 1</span>
+            <span>TELEMETRY SOURCE</span>
           </span>
-          <span className={`text-xs font-bold truncate ${isLinked ? 'text-emerald-700' : 'text-slate-800'}`}>
-            {isLinked ? '0x46 · 0x5C · 0x27' : 'Standby / Twin'}
+          <span className={`text-xs font-bold truncate ${isRealSensorsOn ? 'text-emerald-700' : 'text-sky-700'}`}>
+            {isRealSensorsOn ? 'Live Sense HAT' : 'Simulated Override'}
           </span>
           <span className="text-[9px] text-slate-400 truncate">
-            Sense HAT + LCD
+            {isRealSensorsOn ? 'HTS221 / LPS25H' : 'Manual / Noise'}
           </span>
         </div>
       </div>
@@ -188,10 +264,10 @@ export function HardwareStatusPanel({
           <span className="truncate text-slate-300">
             {lastPingResult?.message ||
               (isLinked
-                ? 'Raspberry Pi 4 hardware link active: GPIO, Sense HAT, and sensors synchronized.'
+                ? `Hardware Link Active: ${operatingMode === 'emulation' ? 'UI clicks directly control physical LEDs and GPIO pins.' : 'Code execution mirrors to physical hardware and emulator.'}`
                 : isEmulationOffline
-                ? 'Emulation Mode: Physical hardware not detected on I2C bus. Click "Connect Hardware" to probe.'
-                : 'Simulation Mode: Full digital twin ready. All Python & C scripts simulate virtually.')}
+                ? 'Emulation Mode: Physical hardware not detected. Click "Connect Hardware" to probe.'
+                : 'Simulation Mode: Full digital twin active. Python & C scripts execute with virtual hardware.')}
           </span>
         </div>
 
@@ -222,7 +298,7 @@ export function HardwareStatusPanel({
             <div>
               <span className="text-slate-500 block">GPIO Memory Map:</span>
               <span className="font-semibold text-slate-800">
-                /dev/gpiomem (28 BCM pins active)
+                /dev/gpiomem (28 BCM pins active with pinctrl/raspi-gpio)
               </span>
             </div>
             <div>

@@ -62,16 +62,16 @@ export function SenseHatTwin({
   const [humidityInput, setHumidityInput] = useState(sensors.humidity);
   const [pressureInput, setPressureInput] = useState(sensors.pressure);
 
-  // In emulation mode when no physical board is connected:
+  // In emulation mode with physical board connected vs standalone
+  const isPhysicalLinked = selectedMode === 'emulation' && isSenseHatConnected;
   const isEmulationDisconnected = selectedMode === 'emulation' && !isSenseHatConnected;
 
   const handlePixelClick = (x: number, y: number) => {
-    if (isEmulationDisconnected) return; // In emulation mode, cannot turn on LEDs unless connected!
+    // Both Mode 1 and Mode 2 support interactive pixel clicking, immediately updating UI and physical Sense HAT
     onSetPixel(x, y, selectedColor);
   };
 
   const loadPresetPattern = (type: 'raspberry' | 'smiley' | 'rainbow') => {
-    if (isEmulationDisconnected) return;
     const O: RgbColor = [0, 0, 0];
     const R: RgbColor = [255, 0, 0];
     const G: RgbColor = [34, 197, 94];
@@ -113,8 +113,8 @@ export function SenseHatTwin({
     onSetMatrixPattern(pattern);
   };
 
-  // If in emulation mode and not connected, matrix is completely dark
-  const displayMatrix = isEmulationDisconnected ? Array(64).fill([0, 0, 0]) : matrix;
+  // Authoritative matrix state from digital twin
+  const displayMatrix = matrix;
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col gap-3 text-slate-800 min-w-0">
@@ -125,17 +125,17 @@ export function SenseHatTwin({
             <h2 className="text-sm sm:text-base font-bold text-slate-900">
               Sense HAT Twin
             </h2>
-            {isEmulationDisconnected ? (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-rose-100 text-rose-700 border border-rose-300 flex items-center gap-1">
-                <PowerOff className="w-2.5 h-2.5" />
-                <span>NOT CONNECTED</span>
+            {isPhysicalLinked ? (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span>● LIVE HW LINK</span>
               </span>
-            ) : selectedMode === 'emulation' && isSenseHatConnected ? (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                ● LIVE HW
+            ) : selectedMode === 'emulation' ? (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                <span>● EMULATOR ACTIVE</span>
               </span>
             ) : (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-sky-100 text-sky-800 border border-sky-300">
                 ● SIMULATED
               </span>
             )}
@@ -250,11 +250,11 @@ export function SenseHatTwin({
           <div className="flex items-center justify-between w-full mb-2 text-xs font-mono text-slate-600 px-1">
             <span className="font-bold text-[11px]">8×8 RGB MATRIX</span>
             <span className="text-[#840038] font-semibold text-[11px]">
-              {isEmulationDisconnected
-                ? 'INACTIVE (NOT CONNECTED)'
-                : hoveredPixel
+              {hoveredPixel
                 ? `Pixel [${hoveredPixel.x}, ${hoveredPixel.y}]`
-                : 'Interactive'}
+                : isPhysicalLinked
+                ? 'Interactive (Hardware Synced)'
+                : 'Interactive (Digital Twin)'}
             </span>
           </div>
 
@@ -278,24 +278,17 @@ export function SenseHatTwin({
                   <button
                     key={idx}
                     type="button"
-                    disabled={isEmulationDisconnected}
                     onClick={() => handlePixelClick(x, y)}
                     onMouseEnter={() => setHoveredPixel({ x, y })}
                     onMouseLeave={() => setHoveredPixel(null)}
-                    title={
-                      isEmulationDisconnected
-                        ? 'Hardware Not Connected'
-                        : `Pixel (${x}, ${y}): RGB(${color.join(', ')})`
-                    }
+                    title={`Pixel (${x}, ${y}): RGB(${color.join(', ')})${isPhysicalLinked ? ' (Synced with Hardware)' : ''}`}
                     style={{
                       backgroundColor: isOff ? '#111827' : rgbString,
-                      boxShadow: isOff || isEmulationDisconnected ? 'none' : `0 0 8px ${glowColor}`,
+                      boxShadow: isOff ? 'none' : `0 0 8px ${glowColor}`,
                     }}
-                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[3px] border transition-transform flex items-center justify-center ${
-                      isEmulationDisconnected
-                        ? 'border-slate-800 opacity-40 cursor-not-allowed'
-                        : isOff
-                        ? 'border-slate-800 hover:border-slate-600 hover:scale-105'
+                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[3px] border transition-transform flex items-center justify-center cursor-pointer ${
+                      isOff
+                        ? 'border-slate-800 hover:border-slate-500 hover:scale-105'
                         : 'border-white/20 hover:scale-110 active:scale-95'
                     }`}
                   >
@@ -319,13 +312,10 @@ export function SenseHatTwin({
                   return (
                     <button
                       key={p.name}
-                      disabled={isEmulationDisconnected}
                       onClick={() => setSelectedColor(p.color)}
                       title={`Select ${p.name}`}
                       style={{ backgroundColor: p.hex }}
-                      className={`w-4 h-4 rounded-full border transition-all ${
-                        isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''
-                      } ${
+                      className={`w-4 h-4 rounded-full border transition-all cursor-pointer ${
                         isCurrent
                           ? 'ring-2 ring-[#840038] ring-offset-1 ring-offset-white scale-110 border-white'
                           : 'border-slate-300 hover:scale-105'
@@ -338,11 +328,8 @@ export function SenseHatTwin({
 
             <div className="flex items-center gap-1.5">
               <button
-                disabled={isEmulationDisconnected}
                 onClick={() => onClearMatrix()}
-                className={`px-2 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 flex items-center gap-1 transition-colors text-[10px] ${
-                  isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''
-                }`}
+                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 flex items-center gap-1 transition-colors text-[10px] cursor-pointer"
                 title="Clear matrix"
               >
                 <RotateCcw className="w-2.5 h-2.5" />
@@ -351,31 +338,22 @@ export function SenseHatTwin({
 
               <div className="flex items-center gap-1 text-[10px]">
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => loadPresetPattern('raspberry')}
-                  className={`px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors ${
-                    isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''
-                  }`}
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors cursor-pointer"
                   title="Pi Pattern"
                 >
                   Pi
                 </button>
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => loadPresetPattern('smiley')}
-                  className={`px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors ${
-                    isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''
-                  }`}
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors cursor-pointer"
                   title="Smiley Pattern"
                 >
                   Smile
                 </button>
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => loadPresetPattern('rainbow')}
-                  className={`px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors ${
-                    isEmulationDisconnected ? 'opacity-40 cursor-not-allowed' : ''
-                  }`}
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors cursor-pointer"
                   title="Rainbow Pattern"
                 >
                   Color
@@ -407,12 +385,9 @@ export function SenseHatTwin({
               <div className="grid grid-cols-3 gap-1.5 w-36 h-36 p-1.5 bg-slate-200 border border-slate-300 rounded-xl relative shadow-inner">
                 <div />
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => onTriggerJoystick('up')}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border ${
-                    isEmulationDisconnected
-                      ? 'bg-slate-300 text-slate-400 border-slate-300 cursor-not-allowed'
-                      : lastJoystick?.direction === 'up'
+                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
+                    lastJoystick?.direction === 'up'
                       ? 'bg-[#840038] text-white border-[#840038] shadow-md'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
@@ -423,12 +398,9 @@ export function SenseHatTwin({
                 <div />
 
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => onTriggerJoystick('left')}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border ${
-                    isEmulationDisconnected
-                      ? 'bg-slate-300 text-slate-400 border-slate-300 cursor-not-allowed'
-                      : lastJoystick?.direction === 'left'
+                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
+                    lastJoystick?.direction === 'left'
                       ? 'bg-[#840038] text-white border-[#840038] shadow-md'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
@@ -437,12 +409,9 @@ export function SenseHatTwin({
                   ◀
                 </button>
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => onTriggerJoystick('centre')}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border ${
-                    isEmulationDisconnected
-                      ? 'bg-slate-300 text-slate-400 border-slate-300 cursor-not-allowed'
-                      : lastJoystick?.direction === 'centre'
+                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
+                    lastJoystick?.direction === 'centre'
                       ? 'bg-amber-500 text-white border-amber-600 shadow-md'
                       : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 active:scale-95'
                   }`}
@@ -451,12 +420,9 @@ export function SenseHatTwin({
                   ●
                 </button>
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => onTriggerJoystick('right')}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border ${
-                    isEmulationDisconnected
-                      ? 'bg-slate-300 text-slate-400 border-slate-300 cursor-not-allowed'
-                      : lastJoystick?.direction === 'right'
+                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
+                    lastJoystick?.direction === 'right'
                       ? 'bg-[#840038] text-white border-[#840038] shadow-md'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
@@ -467,12 +433,9 @@ export function SenseHatTwin({
 
                 <div />
                 <button
-                  disabled={isEmulationDisconnected}
                   onClick={() => onTriggerJoystick('down')}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border ${
-                    isEmulationDisconnected
-                      ? 'bg-slate-300 text-slate-400 border-slate-300 cursor-not-allowed'
-                      : lastJoystick?.direction === 'down'
+                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
+                    lastJoystick?.direction === 'down'
                       ? 'bg-[#840038] text-white border-[#840038] shadow-md'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
@@ -497,12 +460,12 @@ export function SenseHatTwin({
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold font-mono tabular-nums text-slate-900">
-                  {isEmulationDisconnected ? '--' : sensors.temperature.toFixed(1)}
+                  {sensors.temperature.toFixed(1)}
                 </span>
                 <span className="text-xs font-mono text-slate-500">°C</span>
               </div>
-              <div className="text-[10px] text-slate-400 font-mono mt-1">
-                {isEmulationDisconnected ? 'No Sensor' : `${((sensors.temperature * 9) / 5 + 32).toFixed(1)} °F`}
+              <div className="text-[10px] text-slate-500 font-mono mt-1">
+                {sensors.isSimulated ? 'Simulated' : 'HTS221 (HW)'} · {((sensors.temperature * 9) / 5 + 32).toFixed(1)}°F
               </div>
             </div>
 
@@ -516,12 +479,12 @@ export function SenseHatTwin({
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold font-mono tabular-nums text-slate-900">
-                  {isEmulationDisconnected ? '--' : sensors.humidity.toFixed(1)}
+                  {sensors.humidity.toFixed(1)}
                 </span>
                 <span className="text-xs font-mono text-slate-500">% rH</span>
               </div>
-              <div className="text-[10px] text-slate-400 font-mono mt-1">
-                {isEmulationDisconnected ? 'No Sensor' : 'HTS221'}
+              <div className="text-[10px] text-slate-500 font-mono mt-1">
+                {sensors.isSimulated ? 'Simulated' : 'HTS221 (HW)'}
               </div>
             </div>
 
@@ -535,26 +498,26 @@ export function SenseHatTwin({
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-lg font-bold font-mono tabular-nums text-slate-900">
-                  {isEmulationDisconnected ? '--' : sensors.pressure.toFixed(1)}
+                  {sensors.pressure.toFixed(1)}
                 </span>
                 <span className="text-xs font-mono text-slate-500">hPa</span>
               </div>
-              <div className="text-[10px] text-slate-400 font-mono mt-1">
-                {isEmulationDisconnected ? 'No Sensor' : 'LPS25H'}
+              <div className="text-[10px] text-slate-500 font-mono mt-1">
+                {sensors.isSimulated ? 'Simulated' : 'LPS25H (HW)'}
               </div>
             </div>
           </div>
 
-          {/* IMU Motion Telemetry (shows nothing/dashes if disconnected in emulation) */}
+          {/* IMU Motion Telemetry */}
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700">
             <div className="flex items-center justify-between mb-2 text-slate-600">
               <span className="flex items-center gap-1.5 font-bold">
                 <Activity className="w-3.5 h-3.5 text-[#840038]" />
-                <span>9-DOF IMU (LSM9DS1)</span>
+                <span>9-DOF IMU ({sensors.isSimulated ? 'Simulated' : 'LSM9DS1 HW'})</span>
               </span>
               <span className="flex items-center gap-1 text-slate-600">
                 <Compass className="w-3.5 h-3.5 text-amber-600" />
-                <span>Heading: {isEmulationDisconnected ? '--' : `${sensors.compassHeading.toFixed(1)}°`}</span>
+                <span>Heading: {sensors.compassHeading.toFixed(1)}°</span>
               </span>
             </div>
 
@@ -564,11 +527,7 @@ export function SenseHatTwin({
                   Accelerometer (g):
                 </span>
                 <div className="text-slate-800 font-bold">
-                  {isEmulationDisconnected ? (
-                    'X: -- | Y: -- | Z: --'
-                  ) : (
-                    `X: ${sensors.accelerometer.x.toFixed(2)} Y: ${sensors.accelerometer.y.toFixed(2)} Z: ${sensors.accelerometer.z.toFixed(2)}`
-                  )}
+                  {`X: ${sensors.accelerometer.x.toFixed(2)} Y: ${sensors.accelerometer.y.toFixed(2)} Z: ${sensors.accelerometer.z.toFixed(2)}`}
                 </div>
               </div>
 
@@ -577,11 +536,7 @@ export function SenseHatTwin({
                   Gyroscope (°/s):
                 </span>
                 <div className="text-slate-800 font-bold">
-                  {isEmulationDisconnected ? (
-                    'X: -- | Y: -- | Z: --'
-                  ) : (
-                    `X: ${sensors.gyroscope.x.toFixed(1)} Y: ${sensors.gyroscope.y.toFixed(1)} Z: ${sensors.gyroscope.z.toFixed(1)}`
-                  )}
+                  {`X: ${sensors.gyroscope.x.toFixed(1)} Y: ${sensors.gyroscope.y.toFixed(1)} Z: ${sensors.gyroscope.z.toFixed(1)}`}
                 </div>
               </div>
             </div>

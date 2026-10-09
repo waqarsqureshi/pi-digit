@@ -26,10 +26,13 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
       text: `Linux raspberrypi 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 12 (bookworm) aarch64\nPi-Digit Hardware Bash Terminal: ACTIVE\n[Network Notice: Pi-Digit daemon running on Raspberry Pi, accessible over local network via browser and SSH]\nType 'help' or click quick commands to execute Python scripts or system diagnostics.\n`,
     },
   ]);
-  const terminalEndRef = useRef<HTMLDivElement>(null);
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only scroll within the terminal's internal container, preserving the user's viewport
+    if (terminalContainerRef.current) {
+      terminalContainerRef.current.scrollTop = terminalContainerRef.current.scrollHeight;
+    }
   }, [logs]);
 
   const handleConnect = (e: React.FormEvent) => {
@@ -274,7 +277,10 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
           </div>
 
           {/* Terminal Screen Glass */}
-          <div className="bg-slate-950 rounded-lg border border-slate-800 p-4 font-mono text-xs text-slate-100 min-h-[220px] max-h-[380px] overflow-y-auto flex flex-col gap-1 shadow-inner select-text">
+          <div
+            ref={terminalContainerRef}
+            className="bg-slate-950 rounded-lg border border-slate-800 p-4 font-mono text-xs text-slate-100 min-h-[220px] max-h-[380px] overflow-y-auto flex flex-col gap-1 shadow-inner select-text"
+          >
             {logs.map((log) => (
               <div
                 key={log.id}
@@ -289,7 +295,6 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
                 {log.text}
               </div>
             ))}
-            <div ref={terminalEndRef} />
           </div>
 
           {/* Bash Input Line */}
