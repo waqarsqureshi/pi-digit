@@ -253,64 +253,78 @@ print("Joystick listener demonstration ready.")
 `,
   },
   {
-    id: 'py-10-gpio-blink',
-    title: '10. GPIO LED Blink (Pin 17)',
+    id: 'py-10-pwm-waveform',
+    title: '10. Hardware PWM Generator (Pin 18)',
     language: 'python',
-    category: 'GPIO Physical Computing',
-    description: 'Configures BCM GPIO 17 as OUTPUT and toggles HIGH/LOW with timing.',
-    filename: '10_gpio_blink.py',
-    code: `# 10. GPIO LED Blink
-# Configures GPIO 17 (Physical Pin 11) as Output and blinks an LED
-
-from pi_twin import GPIO
+    category: 'PWM Signal Generation',
+    description: 'Generates Pulse-Width Modulation signals on GPIO 18 (PWM0, Pin 12) streaming to the live oscilloscope.',
+    filename: '10_pwm_waveform.py',
+    code: `# 10. Hardware PWM Signal Generator (GPIO 18 / PWM0)
+# Generates Pulse-Width Modulation signals and streams live waveform to the Web App Oscilloscope!
 import time
+import RPi.GPIO as GPIO
 
-LED_PIN = 17
+PWM_PIN = 18  # BCM 18 is Hardware PWM0 (Physical Pin 12)
 
-print(f"Initializing BCM GPIO {LED_PIN} (Physical Pin 11) as OUTPUT...")
-GPIO.setup(LED_PIN, GPIO.OUT)
+print("=== Raspberry Pi 4 Hardware PWM Generator ===")
+print(f"Initializing GPIO {PWM_PIN} (Pin 12) for PWM signal generation...")
 
-for cycle in range(1, 5):
-    print(f"Cycle {cycle}: LED ON  (GPIO 17 -> HIGH / 3.3V)")
-    GPIO.output(LED_PIN, GPIO.HIGH)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(PWM_PIN, GPIO.OUT)
+
+# Create PWM instance at 1000 Hz
+pwm = GPIO.PWM(PWM_PIN, 1000)
+
+print("\\nStep 1: Starting PWM with 25% duty cycle at 1000 Hz...")
+pwm.start(25)
+time.sleep(1.5)
+
+print("Step 2: Increasing duty cycle to 50%...")
+pwm.ChangeDutyCycle(50)
+time.sleep(1.5)
+
+print("Step 3: Increasing duty cycle to 75% at 2000 Hz...")
+pwm.ChangeFrequency(2000)
+pwm.ChangeDutyCycle(75)
+time.sleep(1.5)
+
+print("Step 4: Sweeping duty cycle from 10% to 90%...")
+for duty in [10, 30, 50, 70, 90]:
+    print(f"  -> PWM Duty: {duty}%")
+    pwm.ChangeDutyCycle(duty)
     time.sleep(0.5)
 
-    print(f"Cycle {cycle}: LED OFF (GPIO 17 -> LOW  / 0.0V)")
-    GPIO.output(LED_PIN, GPIO.LOW)
-    time.sleep(0.5)
-
-print("GPIO blink sequence completed.")
+print("Step 5: Stopping PWM generator...")
+pwm.stop()
+GPIO.cleanup()
+print("PWM waveform demonstration completed.")
 `,
   },
   {
-    id: 'py-11-gpio-button',
-    title: '11. GPIO Button Input (Pin 27)',
+    id: 'py-11-joystick-listener',
+    title: '11. Sense HAT Joystick Events',
     language: 'python',
-    category: 'GPIO Physical Computing',
-    description: 'Reads digital input state from BCM GPIO 27 with pull-down resistor.',
-    filename: '11_gpio_button.py',
-    code: `# 11. GPIO Button Input
-# Configures GPIO 27 (Physical Pin 13) as INPUT with internal PULL_DOWN
-
-from pi_twin import GPIO
+    category: 'Sense HAT Input',
+    description: 'Captures 5-way joystick interactions (Up, Down, Left, Right, Centre).',
+    filename: '09_joystick_events.py',
+    code: `# 11. Read Sense HAT 5-Way Joystick Events
+from pi_twin import SenseHat
 import time
 
-BTN_PIN = 27
-LED_PIN = 17
+sense = SenseHat()
+print("=== Sense HAT 5-Way Joystick Event Listener ===")
+print("Move or click the joystick (Up, Down, Left, Right, Centre / Press / Release)...")
 
-GPIO.setup(BTN_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(LED_PIN, GPIO.OUT)
+for i in range(1, 15):
+    events = sense.stick.get_events()
+    if events:
+        for ev in events:
+            print(f"Joystick Event -> Direction: {ev.direction.upper()} | Action: {ev.action.upper()}")
+    else:
+        print(f"Waiting for joystick interaction... [{i}/15]")
+    time.sleep(0.5)
 
-print(f"Reading Button on GPIO {BTN_PIN}...")
-for i in range(4):
-    state = GPIO.input(BTN_PIN)
-    print(f"Sample {i+1}: GPIO {BTN_PIN} logic level = {'HIGH (Pressed)' if state else 'LOW (Released)'}")
-    
-    # Mirror button to LED
-    GPIO.output(LED_PIN, state)
-    time.sleep(0.4)
-
-print("Button input loop ended.")
+print("Joystick listener finished.")
 `,
   },
   {

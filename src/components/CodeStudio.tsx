@@ -214,7 +214,7 @@ export function CodeStudio({
 
     if (cmd === 'help') {
       const helpText = `Available Pi-Digit Commands:
-  python3 10_gpio_blink.py   - Blinks GPIO 17 LED (updates Digital Twin)
+  python3 10_pwm_waveform.py - Generates PWM on GPIO 18 (streams to live Oscilloscope)
   python3 02_red_pixel.py    - Animates pixel on 8x8 Sense HAT matrix
   python3 03_color_cycle.py  - Cycles 8x8 matrix rainbow colors
   python3 sensor_logger.py   - Queries HTS221 & LPS25H sensor telemetry
@@ -572,10 +572,10 @@ export function CodeStudio({
               <div className="px-2.5 py-1.5 bg-[#252526] border-b border-[#2d2d2d] flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono shrink-0">
                 <span className="text-slate-400 shrink-0 font-medium">Quick:</span>
                 <button
-                  onClick={() => handleRunBashCommand('python3 10_gpio_blink.py')}
+                  onClick={() => handleRunBashCommand('python3 10_pwm_waveform.py')}
                   className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
                 >
-                  python3 10_gpio_blink.py
+                  python3 10_pwm_waveform.py
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('python3 02_red_pixel.py')}
@@ -658,7 +658,7 @@ export function CodeStudio({
                   value={bashInput}
                   onChange={(e) => setBashInput(e.target.value)}
                   onKeyDown={handleBashKeyDown}
-                  placeholder="Type bash command (e.g. python3 10_gpio_blink.py)..."
+                  placeholder="Type bash command (e.g. python3 10_pwm_waveform.py)..."
                   className="flex-1 bg-transparent text-white focus:outline-none"
                 />
                 <button

@@ -133,6 +133,10 @@ export function useDigitalTwin() {
               return { ...prev, timeline: nextTimeline };
             });
             break;
+
+          case 'pwm.update':
+            setState((prev) => (prev ? { ...prev, pwm: msg.payload } : prev));
+            break;
         }
       } catch (e) {
         console.error('[Pi-Digit] Error handling WS message:', e);

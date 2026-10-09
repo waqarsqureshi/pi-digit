@@ -6,10 +6,11 @@ import sys
 import json
 import time
 import os
-from pi_emulator import EmulatorSenseHat, EmulatorGPIO
+from pi_emulator import EmulatorSenseHat, EmulatorGPIO, EmulatorPWM
 
 SenseHat = EmulatorSenseHat
 GPIO = EmulatorGPIO
+PWM = EmulatorPWM
 
 class LCD:
     def __init__(self, cols=16, rows=2):
@@ -62,4 +63,4 @@ class System:
     def sleep(seconds):
         time.sleep(seconds)
 
-__all__ = ["EmulatorSenseHat", "EmulatorGPIO", "SenseHat", "GPIO", "LCD", "System"]
+__all__ = ["EmulatorSenseHat", "EmulatorGPIO", "EmulatorPWM", "SenseHat", "GPIO", "PWM", "LCD", "System"]

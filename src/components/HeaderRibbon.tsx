@@ -151,11 +151,11 @@ export function HeaderRibbon({
             <span>
               {isPhysicalConnected ? (
                 <>
-                  <strong>Emulation Mode Connected:</strong> Live signals are active from physical Raspberry Pi 4 pins, Sense HAT, and sensors.
+                  <strong>Emulation Mode (Live Hardware Linked):</strong> Real-time signals streaming from physical Raspberry Pi 4 Sense HAT (HTS221, LPS25H, LSM9DS1).
                 </>
               ) : (
                 <>
-                  <strong>Emulation Mode (Hardware Disconnected):</strong> In Emulation Mode, connect to your physical Raspberry Pi to read pin and sensor signals. Click the button to probe the hardware bus.
+                  <strong>Emulation Mode (Hardware Standby / Disconnected):</strong> No physical Raspberry Pi 4 or Sense HAT detected. Connect your board or click Probe Hardware below.
                 </>
               )}
             </span>

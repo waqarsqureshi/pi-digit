@@ -120,6 +120,12 @@ export interface FullHardwareState {
   matrix: RgbColor[]; // 64 pixels (8x8)
   sensors: SenseHatSensors;
   lastJoystickEvent: JoystickEvent | null;
+  pwm?: {
+    channel: number;
+    duty: number;
+    freq: number;
+    active: boolean;
+  };
   lcd?: LcdState;
   program: ProgramExecution;
   timeline: TimelineTrace[];

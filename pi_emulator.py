@@ -8,27 +8,106 @@ import sys
 import json
 import time
 import os
+from collections import namedtuple
+
+InputEvent = namedtuple('InputEvent', ('timestamp', 'direction', 'action'))
 
 def _write_fb_pixel(x, y, r, g, b):
     try:
-        if os.path.exists('/dev/fb1'):
-            rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-            with open('/dev/fb1', 'r+b') as fb:
-                fb.seek((y * 8 + x) * 2)
-                fb.write(rgb565.to_bytes(2, byteorder='little'))
+        # Check standard Sense HAT framebuffer devices
+        for fb_path in ['/dev/fb1', '/dev/fb0', '/dev/fb2']:
+            if os.path.exists(fb_path):
+                rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+                with open(fb_path, 'r+b') as fb:
+                    fb.seek((y * 8 + x) * 2)
+                    fb.write(rgb565.to_bytes(2, byteorder='little'))
+                break
     except Exception:
         pass
 
 def _clear_fb(r=0, g=0, b=0):
     try:
-        if os.path.exists('/dev/fb1'):
-            rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-            buf = rgb565.to_bytes(2, byteorder='little') * 64
-            with open('/dev/fb1', 'r+b') as fb:
-                fb.seek(0)
-                fb.write(buf)
+        for fb_path in ['/dev/fb1', '/dev/fb0', '/dev/fb2']:
+            if os.path.exists(fb_path):
+                rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+                buf = rgb565.to_bytes(2, byteorder='little') * 64
+                with open(fb_path, 'r+b') as fb:
+                    fb.seek(0)
+                    fb.write(buf)
+                break
     except Exception:
         pass
+
+def _get_native_sense_hat():
+    """Safely loads system sense_hat, bypassing local project mock files."""
+    orig_path = list(sys.path)
+    clean_path = [p for p in orig_path if p and p != '' and p != '.' and not os.path.exists(os.path.join(p, 'pi_emulator.py'))]
+    try:
+        sys.path = clean_path
+        sys.modules.pop('sense_hat', None)
+        import sense_hat as _mod
+        if hasattr(_mod, 'SenseHat') and 'pi_emulator' not in getattr(_mod.SenseHat, '__module__', ''):
+            return _mod.SenseHat()
+    except Exception:
+        pass
+    finally:
+        sys.path = orig_path
+    return None
+
+
+class SenseStick:
+    """Emulates and bridges the Sense HAT 5-way joystick."""
+    direction_any = 'any'
+    direction_up = 'up'
+    direction_down = 'down'
+    direction_left = 'left'
+    direction_right = 'right'
+    direction_middle = 'centre'
+
+    action_any = 'any'
+    action_pressed = 'press'
+    action_released = 'release'
+    action_held = 'hold'
+
+    def __init__(self, hat):
+        self._hat = hat
+        self._last_event_time = 0
+
+    def get_events(self):
+        # 1. Check real physical stick if native hardware is present
+        if self._hat._real_sense and hasattr(self._hat._real_sense, 'stick'):
+            try:
+                events = self._hat._real_sense.stick.get_events()
+                if events:
+                    return events
+            except Exception:
+                pass
+
+        # 2. Check telemetry from hardware daemon or project bridge
+        if os.path.exists('/tmp/pi_sense_hardware.json'):
+            try:
+                with open('/tmp/pi_sense_hardware.json', 'r') as f:
+                    data = json.load(f)
+                    last_ev = data.get('lastJoystick')
+                    if last_ev and last_ev.get('timestamp', 0) > self._last_event_time:
+                        self._last_event_time = last_ev['timestamp']
+                        direction = last_ev.get('direction', 'centre')
+                        action = last_ev.get('action', 'press')
+                        return [InputEvent(time.time(), direction, action)]
+            except Exception:
+                pass
+
+        return []
+
+    def wait_for_event(self, emptybuffer=False):
+        start = time.time()
+        while time.time() - start < 10.0:
+            events = self.get_events()
+            if events:
+                return events[-1]
+            time.sleep(0.05)
+        return None
+
 
 class EmulatorSenseHat:
     """
@@ -38,14 +117,8 @@ class EmulatorSenseHat:
         self._rotation = 0
         self.low_light = False
         self._pixels = [[0, 0, 0] for _ in range(64)]
-        self._real_sense = None
-        
-        # Try loading native sense_hat if on physical hardware
-        try:
-            from sense_hat import SenseHat as NativeSenseHat
-            self._real_sense = NativeSenseHat()
-        except Exception:
-            self._real_sense = None
+        self._real_sense = _get_native_sense_hat()
+        self.stick = SenseStick(self)
 
     def _emit(self, event_type, **kwargs):
         payload = {"type": event_type, **kwargs}
@@ -56,19 +129,25 @@ class EmulatorSenseHat:
         if os.path.exists('/tmp/pi_sense_hardware.json'):
             try:
                 with open('/tmp/pi_sense_hardware.json', 'r') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    if data and isinstance(data, dict):
+                        return data
             except Exception:
                 pass
-        
+
         # 2. Try querying native sense_hat directly
         if self._real_sense:
             try:
+                orient = self._real_sense.get_orientation()
                 return {
                     "temperature": round(self._real_sense.get_temperature(), 2),
                     "humidity": round(self._real_sense.get_humidity(), 1),
                     "pressure": round(self._real_sense.get_pressure(), 2),
                     "accelerometer": self._real_sense.get_accelerometer_raw(),
                     "gyroscope": self._real_sense.get_gyroscope_raw(),
+                    "pitch": round(orient.get("pitch", 0.0), 2),
+                    "roll": round(orient.get("roll", 0.0), 2),
+                    "heading": round(orient.get("yaw", 142.5), 1),
                     "compassHeading": round(self._real_sense.get_compass(), 1),
                     "isSimulated": False
                 }
@@ -89,6 +168,9 @@ class EmulatorSenseHat:
             "pressure": 1013.25,
             "accelerometer": {"x": 0.02, "y": -0.04, "z": 0.98},
             "gyroscope": {"x": 0.1, "y": -0.2, "z": 0.05},
+            "pitch": 0.0,
+            "roll": 0.0,
+            "heading": 142.5,
             "compassHeading": 142.5,
             "isSimulated": True
         }
@@ -110,7 +192,7 @@ class EmulatorSenseHat:
         if 0 <= x < 8 and 0 <= y < 8:
             idx = y * 8 + x
             self._pixels[idx] = [r, g, b]
-            
+
             # Forward to physical hardware
             _write_fb_pixel(x, y, r, g, b)
             if self._real_sense:
@@ -178,7 +260,7 @@ class EmulatorSenseHat:
                 self.set_pixel(x, y, *text_colour)
 
     def get_temperature(self):
-        return self._get_sensors().get("temperature", 24.6)
+        return float(self._get_sensors().get("temperature", 24.6))
 
     def get_temperature_from_humidity(self):
         return self.get_temperature()
@@ -195,14 +277,14 @@ class EmulatorSenseHat:
         return self.get_temperature()
 
     def get_humidity(self):
-        return self._get_sensors().get("humidity", 48.2)
+        return float(self._get_sensors().get("humidity", 48.2))
 
     @property
     def humidity(self):
         return self.get_humidity()
 
     def get_pressure(self):
-        return self._get_sensors().get("pressure", 1013.25)
+        return float(self._get_sensors().get("pressure", 1013.25))
 
     @property
     def pressure(self):
@@ -211,22 +293,109 @@ class EmulatorSenseHat:
     def get_orientation_degrees(self):
         s = self._get_sensors()
         return {
-            "pitch": 0.0,
-            "roll": 0.0,
-            "yaw": s.get("compassHeading", 142.5)
+            "pitch": float(s.get("pitch", 0.0)),
+            "roll": float(s.get("roll", 0.0)),
+            "yaw": float(s.get("heading", s.get("compassHeading", 142.5)))
         }
 
     def get_orientation(self):
         return self.get_orientation_degrees()
 
+    def get_orientation_radians(self):
+        import math
+        deg = self.get_orientation_degrees()
+        return {
+            "pitch": math.radians(deg["pitch"]),
+            "roll": math.radians(deg["roll"]),
+            "yaw": math.radians(deg["yaw"]),
+        }
+
     def get_compass(self):
-        return self._get_sensors().get("compassHeading", 142.5)
+        return float(self._get_sensors().get("compassHeading", 142.5))
 
     def get_accelerometer_raw(self):
-        return self._get_sensors().get("accelerometer", {"x": 0.0, "y": 0.0, "z": 1.0})
+        acc = self._get_sensors().get("accelerometer", {"x": 0.02, "y": -0.04, "z": 0.98})
+        return {
+            "x": float(acc.get("x", 0.0)),
+            "y": float(acc.get("y", 0.0)),
+            "z": float(acc.get("z", 1.0))
+        }
+
+    def get_accelerometer(self):
+        return self.get_orientation()
 
     def get_gyroscope_raw(self):
-        return self._get_sensors().get("gyroscope", {"x": 0.0, "y": 0.0, "z": 0.0})
+        gyro = self._get_sensors().get("gyroscope", {"x": 0.1, "y": -0.2, "z": 0.05})
+        return {
+            "x": float(gyro.get("x", 0.0)),
+            "y": float(gyro.get("y", 0.0)),
+            "z": float(gyro.get("z", 0.0))
+        }
+
+    def get_gyroscope(self):
+        return self.get_orientation()
+
+    def get_last_joystick_event(self):
+        events = self.stick.get_events()
+        if events:
+            return {"direction": events[-1].direction, "action": events[-1].action}
+        return None
+
+    def simulate_joystick(self, direction='centre', action='press'):
+        self._emit("joystick", direction=direction, action=action)
+
+
+class EmulatorPWM:
+    """
+    Hardware Pulse-Width Modulation (PWM) Controller.
+    Emulates and generates PWM on Raspberry Pi (e.g. GPIO 18 / PWM0 · Pin 12).
+    Streams live duty cycle and frequency via WebSocket to the web app oscilloscope.
+    """
+    def __init__(self, channel, frequency_hz):
+        self.channel = int(channel)
+        self.freq = float(frequency_hz)
+        self.duty = 0.0
+        self.is_running = False
+        EmulatorGPIO.setup(channel, EmulatorGPIO.OUT)
+
+    def start(self, duty_cycle):
+        self.duty = float(duty_cycle)
+        self.is_running = True
+        self._apply_hardware_pwm()
+        self._emit(active=True)
+
+    def ChangeDutyCycle(self, duty_cycle):
+        self.duty = float(duty_cycle)
+        self._apply_hardware_pwm()
+        self._emit(active=self.is_running)
+
+    def ChangeFrequency(self, frequency_hz):
+        self.freq = float(frequency_hz)
+        self._apply_hardware_pwm()
+        self._emit(active=self.is_running)
+
+    def stop(self):
+        self.is_running = False
+        self._emit(active=False)
+
+    def _apply_hardware_pwm(self):
+        # If on physical Raspberry Pi, attempt hardware pin command
+        try:
+            if self.channel == 18 and self.is_running:
+                # Set GPIO 18 to alt0 for hardware PWM0
+                os.system(f"pinctrl set {self.channel} a0 >/dev/null 2>&1")
+        except Exception:
+            pass
+
+    def _emit(self, active=True):
+        payload = {
+            "type": "pwm",
+            "channel": self.channel,
+            "duty": self.duty,
+            "freq": self.freq,
+            "active": active
+        }
+        print(f"__PI_TWIN_EVENT__:{json.dumps(payload)}", flush=True)
 
 
 class EmulatorGPIO:
@@ -243,6 +412,8 @@ class EmulatorGPIO:
     PUD_DOWN = 21
     PUD_OFF = 20
 
+    PWM = EmulatorPWM
+
     _mode = BCM
     _pin_states = {}
 
@@ -258,7 +429,7 @@ class EmulatorGPIO:
     def setup(cls, pin, mode, pull_up_down=None, initial=None):
         cls._pin_states[pin] = initial if initial is not None else 0
         mode_str = "OUT" if mode == cls.OUT else "IN"
-        
+
         # Try setting physical GPIO on Raspberry Pi OS
         try:
             val_flag = "dh" if (initial == 1) else "dl"
@@ -276,7 +447,7 @@ class EmulatorGPIO:
     def output(cls, pin, value):
         val = 1 if value else 0
         cls._pin_states[pin] = val
-        
+
         # Forward to physical hardware
         try:
             val_flag = "dh" if val == 1 else "dl"
@@ -289,7 +460,6 @@ class EmulatorGPIO:
 
     @classmethod
     def input(cls, pin):
-        # Check physical pin reading
         try:
             res = os.popen(f"pinctrl get {pin} 2>/dev/null").read()
             if "hi" in res.lower() or "1" in res:
@@ -306,8 +476,20 @@ class EmulatorGPIO:
         print(f"__PI_TWIN_EVENT__:{json.dumps(payload)}", flush=True)
 
 
+class System:
+    """Pi-Digit system metadata helper."""
+    @staticmethod
+    def status():
+        return {
+            "platform": "Raspberry Pi 4 Model B",
+            "os": "Debian 12 (bookworm) aarch64",
+            "runtime": "Pi-Digit Physical Computing",
+            "status": "active"
+        }
+
 # Aliases for backwards compatibility and drop-in usage
 SenseHat = EmulatorSenseHat
 GPIO = EmulatorGPIO
+PWM = EmulatorPWM
 
-__all__ = ["EmulatorSenseHat", "EmulatorGPIO", "SenseHat", "GPIO"]
+__all__ = ["EmulatorSenseHat", "EmulatorGPIO", "EmulatorPWM", "SenseHat", "GPIO", "PWM", "System", "InputEvent"]

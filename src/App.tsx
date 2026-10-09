@@ -41,7 +41,6 @@ export default function App() {
 
   const handleSetMode = (mode: 'simulation' | 'emulation') => {
     setSelectedMode(mode);
-    injectSensors({ isSimulated: mode === 'simulation' });
   };
 
   const handleToggleSensorGraphs = () => {
@@ -159,14 +158,13 @@ export default function App() {
                   isProbingHardware={isProbingHardware}
                 />
 
-                {/* 40-Pin GPIO Header & Wire-Free Emulated LEDs/Inputs Rack */}
+                {/* 40-Pin GPIO Header Reference & Hardware PWM Oscilloscope Visualizer */}
                 <GpioHeaderTwin
                   pins={state.gpio}
-                  peripherals={state.emulatedPeripherals}
                   selectedMode={selectedMode}
                   isPhysicalConnected={state.isSenseHatConnected}
                   onTogglePin={toggleGpioPin}
-                  onTriggerButton={triggerEmulatedButton}
+                  pwm={state.pwm}
                 />
               </div>
             </div>

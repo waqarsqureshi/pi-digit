@@ -74,7 +74,7 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
               <option value="sec-install">3. Installing & Running on Raspberry Pi</option>
               <option value="sec-connect">4. How to Connect: PC Browser vs SSH</option>
               <option value="sec-modes">5. Emulation vs. Simulation Guide</option>
-              <option value="sec-wirefree">6. Wire-Free Peripherals (LEDs & PWM)</option>
+              <option value="sec-wirefree">6. Sense HAT & Hardware PWM Peripheral Architecture</option>
               <option value="sec-pipeline">7. Educational 5-Stage Interaction Pipeline</option>
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -166,14 +166,16 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
                   </span>
                   <DownloadCloud className="w-4 h-4 text-slate-400" />
                 </div>
-                <h3 className="font-bold text-slate-900 text-sm">Install Dependencies</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Install Pi Libraries</h3>
                 <p className="text-slate-600 text-[11px] leading-relaxed">
-                  Update package manager and install Node.js, Git, GCC, and I2C tools:
+                  <strong>On Physical Pi:</strong> Run APT command below to install official Sense HAT, GPIO/PWM, and I2C drivers.
+                  <br />
+                  <span className="text-emerald-700 font-medium">In-Browser Twin: Zero installs needed!</span>
                 </p>
                 <div className="mt-auto bg-slate-900 text-slate-100 p-2 rounded font-mono text-[11px] flex items-center justify-between group">
-                  <span className="text-cyan-300 truncate">sudo apt update && sudo apt install -y nodejs npm git gcc</span>
+                  <span className="text-cyan-300 truncate">sudo apt install -y python3-sense-hat python3-rpi.gpio ...</span>
                   <button
-                    onClick={() => handleCopy('sudo apt update && sudo apt install -y nodejs npm git gcc python3 python3-pip i2c-tools', 's2')}
+                    onClick={() => handleCopy('sudo apt update && sudo apt install -y python3-sense-hat python3-rpi.gpio python3-smbus i2c-tools nodejs npm git gcc && sudo raspi-config nonint do_i2c 0', 's2')}
                     className="text-slate-400 hover:text-white shrink-0 ml-1"
                     title="Copy command"
                   >
@@ -241,7 +243,7 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
                 <button
                   onClick={() =>
                     handleCopy(
-                      'sudo apt update && sudo apt install -y nodejs npm git gcc python3 python3-pip i2c-tools\ngit clone https://github.com/waqarsqureshi/pi-digit.git\ncd pi-digit\nnpm install\nnpm run build\nnpm start',
+                      'sudo apt update && sudo apt install -y python3-sense-hat python3-rpi.gpio python3-smbus i2c-tools nodejs npm git gcc\nsudo raspi-config nonint do_i2c 0\ngit clone https://github.com/waqarsqureshi/pi-digit.git\ncd pi-digit\nnpm install\nnpm run build\nnpm start',
                       'all_cmds'
                     )
                   }
@@ -262,25 +264,54 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
               </div>
 
               <pre className="overflow-x-auto text-slate-300 leading-relaxed text-[11px]">
-{`# 0. SSH into Raspberry Pi from your PC
-# Make sure the Pi and the computer are on the same network!
+{`# 0. SSH into Raspberry Pi from your PC (make sure both are on the same Wi-Fi/LAN)
 ssh pi@raspberrypi.local
 
-# 1. Update packages and install runtime tools
+# 1. Update APT and install Raspberry Pi hardware libraries:
+#    • python3-sense-hat : Official Sense HAT library (8x8 LED matrix, 5-way joystick, IMU/temp)
+#    • python3-rpi.gpio  : 40-pin GPIO pin header and hardware PWM controller
+#    • python3-smbus     : I2C bus Python interface
+#    • i2c-tools         : Hardware bus diagnostic utilities (i2cdetect)
+#    • nodejs npm git gcc: Web daemon & C compilation tools
 sudo apt update
-sudo apt install -y nodejs npm git gcc python3 python3-pip i2c-tools
+sudo apt install -y python3-sense-hat python3-rpi.gpio python3-smbus i2c-tools nodejs npm git gcc
 
-# 2. Clone the Pi-Digit repository
+# 2. Enable the I2C interface (essential for Sense HAT sensors and LED matrix)
+sudo raspi-config nonint do_i2c 0
+
+# 3. Clone the Pi-Digit repository
 git clone https://github.com/waqarsqureshi/pi-digit.git
 cd pi-digit
 
-# 3. Install npm dependencies and build the applet
+# 4. Install npm dependencies and build the web application
 npm install
 npm run build
 
-# 4. Start the server (Listens on port 3000)
+# 5. Start the server (Listens on port 3000)
 npm start`}
               </pre>
+
+              {/* Hardware Libraries Verification Notice */}
+              <div className="mt-2 p-3 bg-slate-800/80 border border-slate-700 rounded-lg flex flex-col gap-1.5 text-[11px] text-slate-300">
+                <span className="text-amber-300 font-bold flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Required Raspberry Pi Hardware Libraries Checklist:</span>
+                </span>
+                <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1 text-[10px] sm:text-[11px]">
+                  <li>
+                    <strong className="text-cyan-300">python3-sense-hat:</strong> Required for the physical 8x8 RGB LED matrix, 5-way joystick (<code className="text-amber-200">sense.stick</code>), HTS221 temperature/humidity, LPS25H pressure, and LSM9DS1 9-DOF IMU accelerometer/gyroscope.
+                  </li>
+                  <li>
+                    <strong className="text-cyan-300">python3-rpi.gpio:</strong> Required for 40-pin GPIO header configuration and hardware PWM signal generation (<code className="text-amber-200">GPIO.PWM(18, 1000)</code>).
+                  </li>
+                  <li>
+                    <strong className="text-cyan-300">i2c-tools:</strong> Provides <code className="text-amber-200">i2cdetect -y 1</code> to verify Sense HAT presence at addresses 0x46 (MCU), 0x5c (Pressure/Temp), and 0x6a (IMU Accelerometer).
+                  </li>
+                  <li>
+                    <strong className="text-emerald-300">Automatic Fallback in Simulation Mode:</strong> If running on a laptop or without physical hardware, Pi-Digit includes self-contained emulation modules (<code className="text-amber-200">pi_twin.py</code>, <code className="text-amber-200">pi_emulator.py</code>, <code className="text-amber-200">RPi/GPIO.py</code>) so student code runs flawlessly with zero external installs!
+                  </li>
+                </ul>
+              </div>
 
               <div className="mt-2 pt-2 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 gap-2">
                 <div>
@@ -541,23 +572,23 @@ npm start`}
               <span className="text-white">ssh pi@raspberrypi.local</span><br />
               <span className="text-slate-400"># Enter password (default: raspberry). You are now inside the Raspberry Pi:</span><br />
               <span className="text-emerald-400">pi@raspberrypi:~$ </span>
-              <span className="text-cyan-300">python3 10_gpio_blink.py</span>
+              <span className="text-cyan-300">python3 example-codes/10_pwm_waveform.py</span>
             </div>
 
             <h3 className="text-base font-bold text-slate-800 font-sans mt-2">
               2.3 How Headless SSH Drives the Graphical Digital Twin
             </h3>
             <p className="text-xs text-slate-700 leading-relaxed">
-              When you run <code className="bg-slate-100 border px-1 rounded font-mono">python3 10_gpio_blink.py</code> over SSH in your terminal:
+              When you run <code className="bg-slate-100 border px-1 rounded font-mono">python3 example-codes/10_pwm_waveform.py</code> over SSH in your terminal:
             </p>
             <ol className="text-xs text-slate-700 list-decimal list-inside space-y-1 pl-2">
-              <li>The Python script executes on the Raspberry Pi CPU using the <code className="font-mono">pi_twin</code> library.</li>
-              <li>The library communicates with the Pi-Digit background daemon.</li>
-              <li>The daemon sets physical GPIO 17 to HIGH and broadcasts a WebSocket packet across the local network.</li>
-              <li><strong>The browser window on your PC receives the event and immediately illuminates the virtual Red LED on your screen!</strong></li>
+              <li>The Python script executes on the Raspberry Pi CPU using <code className="font-mono">RPi.GPIO</code> / <code className="font-mono">pi_twin</code>.</li>
+              <li>The hardware generates high-speed PWM square waves on GPIO 18 (PWM0, Pin 12).</li>
+              <li>The Pi-Digit daemon captures the duty cycle and frequency and broadcasts a WebSocket packet.</li>
+              <li><strong>The browser window on your PC receives the event and immediately renders the live waveform on the PWM Oscilloscope!</strong></li>
             </ol>
             <p className="text-xs text-slate-600 italic">
-              Result: You write code in your familiar terminal or IDE, and your browser window provides a real-time visual twin of the hardware state without needing any physical wires or an HDMI screen connected to the Pi.
+              Result: You write code in your familiar terminal or IDE, and your browser window provides a real-time visual twin of the Sense HAT matrix, joystick, sensors, and hardware PWM signals without needing delicate breadboard wiring or an HDMI monitor connected to the Pi.
             </p>
           </section>
         )}
@@ -569,26 +600,42 @@ npm start`}
               3. Installation and Deployment on the Raspberry Pi
             </h2>
             <p className="text-xs text-slate-700 leading-relaxed">
-              To install Pi-Digit on a fresh Raspberry Pi 4 Model B running Raspberry Pi OS (Bookworm):
+              To install Pi-Digit on a physical Raspberry Pi 4 Model B running Raspberry Pi OS 12 (Bookworm):
             </p>
 
             <div className="space-y-3 text-xs font-mono">
               <div>
                 <span className="text-slate-700 font-bold block mb-1 font-sans">
-                  3.1 System Package Dependencies:
+                  3.1 Raspberry Pi Hardware Libraries & System Dependencies:
                 </span>
-                <pre className="p-3 bg-slate-900 text-slate-100 rounded-lg overflow-x-auto">
+                <p className="text-slate-500 font-sans text-[11px] mb-1">
+                  Install the official Sense HAT driver, GPIO/PWM libraries, I2C tools, Node.js runtime, and GCC:
+                </p>
+                <pre className="p-3 bg-slate-900 text-slate-100 rounded-lg overflow-x-auto text-[11px]">
 {`sudo apt update
-sudo apt install -y nodejs npm git gcc python3 python3-pip i2c-tools`}
+sudo apt install -y python3-sense-hat python3-rpi.gpio python3-smbus i2c-tools nodejs npm git gcc`}
                 </pre>
               </div>
 
               <div>
                 <span className="text-slate-700 font-bold block mb-1 font-sans">
-                  3.2 Clone & Build:
+                  3.2 Enable the Hardware I2C Interface:
                 </span>
-                <pre className="p-3 bg-slate-900 text-slate-100 rounded-lg overflow-x-auto">
-{`git clone https://github.com/lab/pi-digit.git
+                <p className="text-slate-500 font-sans text-[11px] mb-1">
+                  Required to allow the Raspberry Pi SoC to communicate with the Sense HAT sensors (0x46, 0x5c, 0x6a):
+                </p>
+                <pre className="p-3 bg-slate-900 text-amber-300 rounded-lg overflow-x-auto text-[11px]">
+{`# Enable I2C kernel module without reboot
+sudo raspi-config nonint do_i2c 0`}
+                </pre>
+              </div>
+
+              <div>
+                <span className="text-slate-700 font-bold block mb-1 font-sans">
+                  3.3 Clone the Repository & Build:
+                </span>
+                <pre className="p-3 bg-slate-900 text-slate-100 rounded-lg overflow-x-auto text-[11px]">
+{`git clone https://github.com/waqarsqureshi/pi-digit.git
 cd pi-digit
 npm install
 npm run build`}
@@ -597,11 +644,30 @@ npm run build`}
 
               <div>
                 <span className="text-slate-700 font-bold block mb-1 font-sans">
-                  3.3 Start the Daemon:
+                  3.4 Start the Daemon Server:
                 </span>
-                <pre className="p-3 bg-slate-900 text-emerald-300 rounded-lg overflow-x-auto">
+                <pre className="p-3 bg-slate-900 text-emerald-300 rounded-lg overflow-x-auto text-[11px]">
 {`npm start
-# Server listens on http://0.0.0.0:3000 (accessible across the local network)`}
+# Server listens on port 3000 across your local network`}
+                </pre>
+              </div>
+
+              <div>
+                <span className="text-slate-700 font-bold block mb-1 font-sans">
+                  3.5 Hardware Verification & Diagnostics (Optional but Recommended):
+                </span>
+                <p className="text-slate-500 font-sans text-[11px] mb-1">
+                  Run the diagnostic suite in <code className="text-amber-800">test-codes/</code> to verify all sensors, matrix, and PWM:
+                </p>
+                <pre className="p-3 bg-slate-900 text-cyan-300 rounded-lg overflow-x-auto text-[11px]">
+{`# 1. Probe I2C bus:
+i2cdetect -y 1
+
+# 2. Run automated self-test diagnostics:
+python3 test-codes/test_diagnostics.py
+
+# 3. Stream live accelerometer and motion telemetry:
+python3 test-codes/test_sensors.py`}
                 </pre>
               </div>
             </div>
@@ -694,22 +760,21 @@ npm run build`}
           </section>
         )}
 
-        {/* SECTION 6: WIRE-FREE PERIPHERALS */}
+        {/* SECTION 6: SENSE HAT & PWM PERIPHERALS */}
         {(activeSection === 'all' || activeSection === 'sec-wirefree') && (
           <section id="sec-wirefree" className="border-t border-slate-200 pt-5 flex flex-col gap-3">
             <h2 className="text-xl font-serif text-slate-900 border-b border-slate-200 pb-1">
-              6. Wire-Free Physical Computing Peripherals
+              6. Sense HAT & Hardware PWM Peripheral Architecture
             </h2>
             <p className="text-xs text-slate-700 leading-relaxed">
-              Pi-Digit embeds virtual electronic components directly onto the Raspberry Pi 40-pin GPIO header:
+              In this lab configuration, the <strong>Raspberry Pi Sense HAT</strong> is mounted directly onto the 40-pin GPIO header. All visual feedback, physical inputs, and signal measurements are mapped directly to standard Sense HAT peripherals and hardware PWM:
             </p>
-            <div className="p-3 bg-slate-900 text-slate-200 rounded-lg font-mono text-xs space-y-1.5 my-1">
-              <div>• <strong className="text-rose-400">GPIO 17 (Pin 11):</strong> Red Virtual LED (blinks when code sets pin to HIGH)</div>
-              <div>• <strong className="text-amber-400">GPIO 27 (Pin 13):</strong> Yellow Virtual LED & Tactile Button</div>
-              <div>• <strong className="text-emerald-400">GPIO 22 (Pin 15):</strong> Green Virtual LED</div>
-              <div>• <strong className="text-cyan-400">GPIO 23 (Pin 16):</strong> Blue Virtual LED</div>
-              <div>• <strong className="text-slate-300">GPIO 24 & 25:</strong> Toggle switches (switchable between 0V and 3.3V)</div>
-              <div>• <strong className="text-indigo-400">GPIO 18 (Pin 12 / PWM0):</strong> Pulse-Width Modulation oscilloscope visualizer</div>
+            <div className="p-3.5 bg-slate-900 text-slate-200 rounded-lg font-mono text-xs space-y-2 my-1">
+              <div>• <strong className="text-rose-400">8x8 RGB LED Matrix:</strong> 64 individually addressable RGB LEDs driven via Framebuffer/I2C (<code className="text-amber-300">sense.set_pixel(x, y, r, g, b)</code>).</div>
+              <div>• <strong className="text-amber-400">5-Way Joystick:</strong> Directional controller with Up, Down, Left, Right, and Centre/Enter clicks (<code className="text-amber-300">sense.stick.get_events()</code>).</div>
+              <div>• <strong className="text-emerald-400">Environmental Sensors (HTS221 & LPS25H):</strong> Reads ambient laboratory temperature, relative humidity, and barometric pressure.</div>
+              <div>• <strong className="text-cyan-400">9-DOF IMU Motion (LSM9DS1):</strong> Real-time 3-axis accelerometer (<code className="text-amber-300">sense.get_accelerometer_raw()</code>), gyroscope, and magnetometer heading.</div>
+              <div>• <strong className="text-sky-300">Hardware PWM0 on GPIO 18 (Pin 12):</strong> Generates hardware square waves, streamed live via WebSocket to the web app's built-in oscilloscope visualizer (<code className="text-amber-300">GPIO.PWM(18, 1000)</code>).</div>
             </div>
           </section>
         )}
@@ -742,7 +807,7 @@ npm run build`}
               </div>
               <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
                 <span className="text-emerald-700 font-bold block mb-1">5. DIGITAL TWIN</span>
-                <span className="text-[10px] text-slate-600">Virtual LED illuminates on PC screen</span>
+                <span className="text-[10px] text-slate-600">Sense HAT Matrix & PWM Oscilloscope update on PC screen</span>
               </div>
             </div>
           </section>

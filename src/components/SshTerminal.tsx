@@ -76,7 +76,7 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
 
     if (cmd === 'help') {
       const helpText = `Pi-Digit Bash Terminal Commands:
-  • python3 10_gpio_blink.py   - Blinks the emulated LED on GPIO 17 (animates digital twin)
+  • python3 10_pwm_waveform.py - Generates PWM on GPIO 18 (streams to live Oscilloscope)
   • python3 02_red_pixel.py   - Moves red pixel diagonally across Sense HAT matrix
   • python3 03_color_cycle.py  - Cycles full 8x8 matrix through rainbow colors
   • python3 sensor_logger.py   - Polls and logs sensor telemetry batch
@@ -227,10 +227,10 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-mono">
             <span className="text-slate-500 shrink-0 text-[11px] font-bold">Quick Commands:</span>
             <button
-              onClick={() => handleRunCommand('python3 10_gpio_blink.py')}
+              onClick={() => handleRunCommand('python3 10_pwm_waveform.py')}
               className="px-2 py-1 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors shrink-0 text-[11px]"
             >
-              python3 10_gpio_blink.py (Blink LED)
+              python3 10_pwm_waveform.py (PWM Oscilloscope)
             </button>
             <button
               onClick={() => handleRunCommand('python3 02_red_pixel.py')}
@@ -313,7 +313,7 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
               value={commandInput}
               onChange={(e) => setCommandInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type bash command (e.g. python3 10_gpio_blink.py)..."
+              placeholder="Type bash command (e.g. python3 10_pwm_waveform.py)..."
               className="flex-1 bg-transparent text-white focus:outline-none"
               autoFocus
             />

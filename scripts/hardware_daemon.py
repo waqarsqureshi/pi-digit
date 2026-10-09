@@ -23,6 +23,22 @@ CMD_FILE = "/tmp/pi_hw_commands.jsonl"
 SENSE_FILE = "/tmp/pi_sense_hardware.json"
 GPIO_FILE = "/tmp/pi_gpio_hardware.json"
 
+def get_native_sense_hat():
+    """Safely loads system sense_hat package, bypassing any local project files."""
+    orig_path = list(sys.path)
+    clean_path = [p for p in orig_path if p and p != '' and p != '.' and not os.path.exists(os.path.join(p, 'pi_emulator.py'))]
+    try:
+        sys.path = clean_path
+        sys.modules.pop('sense_hat', None)
+        import sense_hat
+        if hasattr(sense_hat, 'SenseHat') and 'pi_emulator' not in getattr(sense_hat.SenseHat, '__module__', ''):
+            return sense_hat.SenseHat()
+    except Exception as e:
+        pass
+    finally:
+        sys.path = orig_path
+    return None
+
 def process_ui_commands(sense):
     """Processes commands sent from the Web UI / Emulator to the physical hardware."""
     if not os.path.exists(CMD_FILE):
@@ -32,7 +48,6 @@ def process_ui_commands(sense):
     try:
         with open(CMD_FILE, "r") as f:
             lines = f.readlines()
-        # Truncate command file once read
         with open(CMD_FILE, "w") as f:
             f.truncate(0)
 
@@ -77,35 +92,22 @@ def process_ui_commands(sense):
         except Exception as e:
             print(f"[Pi Daemon] Error executing hardware command {action}: {e}", file=sys.stderr)
 
-def read_gpio_levels():
-    """Reads physical GPIO levels from pinctrl if available."""
-    pin_states = {}
-    try:
-        res = subprocess.run(["pinctrl", "poll"], capture_output=True, text=True, timeout=0.1)
-        # Parse pinctrl output if possible
-    except Exception:
-        pass
-    return pin_states
-
 def main():
     print("[Pi Hardware Daemon] Starting Bidirectional Sync Service (Hardware <-> Web UI)...")
-    has_sense_hat = False
-    sense = None
+    sense = get_native_sense_hat()
+    has_sense_hat = sense is not None
 
-    try:
-        from sense_hat import SenseHat
-        sense = SenseHat()
-        has_sense_hat = True
-        print("[Pi Hardware Daemon] Physical Sense HAT detected and initialized!")
-    except Exception as e:
-        print(f"[Pi Hardware Daemon] Physical Sense HAT not present ({e}). Operating in bridging mode.")
+    if has_sense_hat:
+        print("[Pi Hardware Daemon] Native Sense HAT driver connected to I2C-1 bus.")
+    else:
+        print("[Pi Hardware Daemon] Native Sense HAT not detected. Operating in bridging/standby mode.")
 
     while True:
         try:
-            # 1. UI-to-Hardware Synchronization: execute queued UI actions on hardware
+            # 1. UI-to-Hardware: execute queued UI actions on hardware
             process_ui_commands(sense)
 
-            # 2. Hardware-to-UI Synchronization: read live physical telemetry
+            # 2. Hardware-to-UI: read live physical telemetry
             if has_sense_hat and sense:
                 t = round(sense.get_temperature(), 2)
                 h = round(sense.get_humidity(), 1)
@@ -123,22 +125,33 @@ def main():
                     "roll": round(orient.get("roll", 0.0), 2),
                     "heading": heading,
                     "compassHeading": heading,
-                    "accelerometer": accel,
-                    "gyroscope": gyro,
+                    "accelerometer": {
+                        "x": round(accel.get("x", 0.0), 3),
+                        "y": round(accel.get("y", 0.0), 3),
+                        "z": round(accel.get("z", 0.0), 3)
+                    },
+                    "gyroscope": {
+                        "x": round(gyro.get("x", 0.0), 2),
+                        "y": round(gyro.get("y", 0.0), 2),
+                        "z": round(gyro.get("z", 0.0), 2)
+                    },
                     "timestamp": int(time.time() * 1000),
                     "isSimulated": False,
                     "source": "Physical Sense HAT (HTS221 / LPS25H / LSM9DS1)"
                 }
 
                 # Physical joystick event polling
-                events = sense.stick.get_events()
-                if events:
-                    last_ev = events[-1]
-                    data["lastJoystick"] = {
-                        "direction": last_ev.direction,
-                        "action": last_ev.action,
-                        "timestamp": int(time.time() * 1000)
-                    }
+                try:
+                    events = sense.stick.get_events()
+                    if events:
+                        last_ev = events[-1]
+                        data["lastJoystick"] = {
+                            "direction": last_ev.direction,
+                            "action": last_ev.action,
+                            "timestamp": int(time.time() * 1000)
+                        }
+                except Exception:
+                    pass
 
                 # Atomic write to /tmp/pi_sense_hardware.json
                 temp_file = SENSE_FILE + ".tmp"
@@ -146,7 +159,15 @@ def main():
                     json.dump(data, f)
                 os.replace(temp_file, SENSE_FILE)
 
-            time.sleep(0.08)
+            elif not has_sense_hat:
+                # Retry detecting Sense HAT every few seconds if it was attached after boot
+                if int(time.time()) % 5 == 0:
+                    sense = get_native_sense_hat()
+                    if sense:
+                        has_sense_hat = True
+                        print("[Pi Hardware Daemon] Native Sense HAT reconnected!")
+
+            time.sleep(0.06)
         except Exception as err:
             time.sleep(0.5)
 

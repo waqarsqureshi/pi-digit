@@ -47,6 +47,48 @@ try {
 // Authoritative Hardware State
 let gpioPins: GpioPin[] = JSON.parse(JSON.stringify(INITIAL_GPIO_PINS));
 
+// Hardware PWM State
+let currentPwmState = {
+  channel: 18,
+  duty: 50,
+  freq: 1000,
+  active: false,
+};
+
+// Background Python Hardware Daemon Supervisor
+let hwDaemonProc: ChildProcess | null = null;
+function startHardwareDaemon() {
+  if (hwDaemonProc) return;
+  const daemonPath = path.join(__dirname, 'scripts', 'hardware_daemon.py');
+  if (!fs.existsSync(daemonPath)) return;
+
+  try {
+    hwDaemonProc = spawn('python3', ['-u', daemonPath], {
+      cwd: __dirname,
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    hwDaemonProc.stdout?.on('data', (d) => {
+      console.log(`[HwDaemon] ${d.toString().trim()}`);
+    });
+
+    hwDaemonProc.stderr?.on('data', (d) => {
+      console.error(`[HwDaemon Error] ${d.toString().trim()}`);
+    });
+
+    hwDaemonProc.on('exit', () => {
+      hwDaemonProc = null;
+      setTimeout(startHardwareDaemon, 3000);
+    });
+  } catch (err) {
+    console.error('[HwDaemon] Spawn error:', err);
+  }
+}
+
 // Emulated Peripherals Rack (Wire-Free Physical Computing)
 let emulatedPeripherals: EmulatedPeripheral[] = [
   { id: 'p-led-17', pin: 11, bcm: 17, type: 'led', name: 'Indicator LED 1', color: 'red', state: 0 },
@@ -199,6 +241,7 @@ function getFullState(): FullHardwareState {
     matrix: matrixPixels,
     sensors,
     lastJoystickEvent,
+    pwm: currentPwmState,
     lcd: lcdState,
     program: programState,
     timeline: timelineTraces.slice(0, 30),
@@ -219,12 +262,17 @@ function getFullState(): FullHardwareState {
 
 // Background sensor telemetry perturbation & recording loop
 setInterval(() => {
-  if (sensorSource === 'hardware') {
-    if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
-      try {
+  let isHardwareFresh = false;
+
+  if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
+    try {
+      const stats = fs.statSync('/tmp/pi_sense_hardware.json');
+      const ageMs = Date.now() - stats.mtimeMs;
+      // If file was updated within last 5 seconds and source is not simulated
+      if (ageMs < 5000) {
         const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
         const hwData = JSON.parse(raw);
-        if (hwData && typeof hwData.temperature === 'number') {
+        if (hwData && typeof hwData.temperature === 'number' && hwData.isSimulated === false) {
           sensors.temperature = hwData.temperature;
           sensors.humidity = hwData.humidity;
           sensors.pressure = hwData.pressure;
@@ -232,15 +280,23 @@ setInterval(() => {
           if (hwData.accelerometer) sensors.accelerometer = hwData.accelerometer;
           if (hwData.gyroscope) sensors.gyroscope = hwData.gyroscope;
           sensors.isSimulated = false;
+          isSenseHatConnected = true;
+          isPhysicalPi = true;
+          isHardwareFresh = true;
 
           if (hwData.lastJoystick && (!lastJoystickEvent || hwData.lastJoystick.timestamp !== lastJoystickEvent.timestamp)) {
             lastJoystickEvent = hwData.lastJoystick;
             broadcast('joystick.event', lastJoystickEvent);
           }
         }
-      } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  if (!isHardwareFresh) {
+    if (sensorSource === 'hardware') {
+      isSenseHatConnected = false;
     }
-  } else {
     // Subtle realistic physical sensor drift when simulating
     const tNoise = (Math.random() - 0.5) * 0.15;
     const hNoise = (Math.random() - 0.5) * 0.3;
@@ -745,6 +801,18 @@ async function executeStudentCode(
         }
       } else if (ev.type === 'joystick') {
         triggerJoystick(ev.direction || 'centre', ev.action || 'press');
+      } else if (ev.type === 'pwm') {
+        const channel = Number(ev.channel || 18);
+        const duty = Number(ev.duty ?? 50);
+        const freq = Number(ev.freq ?? 1000);
+        const active = ev.active !== false;
+        currentPwmState = { channel, duty, freq, active };
+        const targetPin = gpioPins.find((p) => p.bcm === channel);
+        if (targetPin) {
+          targetPin.mode = active ? 'PWM' : 'OUT';
+          targetPin.pwmDuty = duty;
+        }
+        broadcast('pwm.update', currentPwmState);
       }
     };
 
@@ -930,11 +998,19 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
   if (trimmed.startsWith('python3 ') || trimmed.startsWith('python ')) {
     const parts = trimmed.split(' ');
     const script = parts[1] || '01_hello.py';
+    let execCmd = trimmed;
+    // Auto-resolve script in example-codes if not found in root
+    if (parts[1] && !fs.existsSync(path.join(process.cwd(), parts[1]))) {
+      const examplePath = path.join(process.cwd(), 'example-codes', parts[1]);
+      if (fs.existsSync(examplePath)) {
+        execCmd = `${parts[0]} ${path.join('example-codes', parts[1])}${parts.length > 2 ? ' ' + parts.slice(2).join(' ') : ''}`;
+      }
+    }
     syncFilesToTmp();
 
     return new Promise<void>((resolve) => {
       exec(
-        trimmed,
+        execCmd,
         {
           cwd: process.cwd(),
           timeout: 10000,
@@ -972,6 +1048,18 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
                     broadcast('gpio.update', { pin: target.pin, bcm: target.bcm, value: target.value, mode: target.mode });
                     broadcast('peripherals.update', emulatedPeripherals);
                   }
+                } else if (ev.type === 'pwm') {
+                  const channel = Number(ev.channel || 18);
+                  const duty = Number(ev.duty ?? 50);
+                  const freq = Number(ev.freq ?? 1000);
+                  const active = ev.active !== false;
+                  currentPwmState = { channel, duty, freq, active };
+                  const targetPin = gpioPins.find((p) => p.bcm === channel);
+                  if (targetPin) {
+                    targetPin.mode = active ? 'PWM' : 'OUT';
+                    targetPin.pwmDuty = duty;
+                  }
+                  broadcast('pwm.update', currentPwmState);
                 } else if (ev.type === 'lcd_update') {
                   if (Array.isArray(ev.lines)) {
                     lcdState.lines = ev.lines.slice(0, 2);
@@ -1097,12 +1185,33 @@ app.post('/api/simulation/sensors', (req: Request, res: Response) => {
   if (pressure !== undefined) sensors.pressure = Number(pressure);
   if (heading !== undefined) sensors.compassHeading = Number(heading);
   if (isSimulated !== undefined) {
-    isSenseHatConnected = !isSimulated;
-    sensors.isSimulated = isSimulated;
+    sensors.isSimulated = Boolean(isSimulated);
   }
   broadcast('sensor.update', sensors);
   broadcast('init.state', getFullState());
   res.json({ success: true, sensors });
+});
+
+// Hardware PWM endpoints
+app.get('/api/pwm', (_req: Request, res: Response) => {
+  res.json(currentPwmState);
+});
+
+app.post('/api/pwm', (req: Request, res: Response) => {
+  const { channel = 18, duty = 50, freq = 1000, active = true } = req.body;
+  currentPwmState = {
+    channel: Number(channel),
+    duty: Number(duty),
+    freq: Number(freq),
+    active: Boolean(active),
+  };
+  const targetPin = gpioPins.find((p) => p.bcm === currentPwmState.channel);
+  if (targetPin) {
+    targetPin.mode = currentPwmState.active ? 'PWM' : 'OUT';
+    targetPin.pwmDuty = currentPwmState.duty;
+  }
+  broadcast('pwm.update', currentPwmState);
+  res.json({ success: true, pwm: currentPwmState });
 });
 
 // Global Sensor Source Mode & Operating Mode Control Endpoints
@@ -1239,6 +1348,8 @@ async function start() {
     });
     app.use(vite.middlewares);
   }
+
+  startHardwareDaemon();
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`[Pi-Local Digital Twin] Daemon running at http://0.0.0.0:${PORT}`);
