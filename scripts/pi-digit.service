@@ -1,0 +1,16 @@
+[Unit]
+Description=Pi-Digit Raspberry Pi Digital Twin & Hardware Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/pi-digit
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npx tsx server.ts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

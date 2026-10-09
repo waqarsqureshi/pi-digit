@@ -1,0 +1,6 @@
+{
+  "name": "Pi-Local Digital Twin",
+  "description": "Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi 4 with Sense HAT, 40-pin GPIO, LCD, and Python/C execution engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

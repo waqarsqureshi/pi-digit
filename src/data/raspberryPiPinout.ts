@@ -1,0 +1,48 @@
+import { GpioPin } from '../types/digitalTwin';
+
+/**
+ * Authoritative 40-pin GPIO pinout for Raspberry Pi 4 Model B
+ * Standard header J8 / 40 pins
+ */
+export const INITIAL_GPIO_PINS: GpioPin[] = [
+  { pin: 1,  bcm: null, name: '3.3V Power',   type: 'power3v3', mode: 'ALT', value: 1, label: '3V3', isSafeToToggle: false },
+  { pin: 2,  bcm: null, name: '5V Power',     type: 'power5v',  mode: 'ALT', value: 1, label: '5V',  isSafeToToggle: false },
+  { pin: 3,  bcm: 2,    name: 'GPIO 2 (SDA)',  type: 'gpio',     mode: 'IN',  value: 1, label: 'SDA1', altFunction: 'I2C1 SDA', pull: 'UP', isSafeToToggle: true },
+  { pin: 4,  bcm: null, name: '5V Power',     type: 'power5v',  mode: 'ALT', value: 1, label: '5V',  isSafeToToggle: false },
+  { pin: 5,  bcm: 3,    name: 'GPIO 3 (SCL)',  type: 'gpio',     mode: 'IN',  value: 1, label: 'SCL1', altFunction: 'I2C1 SCL', pull: 'UP', isSafeToToggle: true },
+  { pin: 6,  bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 7,  bcm: 4,    name: 'GPIO 4 (GPCLK)',type: 'gpio',     mode: 'IN',  value: 0, label: 'GPCLK0', altFunction: '1-Wire GPCLK', pull: 'UP', isSafeToToggle: true },
+  { pin: 8,  bcm: 14,   name: 'GPIO 14 (TXD)', type: 'gpio',     mode: 'ALT', value: 1, label: 'TXD0', altFunction: 'UART0 TXD', pull: 'NONE', isSafeToToggle: true },
+  { pin: 9,  bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 10, bcm: 15,   name: 'GPIO 15 (RXD)', type: 'gpio',     mode: 'ALT', value: 1, label: 'RXD0', altFunction: 'UART0 RXD', pull: 'NONE', isSafeToToggle: true },
+  { pin: 11, bcm: 17,   name: 'GPIO 17',       type: 'gpio',     mode: 'OUT', value: 0, label: 'GPIO17', altFunction: 'SPI1 CE1', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 12, bcm: 18,   name: 'GPIO 18 (PWM0)',type: 'gpio',     mode: 'PWM', value: 0, pwmDuty: 0, label: 'PWM0', altFunction: 'PWM0 / PCM_CLK', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 13, bcm: 27,   name: 'GPIO 27',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO27', altFunction: 'SPI1 CE2', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 14, bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 15, bcm: 22,   name: 'GPIO 22',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO22', altFunction: 'SPI1 CE0', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 16, bcm: 23,   name: 'GPIO 23',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO23', altFunction: 'SPI1 SCLK', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 17, bcm: null, name: '3.3V Power',   type: 'power3v3', mode: 'ALT', value: 1, label: '3V3', isSafeToToggle: false },
+  { pin: 18, bcm: 24,   name: 'GPIO 24',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO24', altFunction: 'SPI1 MISO', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 19, bcm: 10,   name: 'GPIO 10 (MOSI)',type: 'gpio',     mode: 'ALT', value: 0, label: 'MOSI', altFunction: 'SPI0 MOSI', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 20, bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 21, bcm: 9,    name: 'GPIO 9 (MISO)', type: 'gpio',     mode: 'ALT', value: 0, label: 'MISO', altFunction: 'SPI0 MISO', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 22, bcm: 25,   name: 'GPIO 25',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO25', altFunction: 'General GPIO', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 23, bcm: 11,   name: 'GPIO 11 (SCLK)',type: 'gpio',     mode: 'ALT', value: 0, label: 'SCLK', altFunction: 'SPI0 SCLK', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 24, bcm: 8,    name: 'GPIO 8 (CE0)',  type: 'gpio',     mode: 'ALT', value: 1, label: 'CE0', altFunction: 'SPI0 CE0', pull: 'UP', isSafeToToggle: true },
+  { pin: 25, bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 26, bcm: 7,    name: 'GPIO 7 (CE1)',  type: 'gpio',     mode: 'ALT', value: 1, label: 'CE1', altFunction: 'SPI0 CE1', pull: 'UP', isSafeToToggle: true },
+  { pin: 27, bcm: 0,    name: 'ID_SD (EEPROM)',type: 'id_eeprom',mode: 'ALT', value: 1, label: 'ID_SD', altFunction: 'I2C0 ID EEPROM', pull: 'UP', isSafeToToggle: false },
+  { pin: 28, bcm: 1,    name: 'ID_SC (EEPROM)',type: 'id_eeprom',mode: 'ALT', value: 1, label: 'ID_SC', altFunction: 'I2C0 ID EEPROM', pull: 'UP', isSafeToToggle: false },
+  { pin: 29, bcm: 5,    name: 'GPIO 5',        type: 'gpio',     mode: 'IN',  value: 1, label: 'GPIO5', altFunction: 'GPCLK1', pull: 'UP', isSafeToToggle: true },
+  { pin: 30, bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 31, bcm: 6,    name: 'GPIO 6',        type: 'gpio',     mode: 'IN',  value: 1, label: 'GPIO6', altFunction: 'GPCLK2', pull: 'UP', isSafeToToggle: true },
+  { pin: 32, bcm: 12,   name: 'GPIO 12 (PWM0)',type: 'gpio',     mode: 'OUT', value: 0, label: 'PWM0', altFunction: 'PWM0', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 33, bcm: 13,   name: 'GPIO 13 (PWM1)',type: 'gpio',     mode: 'OUT', value: 0, label: 'PWM1', altFunction: 'PWM1', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 34, bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 35, bcm: 19,   name: 'GPIO 19 (PWM1)',type: 'gpio',     mode: 'IN',  value: 0, label: 'PWM1', altFunction: 'PWM1 / PCM_FS', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 36, bcm: 16,   name: 'GPIO 16',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO16', altFunction: 'SPI1 CE2', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 37, bcm: 26,   name: 'GPIO 26',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO26', altFunction: 'General GPIO', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 38, bcm: 20,   name: 'GPIO 20',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO20', altFunction: 'PCM_DIN', pull: 'DOWN', isSafeToToggle: true },
+  { pin: 39, bcm: null, name: 'Ground',       type: 'ground',   mode: 'ALT', value: 0, label: 'GND', isSafeToToggle: false },
+  { pin: 40, bcm: 21,   name: 'GPIO 21',       type: 'gpio',     mode: 'IN',  value: 0, label: 'GPIO21', altFunction: 'PCM_DOUT', pull: 'DOWN', isSafeToToggle: true },
+];
