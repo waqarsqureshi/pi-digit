@@ -3,16 +3,16 @@ import { useDigitalTwin } from './hooks/useDigitalTwin';
 import { HeaderRibbon } from './components/HeaderRibbon';
 import { SenseHatTwin } from './components/SenseHatTwin';
 import { GpioHeaderTwin } from './components/GpioHeaderTwin';
+import { LcdDisplayTwin } from './components/LcdDisplayTwin';
+import { HardwareStatusPanel } from './components/HardwareStatusPanel';
 import { CodeStudio } from './components/CodeStudio';
 import { DataLoggerView } from './components/DataLoggerView';
 import { HelpAndGuide } from './components/HelpAndGuide';
-import { PublishModal } from './components/PublishModal';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'workspace' | 'help'>('help');
   const [showSensorGraphs, setShowSensorGraphs] = useState(false);
   const [selectedMode, setSelectedMode] = useState<'simulation' | 'emulation'>('simulation');
-  const [isPublishOpen, setIsPublishOpen] = useState(false);
 
   const {
     state,
@@ -29,6 +29,12 @@ export default function App() {
     injectSensors,
     clearTerminal,
     execBashCommand,
+    connectHardware,
+    isProbingHardware,
+    pingHardware,
+    lastPingResult,
+    isPinging,
+    clearLcd,
   } = useDigitalTwin();
 
   const handleSetMode = (mode: 'simulation' | 'emulation') => {
@@ -56,7 +62,9 @@ export default function App() {
         onToggleSensorGraphs={handleToggleSensorGraphs}
         selectedMode={selectedMode}
         onSetMode={handleSetMode}
-        onOpenPublish={() => setIsPublishOpen(true)}
+        onConnectHardware={() => connectHardware()}
+        isProbingHardware={isProbingHardware}
+        githubUrl="https://github.com/waqarsqureshi/pi-digit"
       />
 
       {/* Main Content Workspace Canvas (Expanded up to 1800px) */}
@@ -106,8 +114,21 @@ export default function App() {
                 />
               </div>
 
-              {/* RIGHT COLUMN: DIGITAL TWIN HARDWARE CONSOLE (SENSE HAT + 40-PIN GPIO) */}
+              {/* RIGHT COLUMN: DIGITAL TWIN HARDWARE CONSOLE (STATUS + SENSE HAT + LCD + 40-PIN GPIO) */}
               <div className="min-w-0 flex flex-col gap-3">
+                {/* DEDICATED HARDWARE STATUS & RECONNECT / PING PANEL */}
+                <HardwareStatusPanel
+                  state={state}
+                  selectedMode={selectedMode}
+                  isPhysicalConnected={state.isSenseHatConnected}
+                  onConnectHardware={connectHardware}
+                  onPingHardware={pingHardware}
+                  isPinging={isPinging}
+                  isProbing={isProbingHardware}
+                  lastPingResult={lastPingResult}
+                  onSwitchMode={handleSetMode}
+                />
+
                 {/* Sense HAT Emulator (8x8 RGB LED Matrix & Telemetry) */}
                 <SenseHatTwin
                   matrix={state.matrix}
@@ -120,6 +141,16 @@ export default function App() {
                   onSetMatrixPattern={setMatrixPattern}
                   onTriggerJoystick={triggerJoystick}
                   onInjectSensors={injectSensors}
+                />
+
+                {/* 16x2 Character LCD Display (Simulates I2C LCD for Curriculum Examples 12, 13 & C) */}
+                <LcdDisplayTwin
+                  lcd={state.lcd}
+                  selectedMode={selectedMode}
+                  isPhysicalConnected={state.isSenseHatConnected}
+                  onClearLcd={clearLcd}
+                  onConnectHardware={() => connectHardware()}
+                  isProbingHardware={isProbingHardware}
                 />
 
                 {/* 40-Pin GPIO Header & Wire-Free Emulated LEDs/Inputs Rack */}
@@ -158,17 +189,16 @@ export default function App() {
           <span className="text-slate-600">
             Pi-Digit · Raspberry Pi 4 Physical Computing Platform
           </span>
-          <span className="text-[#840038] font-bold">
-            Side-by-Side Digital Twin & Code Studio · Bookworm 64-bit
-          </span>
+          <a
+            href="https://github.com/waqarsqureshi/pi-digit"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#840038] hover:underline font-bold flex items-center gap-1.5"
+          >
+            <span>GitHub: github.com/waqarsqureshi/pi-digit</span>
+          </a>
         </div>
       </footer>
-      {/* Publish & Raspberry Pi Deployment Modal */}
-      <PublishModal
-        isOpen={isPublishOpen}
-        onClose={() => setIsPublishOpen(false)}
-        onOpenWorkspace={() => setActiveView('workspace')}
-      />
     </div>
   );
 }

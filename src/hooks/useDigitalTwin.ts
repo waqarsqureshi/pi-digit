@@ -118,6 +118,10 @@ export function useDigitalTwin() {
             setState((prev) => (prev ? { ...prev, program: msg.payload } : prev));
             break;
 
+          case 'lcd.update':
+            setState((prev) => (prev ? { ...prev, lcd: msg.payload } : prev));
+            break;
+
           case 'program.output':
             setTerminalOutputs((prev) => [...prev, msg.payload]);
             break;
@@ -163,7 +167,33 @@ export function useDigitalTwin() {
 
     connectWs();
 
+    // Active polling fallback ensures live simulation updates even if WebSocket drops in cloud iframe
+    const pollInterval = setInterval(async () => {
+      try {
+        const stateRes = await fetch('/api/state');
+        if (stateRes.ok) {
+          const freshState: FullHardwareState = await stateRes.json();
+          setState(freshState);
+        }
+
+        const outRes = await fetch('/api/program/output');
+        if (outRes.ok) {
+          const freshOuts: TerminalOutput[] = await outRes.json();
+          if (Array.isArray(freshOuts) && freshOuts.length > 0) {
+            setTerminalOutputs((prev) => {
+              const knownIds = new Set(prev.map((o) => o.id));
+              const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
+              return newItems.length > 0 ? [...prev, ...newItems] : prev;
+            });
+          }
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 600);
+
     return () => {
+      clearInterval(pollInterval);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
@@ -273,6 +303,30 @@ export function useDigitalTwin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language, filename, timeoutMs }),
       });
+
+      // Quick polling sequence immediately after launch to catch initial simulation steps
+      for (const delay of [150, 350, 700, 1200, 2000]) {
+        setTimeout(async () => {
+          try {
+            const [sRes, oRes] = await Promise.all([
+              fetch('/api/state'),
+              fetch('/api/program/output'),
+            ]);
+            if (sRes.ok) {
+              const freshState = await sRes.json();
+              setState(freshState);
+            }
+            if (oRes.ok) {
+              const freshOuts: TerminalOutput[] = await oRes.json();
+              setTerminalOutputs((prev) => {
+                const knownIds = new Set(prev.map((o) => o.id));
+                const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
+                return newItems.length > 0 ? [...prev, ...newItems] : prev;
+              });
+            }
+          } catch {}
+        }, delay);
+      }
     },
     []
   );
@@ -318,9 +372,102 @@ export function useDigitalTwin() {
     }
   }, []);
 
+  const [isProbingHardware, setIsProbingHardware] = useState(false);
+  const [isPinging, setIsPinging] = useState(false);
+  const [lastPingResult, setLastPingResult] = useState<{
+    latencyMs?: number;
+    timestamp?: number;
+    message?: string;
+    i2cStatus?: string;
+    gpioStatus?: string;
+    lcdStatus?: string;
+  } | null>(null);
+
+  const pingHardware = useCallback(async () => {
+    setIsPinging(true);
+    const start = performance.now();
+    try {
+      const res = await fetch('/api/hardware/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientTime: Date.now() }),
+      });
+      const elapsed = Math.round(performance.now() - start);
+      if (res.ok) {
+        const data = await res.json();
+        setLastPingResult({
+          latencyMs: data.latencyMs || elapsed,
+          timestamp: Date.now(),
+          message: data.message,
+          i2cStatus: data.i2cStatus,
+          gpioStatus: data.gpioStatus,
+          lcdStatus: data.lcdStatus,
+        });
+        return data;
+      }
+    } catch {
+      setLastPingResult({
+        latencyMs: undefined,
+        timestamp: Date.now(),
+        message: 'Ping failed: hardware daemon unreachable',
+      });
+    } finally {
+      setTimeout(() => setIsPinging(false), 250);
+    }
+  }, []);
+
+  const clearLcd = useCallback(async () => {
+    await fetch('/api/lcd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lines: ['', ''] }),
+    });
+  }, []);
+
+  const connectHardware = useCallback(async (force?: boolean) => {
+    setIsProbingHardware(true);
+    try {
+      const res = await fetch('/api/hardware/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      });
+      const data = await res.json();
+      if (data.state) {
+        setState(data.state);
+      }
+      return data;
+    } catch {
+      return { connected: false };
+    } finally {
+      setTimeout(() => setIsProbingHardware(false), 300);
+    }
+  }, []);
+
+  const probeHardware = useCallback(async () => {
+    setIsProbingHardware(true);
+    try {
+      const res = await fetch('/api/hardware/probe', { method: 'POST' });
+      const data = await res.json();
+      const stateRes = await fetch('/api/state');
+      if (stateRes.ok) {
+        const freshState = await stateRes.json();
+        setState(freshState);
+      }
+      return data;
+    } catch {
+      return { connected: false, detected: false, message: 'Failed to contact hardware daemon.' };
+    } finally {
+      setTimeout(() => setIsProbingHardware(false), 400);
+    }
+  }, []);
+
   return {
     state,
     isConnected,
+    isProbingHardware,
+    isPinging,
+    lastPingResult,
     terminalOutputs,
     telemetryHistory,
     toggleGpioPin,
@@ -330,6 +477,10 @@ export function useDigitalTwin() {
     setMatrixPattern,
     triggerJoystick,
     toggleSenseHatConnection,
+    connectHardware,
+    probeHardware,
+    pingHardware,
+    clearLcd,
     runProgram,
     stopProgram,
     resetHardware,

@@ -241,7 +241,7 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
                 <button
                   onClick={() =>
                     handleCopy(
-                      'sudo apt update && sudo apt install -y nodejs npm git gcc python3 python3-pip i2c-tools\ngit clone https://github.com/lab/pi-digit.git\ncd pi-digit\nnpm install\nnpm run build\nnpm start',
+                      'sudo apt update && sudo apt install -y nodejs npm git gcc python3 python3-pip i2c-tools\ngit clone https://github.com/waqarsqureshi/pi-digit.git\ncd pi-digit\nnpm install\nnpm run build\nnpm start',
                       'all_cmds'
                     )
                   }
@@ -271,7 +271,7 @@ sudo apt update
 sudo apt install -y nodejs npm git gcc python3 python3-pip i2c-tools
 
 # 2. Clone the Pi-Digit repository
-git clone https://github.com/lab/pi-digit.git
+git clone https://github.com/waqarsqureshi/pi-digit.git
 cd pi-digit
 
 # 3. Install npm dependencies and build the applet
