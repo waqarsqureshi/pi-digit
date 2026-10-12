@@ -122,9 +122,3 @@ python3 test-codes/test_led_matrix.py
 ```bash
 python3 test-codes/test_sensors.py
 ```
-
-## Try asking
-
-- What does `pi_emulator.py` do differently from the real Sense HAT library?
-- How does the hardware daemon sync the browser UI with physical Raspberry Pi sensors?
-- Which files implement the LCD, GPIO, joystick, and PWM behavior in this project?
