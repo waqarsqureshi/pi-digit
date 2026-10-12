@@ -147,7 +147,12 @@ function startHardwareDaemon() {
     });
 
     hwDaemonProc.stderr?.on('data', (d) => {
-      console.error(`[HwDaemon Error] ${d.toString().trim()}`);
+      const errStr = d.toString().trim();
+      if (errStr.includes('Notice:') || errStr.includes('ModuleNotFoundError')) {
+        console.log(`[HwDaemon Info] ${errStr}`);
+      } else {
+        console.error(`[HwDaemon Error] ${errStr}`);
+      }
     });
 
     hwDaemonProc.on('exit', () => {

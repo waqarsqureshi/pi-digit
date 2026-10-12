@@ -65,7 +65,7 @@ def write_fb_pixels(fb_path, pixel_list):
 
 last_sense_load_err = ""
 
-def get_native_sense_hat():
+def get_native_sense_hat(verbose=False):
     """Safely loads system sense_hat package, bypassing any local project files."""
     global last_sense_load_err
     orig_path = list(sys.path)
@@ -85,7 +85,8 @@ def get_native_sense_hat():
                 ef.write(f"SenseHat load error: {last_sense_load_err}\n")
         except Exception:
             pass
-        print(f"[Pi Hardware Daemon] Notice: Native Sense HAT driver check: {last_sense_load_err}", file=sys.stderr)
+        if verbose:
+            print(f"[Pi Hardware Daemon] Notice: Native Sense HAT driver check: {last_sense_load_err}")
     finally:
         sys.path = orig_path
     return None
@@ -240,6 +241,7 @@ def main():
         print("[Pi Hardware Daemon] Native Sense HAT not detected. Operating in bridging/standby mode.")
 
     last_poll_sec = 0
+    last_retry_time = int(time.time())
 
     while True:
         try:
@@ -330,17 +332,20 @@ def main():
                         json.dump(data, f)
                     os.replace(temp_file, SENSE_FILE)
 
-                # Retry detecting Sense HAT every 5 seconds
-                if int(time.time()) % 5 == 0:
-                    sense = get_native_sense_hat()
+                # Retry detecting Sense HAT every 30 seconds
+                if now_sec - last_retry_time > 30:
+                    last_retry_time = now_sec
+                    sense = get_native_sense_hat(verbose=False)
                     if sense:
                         has_sense_hat = True
                         print("[Pi Hardware Daemon] Native Sense HAT reconnected!")
 
             elif not has_sense_hat:
-                # Retry detecting Sense HAT or framebuffer device every 5 seconds
-                if int(time.time()) % 5 == 0:
-                    sense = get_native_sense_hat()
+                now_sec = int(time.time())
+                # Retry detecting Sense HAT or framebuffer device every 30 seconds
+                if now_sec - last_retry_time > 30:
+                    last_retry_time = now_sec
+                    sense = get_native_sense_hat(verbose=False)
                     fb_path = get_fb_device()
                     if sense:
                         has_sense_hat = True
