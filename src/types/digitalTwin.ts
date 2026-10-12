@@ -108,10 +108,44 @@ export interface EmulatedPeripheral {
   state: number; // 0 or 1, or pwm duty
 }
 
+export interface SubsystemStatus {
+  ok: boolean;
+  message: string;
+  detail?: string;
+  error?: string;
+  path?: string;
+  addresses?: string[];
+}
+
+export interface HardwareDiagnosticReport {
+  timestamp: number;
+  overallStatus: 'ok' | 'partial' | 'error' | 'simulated';
+  isPhysicalPi: boolean;
+  piModel?: string;
+  system?: {
+    os?: string;
+    architecture?: string;
+    pythonVersion?: string;
+    user?: string;
+    uid?: number;
+    isRoot?: boolean;
+  };
+  ledMatrix: SubsystemStatus;
+  sensors: SubsystemStatus;
+  joystick: SubsystemStatus;
+  i2c: SubsystemStatus;
+  gpio: SubsystemStatus;
+  pwm?: SubsystemStatus;
+  recommendations: string[];
+  terminalLog: string;
+}
+
 export interface FullHardwareState {
   connected: boolean;
   isPhysicalPi: boolean;
   isSenseHatConnected: boolean; // True if physical Sense HAT detected; false for simulation mode
+  hardwareLinkStatus?: 'full' | 'partial' | 'disconnected' | 'simulated';
+  diagnostics?: HardwareDiagnosticReport;
   simulationMode: boolean;      // True if running simulated fallback
   systemMode?: 'simulation' | 'emulation'; // Explicit system operating mode
   sensorSource: 'hardware' | 'simulated';

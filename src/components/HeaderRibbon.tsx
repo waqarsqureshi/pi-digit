@@ -10,6 +10,7 @@ interface HeaderRibbonProps {
   selectedMode: 'simulation' | 'emulation';
   onSetMode: (mode: 'simulation' | 'emulation') => void;
   onConnectHardware?: () => void;
+  onOpenDiagnostics?: () => void;
   isProbingHardware?: boolean;
   githubUrl?: string;
 }
@@ -23,10 +24,12 @@ export function HeaderRibbon({
   selectedMode,
   onSetMode,
   onConnectHardware,
+  onOpenDiagnostics,
   isProbingHardware = false,
   githubUrl = 'https://github.com/waqarsqureshi/pi-digit',
 }: HeaderRibbonProps) {
   const isPhysicalConnected = state?.isSenseHatConnected ?? false;
+  const isPartial = isPhysicalConnected && state?.hardwareLinkStatus === 'partial';
 
   return (
     <header className="bg-[#840038] text-white shadow-md sticky top-0 z-40">
@@ -125,10 +128,24 @@ export function HeaderRibbon({
             <ChevronDown className="w-3 h-3 text-[#840038] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {selectedMode === 'emulation' && !isPhysicalConnected && (
-            <span className="hidden sm:inline-flex text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-200 border border-rose-300/30 uppercase">
-              NOT CONNECTED
-            </span>
+          {selectedMode === 'emulation' && (
+            isPhysicalConnected ? (
+              isPartial ? (
+                <span className="hidden sm:inline-flex text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 border border-amber-300 uppercase items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-700 animate-pulse" />
+                  <span>HW: LEDS ACTIVE</span>
+                </span>
+              ) : (
+                <span className="hidden sm:inline-flex text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-400 text-emerald-950 border border-emerald-300 uppercase items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 animate-pulse" />
+                  <span>HW CONNECTED</span>
+                </span>
+              )
+            ) : (
+              <span className="hidden sm:inline-flex text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-200 border border-rose-300/30 uppercase">
+                NOT CONNECTED
+              </span>
+            )
           )}
         </div>
       </div>
@@ -138,35 +155,60 @@ export function HeaderRibbon({
         <div
           className={`border-t border-b px-4 sm:px-6 py-2.5 text-xs font-mono flex flex-wrap items-center justify-between gap-3 ${
             isPhysicalConnected
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
-              : 'bg-amber-50 border-amber-200 text-amber-950'
+              ? isPartial
+                ? 'bg-amber-50 border-amber-200 text-amber-950'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+              : 'bg-rose-50 border-rose-200 text-rose-950'
           }`}
         >
           <div className="flex items-center gap-2">
             {isPhysicalConnected ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              isPartial ? (
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              )
             ) : (
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             )}
             <span>
               {isPhysicalConnected ? (
-                <>
-                  <strong>Emulation Mode (Live Hardware Linked):</strong> Real-time signals streaming from physical Raspberry Pi 4 Sense HAT (HTS221, LPS25H, LSM9DS1).
-                </>
+                isPartial ? (
+                  <>
+                    <strong>Emulation Mode (Partial Link: 8×8 RGB LEDs Online):</strong> Physical LED matrix (/dev/fb1) is responding. Environmental sensors are in standby mode.
+                  </>
+                ) : (
+                  <>
+                    <strong>Emulation Mode (Live Hardware Fully Linked):</strong> Real-time signals streaming from physical Raspberry Pi 4 Sense HAT (HTS221, LPS25H, LSM9DS1).
+                  </>
+                )
               ) : (
                 <>
-                  <strong>Emulation Mode (Hardware Standby / Disconnected):</strong> No physical Raspberry Pi 4 or Sense HAT detected. Connect your board or click Probe Hardware below.
+                  <strong>Emulation Mode (Hardware Standby / Disconnected):</strong> No physical Raspberry Pi 4 or Sense HAT detected. Connect your board or click Diagnostics below.
                 </>
               )}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenDiagnostics && (
+              <button
+                onClick={onOpenDiagnostics}
+                className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors cursor-pointer border ${
+                  isPartial
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
+                    : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300'
+                }`}
+              >
+                Diagnostics
+              </button>
+            )}
+
             {onConnectHardware && (
               <button
                 onClick={onConnectHardware}
                 disabled={isProbingHardware}
-                className={`px-3 py-1 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-xs ${
+                className={`px-3 py-1 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ${
                   isPhysicalConnected
                     ? 'bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300'
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -181,7 +223,7 @@ export function HeaderRibbon({
                   <>
                     <Zap className={`w-3.5 h-3.5 ${isPhysicalConnected ? 'text-emerald-600' : 'text-amber-300'}`} />
                     <span>
-                      {isPhysicalConnected ? 'Disconnect Hardware' : '⚡ Connect to Hardware (Probe Pins)'}
+                      {isPhysicalConnected ? 'Disconnect Hardware' : '⚡ Connect to Hardware'}
                     </span>
                   </>
                 )}
@@ -191,7 +233,7 @@ export function HeaderRibbon({
             {!isPhysicalConnected && (
               <button
                 onClick={() => onSetMode('simulation')}
-                className="px-2.5 py-1 rounded text-[11px] bg-[#840038] hover:bg-[#6c002e] text-white font-medium shrink-0 transition-colors shadow-xs"
+                className="px-2.5 py-1 rounded text-[11px] bg-[#840038] hover:bg-[#6c002e] text-white font-medium shrink-0 transition-colors shadow-xs cursor-pointer"
               >
                 Switch to Simulation
               </button>

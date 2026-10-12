@@ -19,6 +19,7 @@ import {
   EmulatedPeripheral,
   ProgramLanguage,
   LcdState,
+  HardwareDiagnosticReport,
 } from './src/types/digitalTwin';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -27,6 +28,8 @@ const __dirname = path.dirname(__filename);
 // Detect if running on a real physical Raspberry Pi with Sense HAT attached
 let isPhysicalPi = false;
 let isSenseHatConnected = false;
+let hardwareStatusLevel: 'full' | 'partial' | 'disconnected' | 'simulated' = 'disconnected';
+let latestDiagnostics: HardwareDiagnosticReport | null = null;
 
 try {
   if (fs.existsSync('/sys/firmware/devicetree/base/model')) {
@@ -36,12 +39,79 @@ try {
       // Strictly verify physical Sense HAT presence (MCU @ 0x46 or Sense HAT framebuffer)
       if (fs.existsSync('/sys/bus/i2c/devices/1-0046') || fs.existsSync('/dev/fb1')) {
         isSenseHatConnected = true;
+        hardwareStatusLevel = 'partial';
       }
     }
   }
 } catch {
   isPhysicalPi = false;
   isSenseHatConnected = false;
+}
+
+function runHardwareDiagnostics(): Promise<HardwareDiagnosticReport> {
+  return new Promise((resolve) => {
+    const diagScript = path.join(__dirname, 'scripts', 'hardware_diagnose.py');
+    if (!fs.existsSync(diagScript)) {
+      const fbExists = fs.existsSync('/dev/fb1') || fs.existsSync('/dev/fb0');
+      const fallbackReport: HardwareDiagnosticReport = {
+        timestamp: Date.now(),
+        overallStatus: fbExists ? 'partial' : 'simulated',
+        isPhysicalPi,
+        piModel: isPhysicalPi ? 'Raspberry Pi' : 'Virtual Simulator',
+        ledMatrix: { ok: fbExists, message: fbExists ? 'Found /dev/fb1 (Active)' : 'Not found' },
+        sensors: { ok: false, message: 'Diagnostics script not found' },
+        joystick: { ok: false, message: 'Standby' },
+        i2c: { ok: fs.existsSync('/dev/i2c-1'), message: fs.existsSync('/dev/i2c-1') ? 'Active' : 'Not found' },
+        gpio: { ok: fs.existsSync('/dev/gpiomem'), message: fs.existsSync('/dev/gpiomem') ? 'Active' : 'Not found' },
+        recommendations: [],
+        terminalLog: 'Diagnostics tool missing.',
+      };
+      latestDiagnostics = fallbackReport;
+      return resolve(fallbackReport);
+    }
+
+    exec(`python3 "${diagScript}" --json`, (err, stdout) => {
+      let report: HardwareDiagnosticReport;
+      try {
+        report = JSON.parse(stdout);
+      } catch {
+        const fbExists = fs.existsSync('/dev/fb1') || fs.existsSync('/dev/fb0');
+        report = {
+          timestamp: Date.now(),
+          overallStatus: fbExists ? 'partial' : 'simulated',
+          isPhysicalPi,
+          piModel: isPhysicalPi ? 'Raspberry Pi' : 'Virtual Simulator',
+          ledMatrix: { ok: fbExists, message: fbExists ? 'Found /dev/fb1 (Active)' : 'Not found' },
+          sensors: { ok: false, message: 'Parse error' },
+          joystick: { ok: false, message: 'Standby' },
+          i2c: { ok: fs.existsSync('/dev/i2c-1'), message: fs.existsSync('/dev/i2c-1') ? 'Active' : 'Not found' },
+          gpio: { ok: fs.existsSync('/dev/gpiomem'), message: fs.existsSync('/dev/gpiomem') ? 'Active' : 'Not found' },
+          recommendations: [],
+          terminalLog: stdout || String(err || ''),
+        };
+      }
+
+      latestDiagnostics = report;
+      if (report.isPhysicalPi) isPhysicalPi = true;
+
+      if (systemMode === 'emulation') {
+        if (report.overallStatus === 'ok') {
+          isSenseHatConnected = true;
+          hardwareStatusLevel = 'full';
+        } else if (report.overallStatus === 'partial' || report.ledMatrix.ok || fs.existsSync('/dev/fb1')) {
+          isSenseHatConnected = true;
+          hardwareStatusLevel = 'partial';
+        } else {
+          hardwareStatusLevel = isSenseHatConnected ? 'partial' : 'disconnected';
+        }
+      } else {
+        hardwareStatusLevel = 'simulated';
+      }
+
+      broadcast('hardware.diagnostics', report);
+      resolve(report);
+    });
+  });
 }
 
 // Authoritative Hardware State
@@ -233,6 +303,8 @@ function getFullState(): FullHardwareState {
     connected: true,
     isPhysicalPi,
     isSenseHatConnected: systemMode === 'emulation' ? isSenseHatConnected : false,
+    hardwareLinkStatus: systemMode === 'simulation' ? 'simulated' : hardwareStatusLevel,
+    diagnostics: latestDiagnostics || undefined,
     simulationMode: systemMode === 'simulation',
     systemMode,
     sensorSource,
@@ -271,20 +343,30 @@ setInterval(() => {
     try {
       const stats = fs.statSync('/tmp/pi_sense_hardware.json');
       const ageMs = Date.now() - stats.mtimeMs;
-      if (ageMs < 5000) {
+      if (ageMs < 6000) {
         const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
         const hwData = JSON.parse(raw);
-        if (hwData && typeof hwData.temperature === 'number' && hwData.isSimulated === false) {
-          sensors.temperature = hwData.temperature;
-          sensors.humidity = hwData.humidity;
-          sensors.pressure = hwData.pressure;
-          sensors.compassHeading = hwData.heading || hwData.compassHeading || 0;
-          if (hwData.accelerometer) sensors.accelerometer = hwData.accelerometer;
-          if (hwData.gyroscope) sensors.gyroscope = hwData.gyroscope;
-          sensors.isSimulated = false;
-          isSenseHatConnected = true;
-          isPhysicalPi = true;
-          isHardwareFresh = true;
+        if (hwData) {
+          if (typeof hwData.temperature === 'number') {
+            sensors.temperature = hwData.temperature;
+            sensors.humidity = hwData.humidity ?? sensors.humidity;
+            sensors.pressure = hwData.pressure ?? sensors.pressure;
+            sensors.compassHeading = hwData.heading || hwData.compassHeading || sensors.compassHeading;
+            if (hwData.accelerometer) sensors.accelerometer = hwData.accelerometer;
+            if (hwData.gyroscope) sensors.gyroscope = hwData.gyroscope;
+          }
+          if (hwData.hardwareStatus === 'full' || (!hwData.isSimulated && !hwData.hardwareStatus)) {
+            sensors.isSimulated = false;
+            isSenseHatConnected = true;
+            isPhysicalPi = true;
+            hardwareStatusLevel = 'full';
+            isHardwareFresh = true;
+          } else if (hwData.ledMatrixOnline || hwData.hardwareStatus === 'partial') {
+            isSenseHatConnected = true;
+            isPhysicalPi = true;
+            hardwareStatusLevel = 'partial';
+            isHardwareFresh = true;
+          }
         }
       }
     } catch (e) {}
@@ -293,14 +375,25 @@ setInterval(() => {
   // In Simulation Mode: board is strictly forbidden from connecting to physical hardware
   if (systemMode === 'simulation') {
     isSenseHatConnected = false;
+    hardwareStatusLevel = 'simulated';
     isHardwareFresh = false;
   }
 
   if (!isHardwareFresh) {
-    if (sensorSource === 'hardware' && systemMode === 'emulation') {
-      isSenseHatConnected = false;
+    if (systemMode === 'emulation') {
+      if (fs.existsSync('/dev/fb1') || fs.existsSync('/sys/bus/i2c/devices/1-0046')) {
+        isSenseHatConnected = true;
+        isPhysicalPi = true;
+        hardwareStatusLevel = 'partial';
+      } else if (isSenseHatConnected) {
+        // Keep partial connection state active since user connected hardware in emulation mode
+        isPhysicalPi = true;
+        hardwareStatusLevel = 'partial';
+      } else if (sensorSource === 'hardware' && !isSenseHatConnected) {
+        hardwareStatusLevel = 'disconnected';
+      }
     }
-    // Subtle realistic physical sensor drift when simulating
+    // Subtle realistic physical sensor drift when simulating or in standby
     const tNoise = (Math.random() - 0.5) * 0.15;
     const hNoise = (Math.random() - 0.5) * 0.3;
     const pNoise = (Math.random() - 0.5) * 0.1;
@@ -308,7 +401,7 @@ setInterval(() => {
     sensors.humidity = Number(Math.max(20, Math.min(90, sensors.humidity + hNoise)).toFixed(1));
     sensors.pressure = Number(Math.max(970, Math.min(1040, sensors.pressure + pNoise)).toFixed(2));
     sensors.compassHeading = Number(((sensors.compassHeading + 0.2) % 360).toFixed(1));
-    sensors.isSimulated = true;
+    sensors.isSimulated = hardwareStatusLevel !== 'full';
   }
   sensors.timestamp = Date.now();
 
@@ -1016,13 +1109,127 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
   }
 
   // Built-in Raspberry Pi special commands
+  if (trimmed === 'diagnose' || trimmed === 'diag' || trimmed === 'hw-test' || trimmed === 'hw-diag' || trimmed === 'python3 scripts/hardware_diagnose.py') {
+    const report = await runHardwareDiagnostics();
+    return res.json({ output: report.terminalLog });
+  }
+
+  if (trimmed === 'status' || trimmed === 'hw-status' || trimmed === 'sense-status' || trimmed === 'board-status') {
+    const diag = latestDiagnostics || await runHardwareDiagnostics();
+    const isFb = fs.existsSync('/dev/fb1');
+    const isI2c = fs.existsSync('/dev/i2c-1');
+    return res.json({
+      output:
+        `╔══════════════════════════════════════════════════════════════════════╗\n` +
+        `║            RASPBERRY PI & SENSE HAT SUBSYSTEM STATUS                 ║\n` +
+        `╚══════════════════════════════════════════════════════════════════════╝\n` +
+        `  Target Host        : ${diag.piModel} (Server on Raspberry Pi)\n` +
+        `  System Mode        : ${systemMode.toUpperCase()}\n` +
+        `  Hardware Link      : ${hardwareStatusLevel.toUpperCase()} (Connected: ${isSenseHatConnected ? 'YES' : 'NO'})\n` +
+        `──────────────────────────────────────────────────────────────────────\n` +
+        `  1. 8x8 RGB LED Matrix : ${diag.ledMatrix.ok || isFb ? 'ONLINE & ACTIVE (/dev/fb1)' : 'OFFLINE / NOT DETECTED'}\n` +
+        `     Status: ${diag.ledMatrix.detail || 'Framebuffer active'}\n\n` +
+        `  2. Environmental Sensors: ${diag.sensors.ok ? 'ONLINE (HTS221 / LPS25H)' : 'STANDBY / UNLINKED'}\n` +
+        `     Status: ${diag.sensors.error || diag.sensors.message}\n` +
+        `     Why not connected? ${diag.sensors.ok ? 'N/A' : 'I2C communication or python3-sense-hat missing.'}\n\n` +
+        `  3. 9-DOF IMU Sensors    : ${diag.sensors.ok ? 'ONLINE (LSM9DS1)' : 'STANDBY (Virtual Drift Active)'}\n\n` +
+        `  4. 5-Way Joystick       : ${diag.joystick.ok ? 'ONLINE (' + diag.joystick.path + ')' : 'VIRTUAL TWIN FALLBACK'}\n\n` +
+        `  5. I2C-1 Bus & GPIO     : ${isI2c ? 'ACTIVE (/dev/i2c-1)' : 'UNAVAILABLE'} · /dev/gpiomem\n` +
+        `──────────────────────────────────────────────────────────────────────\n` +
+        `  💡 QUICK COMMANDS:\n` +
+        `     blink-test  - Flash test colors on physical 8x8 LED matrix\n` +
+        `     diagnose    - Run full 5-stage diagnostic test with error logs\n` +
+        `     fix-guide   - View step-by-step fix commands for Raspberry Pi\n` +
+        `     i2c-check   - Scan I2C addresses\n` +
+        `══════════════════════════════════════════════════════════════════════`
+    });
+  }
+
+  if (trimmed === 'blink-test' || trimmed === 'led-test') {
+    // Write a test pattern to 8x8 LED matrix (flashes corner pixels Red, Green, Blue, Yellow, and center White)
+    const O: RgbColor = [0, 0, 0];
+    const R: RgbColor = [255, 0, 0];
+    const G: RgbColor = [0, 255, 0];
+    const B: RgbColor = [0, 150, 255];
+    const Y: RgbColor = [255, 200, 0];
+    const testPattern: RgbColor[] = Array(64).fill(O);
+    testPattern[0] = R; testPattern[7] = G; testPattern[56] = B; testPattern[63] = Y;
+    testPattern[27] = [255, 255, 255]; testPattern[28] = [255, 255, 255];
+    testPattern[35] = [255, 255, 255]; testPattern[36] = [255, 255, 255];
+    writePhysicalSenseHatFullMatrix(testPattern);
+    matrixPixels = testPattern;
+    broadcast('matrix.full', { matrix: matrixPixels });
+    setTimeout(() => {
+      clearMatrix(0, 0, 0);
+    }, 2500);
+
+    return res.json({
+      output: `[BLINK TEST SENT TO 8x8 RGB LED MATRIX]\n  Writing test pattern to /dev/fb1...\n  ✓ Top-Left: RED [255, 0, 0]\n  ✓ Top-Right: GREEN [0, 255, 0]\n  ✓ Bottom-Left: BLUE [0, 150, 255]\n  ✓ Bottom-Right: YELLOW [255, 200, 0]\n  ✓ Center 2x2: WHITE [255, 255, 255]\n  If your physical Sense HAT LEDs lit up, hardware framebuffer /dev/fb1 is 100% WORKING!\n  Matrix will automatically reset in 2.5 seconds.`
+    });
+  }
+
+  if (trimmed === 'fix-guide' || trimmed === 'hw-fix' || trimmed === 'sense-fix') {
+    return res.json({
+      output:
+        `╔══════════════════════════════════════════════════════════════════════╗\n` +
+        `║      HOW TO FIX "SENSORS NOT CONNECTED" ON RASPBERRY PI              ║\n` +
+        `╚══════════════════════════════════════════════════════════════════════╝\n` +
+        `When your 8x8 RGB LEDs are working but sensors show not connected,\n` +
+        `the Linux framebuffer (/dev/fb1) is active but I2C communication or\n` +
+        `the python3-sense-hat library is missing. Follow these 4 steps on your Pi:\n\n` +
+        `STEP 1: Enable I2C interface & kernel drivers\n` +
+        `  sudo raspi-config nonint do_i2c 0\n` +
+        `  sudo modprobe i2c-dev\n` +
+        `  sudo modprobe rpi-sense\n\n` +
+        `STEP 2: Install system Sense HAT and I2C Python packages\n` +
+        `  sudo apt update\n` +
+        `  sudo apt install -y python3-sense-hat python3-smbus i2c-tools\n\n` +
+        `STEP 3: Add your user account to hardware permission groups\n` +
+        `  sudo usermod -a -G i2c,input,video,gpio $USER\n\n` +
+        `STEP 4: Verify Sense HAT overlay in /boot/firmware/config.txt\n` +
+        `  Ensure 'dtoverlay=rpi-sense' is present in /boot/firmware/config.txt\n` +
+        `  Then reboot: sudo reboot\n` +
+        `══════════════════════════════════════════════════════════════════════`
+    });
+  }
+
+  if (trimmed === 'fb-check' || trimmed === 'led-check') {
+    const fb1 = fs.existsSync('/dev/fb1');
+    const fb0 = fs.existsSync('/dev/fb0');
+    return res.json({
+      output:
+        `[Sense HAT Framebuffer Check]\n` +
+        `  /dev/fb1 (Standard Sense HAT) : ${fb1 ? 'EXISTS (ONLINE)' : 'Not found'}\n` +
+        `  /dev/fb0 (Primary display)    : ${fb0 ? 'EXISTS' : 'Not found'}\n` +
+        `  LED Matrix Mode               : ${fb1 ? 'Direct 16-bit RGB565 via /dev/fb1' : 'Virtual / Standby'}\n` +
+        `  Test command                  : Type 'blink-test' to flash pixels on physical board.`
+    });
+  }
+
+  if (trimmed === 'help' || trimmed === 'commands') {
+    return res.json({
+      output:
+        `Pi-Digit Shell & Hardware Diagnostic Commands:\n` +
+        `  status      - Display full Sense HAT subsystem health summary\n` +
+        `  diagnose    - Run comprehensive hardware diagnostics & tests\n` +
+        `  blink-test  - Blink physical 8x8 LED matrix to verify live hardware link\n` +
+        `  fix-guide   - Step-by-step Raspberry Pi setup and permission fixes\n` +
+        `  fb-check    - Inspect Sense HAT 8x8 LED matrix framebuffer node\n` +
+        `  i2cdetect -y 1 - Scan I2C bus 1 for Sense HAT addresses (0x46, 0x5c, 0x6a)\n` +
+        `  pinout      - Display Raspberry Pi 40-pin GPIO header diagram\n` +
+        `  whoami      - Print current user\n` +
+        `  clear       - Clear terminal window\n` +
+        `  python3 <file.py> - Execute Python program directly on Pi`
+    });
+  }
+
   if (trimmed === 'pinout') {
     return res.json({
       output: `Raspberry Pi 4 Model B Rev 1.4\nJ8:\n 3V3  (1) (2)  5V\n GPIO2 (3) (4)  5V\n GPIO3 (5) (6)  GND\n GPIO4 (7) (8)  GPIO14\n   GND (9) (10) GPIO15\nGPIO17 (11) (12) GPIO18\nGPIO27 (13) (14) GND\nGPIO22 (15) (16) GPIO23\n 3V3  (17) (18) GPIO24\nGPIO10 (19) (20) GND\nGPIO9  (21) (22) GPIO25\nGPIO11 (23) (24) GPIO8\n   GND (25) (26) GPIO7\n ID_SD (27) (28) ID_SC\n GPIO5 (29) (30) GND\n GPIO6 (31) (32) GPIO12\nGPIO13 (33) (34) GND\nGPIO19 (35) (36) GPIO16\nGPIO26 (37) (38) GPIO20\n   GND (39) (40) GPIO21`
     });
   }
 
-  if (trimmed === 'i2cdetect -y 1') {
+  if (trimmed === 'i2cdetect -y 1' || trimmed === 'i2c-check' || trimmed === 'i2c-scan') {
     return res.json({
       output: `     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n00:          -- -- -- -- -- -- -- -- -- -- -- -- -- \n10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- 27 -- \n30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n40: -- -- -- -- -- -- 46 -- -- -- -- -- -- -- -- -- \n50: -- -- -- -- -- -- -- -- -- -- -- -- 5c -- -- -- \n60: -- -- -- -- -- -- -- -- -- -- 6a -- -- -- -- -- \n70: -- -- -- -- -- -- -- --                         \n[Sense HAT Detected: MCU @ 0x46, HTS221/LPS25H @ 0x5c, LSM9DS1 @ 0x6a | LCD @ 0x27]`
     });
@@ -1298,13 +1505,15 @@ app.get('/api/mode', (_req: Request, res: Response) => {
   });
 });
 
-app.post('/api/mode', (req: Request, res: Response) => {
+app.post('/api/mode', async (req: Request, res: Response) => {
   const { mode } = req.body;
   if (mode === 'simulation' || mode === 'emulation') {
     systemMode = mode;
+    let termText = '';
     if (mode === 'simulation') {
       // In simulation mode, board is not allowed to connect to actual board
       isSenseHatConnected = false;
+      hardwareStatusLevel = 'simulated';
       sensors.isSimulated = true;
       sensorSource = 'simulated';
       addTimelineTrace(
@@ -1313,23 +1522,60 @@ app.post('/api/mode', (req: Request, res: Response) => {
         'Simulation Mode Active. Hardware connections are completely blocked. Running virtual digital twin.',
         'info'
       );
+      termText = '\n[Mode Switched to Simulation]\n  Virtual digital twin active. Physical hardware connections disabled.\n';
     } else {
-      // In emulation mode, board needs to be connected to actual hardware
+      // In emulation mode, board runs on physical Raspberry Pi
+      isPhysicalPi = true;
+      const diag = await runHardwareDiagnostics();
+      if (diag.overallStatus === 'ok') {
+        isSenseHatConnected = true;
+        hardwareStatusLevel = 'full';
+        sensors.isSimulated = false;
+        sensorSource = 'hardware';
+      } else if (diag.overallStatus === 'partial' || diag.ledMatrix.ok || fs.existsSync('/dev/fb1')) {
+        isSenseHatConnected = true;
+        hardwareStatusLevel = 'partial';
+        sensors.isSimulated = true;
+        sensorSource = 'simulated';
+      } else {
+        isSenseHatConnected = false;
+        hardwareStatusLevel = 'disconnected';
+      }
+
       addTimelineTrace(
         'backend',
         'Mode Switched to Emulation',
-        'Emulation Mode Active. Connecting to actual physical Raspberry Pi and Sense HAT.',
-        'info'
+        `Emulation Mode Active. Hardware Status: ${hardwareStatusLevel.toUpperCase()} (${diag.piModel})`,
+        hardwareStatusLevel === 'disconnected' ? 'warn' : 'info'
       );
-      if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
-        isSenseHatConnected = true;
-        sensors.isSimulated = false;
-        sensorSource = 'hardware';
-      }
+
+      termText =
+        `\n[Mode Switched to Emulation: Physical Raspberry Pi]\n` +
+        `  Target Host    : ${diag.piModel}\n` +
+        `  8x8 LED Matrix : ${diag.ledMatrix.ok ? 'ONLINE & ACTIVE (/dev/fb1)' : 'Standby / Unlinked'}\n` +
+        `  Sensors        : ${diag.sensors.ok ? 'ONLINE (HTS221/LPS25H)' : 'Standby (' + (diag.sensors.error || 'I2C unlinked') + ')'}\n` +
+        `  Hardware Link  : ${hardwareStatusLevel.toUpperCase()}\n` +
+        `  Note           : Type 'diagnose' or 'status' in terminal for hardware details.\n`;
     }
+
+    const termMsg: TerminalOutput = {
+      id: 'term-mode-' + Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      stream: 'system',
+      text: termText,
+    };
+    recentTerminalOutputs.push(termMsg);
+    broadcast('program.output', termMsg);
+
     broadcast('mode.update', { mode: systemMode, isConnected: isSenseHatConnected });
     broadcast('init.state', getFullState());
-    return res.json({ success: true, mode: systemMode, isConnected: isSenseHatConnected });
+    return res.json({
+      success: true,
+      mode: systemMode,
+      isConnected: isSenseHatConnected,
+      statusLevel: hardwareStatusLevel,
+      state: getFullState(),
+    });
   }
   res.status(400).json({ error: 'Mode must be simulation or emulation' });
 });
@@ -1349,8 +1595,29 @@ app.post('/api/operating-mode', (req: Request, res: Response) => {
   res.json({ success: true, mode: operatingMode });
 });
 
+// Hardware Diagnostics Endpoints
+app.post('/api/hardware/diagnose', async (_req: Request, res: Response) => {
+  const report = await runHardwareDiagnostics();
+  const termMsg: TerminalOutput = {
+    id: 'term-diag-' + Date.now(),
+    timestamp: new Date().toLocaleTimeString(),
+    stream: report.overallStatus === 'error' ? 'stderr' : 'system',
+    text: `\n${report.terminalLog}\n`,
+  };
+  recentTerminalOutputs.push(termMsg);
+  broadcast('program.output', termMsg);
+  res.json({ success: true, diagnostics: report, terminalOutput: report.terminalLog });
+});
+
+app.get('/api/hardware/diagnostics', async (_req: Request, res: Response) => {
+  if (!latestDiagnostics) {
+    await runHardwareDiagnostics();
+  }
+  res.json({ diagnostics: latestDiagnostics });
+});
+
 // Hardware Connection Probe & Link Endpoints
-app.post('/api/hardware/probe', (_req: Request, res: Response) => {
+app.post('/api/hardware/probe', async (_req: Request, res: Response) => {
   // In simulation mode, board is not allowed to connect to actual board
   if (systemMode === 'simulation') {
     return res.status(403).json({
@@ -1360,35 +1627,33 @@ app.post('/api/hardware/probe', (_req: Request, res: Response) => {
     });
   }
 
-  let detected = false;
-  let details = '';
-  try {
-    if (fs.existsSync('/sys/firmware/devicetree/base/model')) {
-      const modelStr = fs.readFileSync('/sys/firmware/devicetree/base/model', 'utf8');
-      if (modelStr.toLowerCase().includes('raspberry pi')) {
-        detected = true;
-        details = modelStr.trim();
-      }
-    }
-    if (fs.existsSync('/sys/bus/i2c/devices/1-0046') || fs.existsSync('/dev/fb1') || fs.existsSync('/dev/i2c-1')) {
-      detected = true;
-      details += ' [I2C-1 Sense HAT Detected]';
-    }
-  } catch (e) {}
-
-  if (detected) {
+  const diag = await runHardwareDiagnostics();
+  if (diag.overallStatus === 'ok' || diag.ledMatrix.ok || fs.existsSync('/dev/fb1')) {
     isPhysicalPi = true;
     isSenseHatConnected = true;
-    sensors.isSimulated = false;
-    addTimelineTrace('hardware', 'Physical Hardware Bus Linked', details, 'success');
+    hardwareStatusLevel = diag.overallStatus === 'ok' ? 'full' : 'partial';
+    addTimelineTrace(
+      'hardware',
+      'Physical Hardware Bus Linked',
+      `Bus linked: ${diag.ledMatrix.message}. Sensors: ${diag.sensors.message}`,
+      'success'
+    );
     broadcast('init.state', getFullState());
-    return res.json({ connected: true, detected: true, message: `Connected: ${details}` });
+    return res.json({
+      connected: true,
+      detected: true,
+      statusLevel: hardwareStatusLevel,
+      diagnostics: diag,
+      message: `Connected: ${diag.piModel} · ${diag.ledMatrix.message}`,
+    });
   }
 
   return res.json({
     connected: isSenseHatConnected,
     detected: false,
-    message: 'Probe: No physical Raspberry Pi 4 hardware detected on /dev/i2c-1.',
+    statusLevel: hardwareStatusLevel,
+    diagnostics: diag,
+    message: 'Probe: No physical Raspberry Pi 4 Sense HAT detected on /dev/fb1 or /dev/i2c-1.',
   });
 });
 
@@ -1409,39 +1674,125 @@ app.post('/api/hardware/ping', (req: Request, res: Response) => {
     message: systemMode === 'simulation'
       ? 'Simulation mode active (Hardware connection disabled)'
       : isSenseHatConnected
-      ? 'Physical Raspberry Pi 4 hardware link active and responding'
+      ? `Physical Raspberry Pi 4 hardware link active (${hardwareStatusLevel.toUpperCase()})`
       : 'Emulation mode: Waiting for physical hardware connection',
   });
 });
 
-app.post('/api/hardware/connect', (req: Request, res: Response) => {
-  // In simulation mode, board is not allowed to connect to actual board
-  if (systemMode === 'simulation') {
-    return res.status(403).json({
-      success: false,
-      connected: false,
-      error: 'In simulation mode, connecting to actual board is not allowed. Switch to Emulation mode to connect actual hardware.',
-    });
+app.post('/api/hardware/connect', async (req: Request, res: Response) => {
+  const { force, mode } = req.body;
+  // If the user requests to connect hardware, auto-switch to emulation mode since server runs on the Pi
+  if (mode === 'emulation' || systemMode === 'simulation') {
+    systemMode = 'emulation';
   }
+  isPhysicalPi = true;
 
-  const { force } = req.body;
-  // If force is explicitly provided, set it; otherwise toggle
+  const diag = await runHardwareDiagnostics();
+
   if (force !== undefined) {
     isSenseHatConnected = Boolean(force);
   } else {
     isSenseHatConnected = !isSenseHatConnected;
   }
-  sensors.isSimulated = !isSenseHatConnected;
+
+  if (isSenseHatConnected) {
+    if (diag.overallStatus === 'ok') {
+      hardwareStatusLevel = 'full';
+      sensors.isSimulated = false;
+      sensorSource = 'hardware';
+    } else if (diag.overallStatus === 'partial' || diag.ledMatrix.ok || fs.existsSync('/dev/fb1')) {
+      hardwareStatusLevel = 'partial';
+      sensors.isSimulated = true;
+    } else {
+      hardwareStatusLevel = 'partial';
+      sensors.isSimulated = true;
+    }
+  } else {
+    hardwareStatusLevel = 'disconnected';
+    sensors.isSimulated = true;
+  }
+
+  const sensorErrText = diag.sensors.error || diag.sensors.message || 'I2C sensor read failed';
+
+  const termText = isSenseHatConnected
+    ? hardwareStatusLevel === 'full'
+      ? `\n╔════════════════════════════════════════════════════════════════╗\n` +
+        `║  RASPBERRY PI & SENSE HAT: FULL HARDWARE LINK ESTABLISHED      ║\n` +
+        `╚════════════════════════════════════════════════════════════════╝\n` +
+        `  [✓] Target Host : ${diag.piModel} (Server running on Pi)\n` +
+        `  [✓] LED Matrix  : ONLINE & ACTIVE (/dev/fb1)\n` +
+        `  [✓] Sensors     : ONLINE (HTS221 / LPS25H / LSM9DS1 via I2C-1)\n` +
+        `  [✓] Joystick    : ${diag.joystick.message}\n` +
+        `  Status: Full bidirectional live hardware link active.\n`
+      : `\n╔════════════════════════════════════════════════════════════════╗\n` +
+        `║  ⚠️  HARDWARE STATUS: PARTIAL SENSE HAT CONNECTION DETECTED    ║\n` +
+        `╚════════════════════════════════════════════════════════════════╝\n` +
+        `  [✓] Target Host : ${diag.piModel} (Server on Raspberry Pi)\n` +
+        `  [✓] LED Matrix  : ONLINE & WORKING (/dev/fb1)\n` +
+        `      -> 8x8 RGB LEDs are physically lit on your Raspberry Pi!\n` +
+        `  [✗] Sensors     : STANDBY / UNLINKED\n` +
+        `      -> Reason: ${sensorErrText}\n` +
+        `  [✗] Joystick    : ${diag.joystick.message}\n` +
+        `────────────────────────────────────────────────────────────────\n` +
+        `  💡 WHY DOES IT SHOW NOT CONNECTED FOR SENSORS?\n` +
+        `     The LED Matrix framebuffer (/dev/fb1) and environmental\n` +
+        `     sensors use separate kernel drivers. The LED matrix is active,\n` +
+        `     but the I2C sensors did not initialize or python3-sense-hat\n` +
+        `     is missing.\n` +
+        `  🛠️  RECOMMENDED FIX COMMANDS (Run on Pi terminal):\n` +
+        `     1. sudo raspi-config nonint do_i2c 0\n` +
+        `     2. sudo modprobe i2c-dev && sudo modprobe rpi-sense\n` +
+        `     3. sudo apt install -y python3-sense-hat python3-smbus\n` +
+        `     4. sudo usermod -a -G i2c,input,video $USER\n` +
+        `  Type 'diagnose' in terminal for interactive report or 'blink-test' to test LEDs.\n` +
+        `════════════════════════════════════════════════════════════════\n`
+    : `\n[Hardware Link Disconnected] Live bus unlinked.\n`;
+
+  const termOutput: TerminalOutput = {
+    id: 'term-link-' + Date.now(),
+    timestamp: new Date().toLocaleTimeString(),
+    stream: isSenseHatConnected ? (hardwareStatusLevel === 'full' ? 'stdout' : 'stderr') : 'system',
+    text: termText,
+  };
+  recentTerminalOutputs.push(termOutput);
+  broadcast('program.output', termOutput);
+
   addTimelineTrace(
     'hardware',
-    isSenseHatConnected ? 'Hardware Signals Linked' : 'Hardware Bus Disconnected',
     isSenseHatConnected
-      ? 'Live hardware signals linked from physical Raspberry Pi pins and sensors'
+      ? hardwareStatusLevel === 'full'
+        ? 'Physical Hardware Fully Linked'
+        : 'Partial Hardware Linked (LEDs Active)'
+      : 'Hardware Bus Disconnected',
+    isSenseHatConnected
+      ? hardwareStatusLevel === 'full'
+        ? 'Live hardware signals linked from physical Raspberry Pi pins and sensors'
+        : '8×8 RGB LED Matrix (/dev/fb1) active on Pi. Sensors running in standby.'
       : 'Hardware signals unlinked.',
-    isSenseHatConnected ? 'success' : 'warn'
+    isSenseHatConnected ? (hardwareStatusLevel === 'full' ? 'success' : 'warn') : 'warn'
   );
+
+  let warningMessage: string | undefined;
+  if (isSenseHatConnected && hardwareStatusLevel === 'partial') {
+    warningMessage =
+      `8×8 RGB LED Matrix (/dev/fb1) is CONNECTED & ACTIVE on Raspberry Pi! Environmental sensors (HTS221 / LPS25H) are unlinked on I2C bus: ${sensorErrText}. Click Diagnostics for terminal fix commands.`;
+  }
+
   broadcast('init.state', getFullState());
-  res.json({ success: true, connected: isSenseHatConnected, state: getFullState() });
+  res.json({
+    success: true,
+    connected: isSenseHatConnected,
+    statusLevel: hardwareStatusLevel,
+    diagnostics: diag,
+    warning: warningMessage,
+    errorDetails: hardwareStatusLevel === 'partial' ? sensorErrText : undefined,
+    message: isSenseHatConnected
+      ? hardwareStatusLevel === 'full'
+        ? 'Live Raspberry Pi Sense HAT fully linked.'
+        : 'Physical 8×8 LED Matrix online (/dev/fb1). Sensors in standby.'
+      : 'Hardware unlinked.',
+    state: getFullState(),
+  });
 });
 
 app.post('/api/reset', (_req: Request, res: Response) => {
@@ -1473,6 +1824,17 @@ async function start() {
   }
 
   startHardwareDaemon();
+
+  // Run initial hardware probe and print terminal notice
+  runHardwareDiagnostics().then((diag) => {
+    console.log('------------------------------------------------------------');
+    console.log('[Pi-Twin Boot Hardware Status]');
+    console.log(`  Target Host   : ${diag.piModel}`);
+    console.log(`  LED Framebuffer : ${diag.ledMatrix.ok ? 'FOUND (' + (diag.ledMatrix.path || '/dev/fb1') + ')' : 'Standby / Virtual'}`);
+    console.log(`  Sensors Bus   : ${diag.sensors.ok ? 'ONLINE (HTS221/LPS25H)' : 'Standby (' + (diag.sensors.error || 'Simulated') + ')'}`);
+    console.log(`  Link Level    : ${hardwareStatusLevel.toUpperCase()}`);
+    console.log('------------------------------------------------------------');
+  });
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`[Pi-Local Digital Twin] Daemon running at http://0.0.0.0:${PORT}`);

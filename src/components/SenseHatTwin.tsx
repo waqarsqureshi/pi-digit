@@ -26,12 +26,14 @@ interface SenseHatTwinProps {
   lastJoystick: JoystickEvent | null;
   isSenseHatConnected: boolean;
   selectedMode: 'simulation' | 'emulation';
+  hardwareLinkStatus?: 'full' | 'partial' | 'disconnected' | 'simulated';
   onSetPixel: (x: number, y: number, color: RgbColor) => void;
   onClearMatrix: (color?: RgbColor) => void;
   onSetMatrixPattern: (matrix: RgbColor[]) => void;
   onTriggerJoystick: (direction: JoystickDirection) => void;
   onInjectSensors: (values: Partial<SenseHatSensors>) => void;
   onConnectHardware?: () => void;
+  onOpenDiagnostics?: () => void;
   isProbingHardware?: boolean;
 }
 
@@ -53,12 +55,14 @@ export function SenseHatTwin({
   lastJoystick,
   isSenseHatConnected,
   selectedMode,
+  hardwareLinkStatus,
   onSetPixel,
   onClearMatrix,
   onSetMatrixPattern,
   onTriggerJoystick,
   onInjectSensors,
   onConnectHardware,
+  onOpenDiagnostics,
   isProbingHardware = false,
 }: SenseHatTwinProps) {
   const [selectedColor, setSelectedColor] = useState<RgbColor>([255, 0, 0]);
@@ -71,6 +75,7 @@ export function SenseHatTwin({
 
   // In emulation mode with physical board connected vs standalone
   const isPhysicalLinked = selectedMode === 'emulation' && isSenseHatConnected;
+  const isPartial = isPhysicalLinked && hardwareLinkStatus === 'partial';
   const isEmulationDisconnected = selectedMode === 'emulation' && !isSenseHatConnected;
 
   // Animate and highlight keypad button when an event arrives (physical hardware or interactive)
@@ -144,15 +149,22 @@ export function SenseHatTwin({
       {/* Panel Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 gap-2">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-sm sm:text-base font-bold text-slate-900">
               Sense HAT Twin
             </h2>
             {isPhysicalLinked ? (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                <span>● LIVE HW LINK</span>
-              </span>
+              isPartial ? (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                  <span>● LIVE HW: LEDS ACTIVE</span>
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <span>● LIVE HW LINK</span>
+                </span>
+              )
             ) : selectedMode === 'emulation' ? (
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
                 <span>● EMULATOR ACTIVE</span>
@@ -168,8 +180,18 @@ export function SenseHatTwin({
           </span>
         </div>
 
-        {selectedMode === 'simulation' && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {onOpenDiagnostics && selectedMode === 'emulation' && (
+            <button
+              onClick={onOpenDiagnostics}
+              className="px-2 py-0.5 text-xs font-mono rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+              title="Inspect hardware buses and error report"
+            >
+              <span>Diagnostics</span>
+            </button>
+          )}
+
+          {selectedMode === 'simulation' && (
             <button
               onClick={() => setShowInjectModal(!showInjectModal)}
               className="px-2 py-0.5 text-xs font-mono rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors flex items-center gap-1 shadow-xs"
@@ -178,16 +200,64 @@ export function SenseHatTwin({
               <Sliders className="w-3 h-3 text-amber-600" />
               <span>Perturb</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Partial Hardware Connection Banner */}
+      {isPartial && (
+        <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs font-mono text-amber-950 flex items-start justify-between gap-2.5">
+          <div className="flex items-start gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <strong className="font-bold text-amber-900 block">
+                Physical 8×8 RGB LED Matrix is Active & Working:
+              </strong>
+              <span>
+                Your LED matrix is directly linked to your Raspberry Pi (/dev/fb1). Environmental sensors are in standby mode. Click below to inspect I2C sensor diagnostics.
+              </span>
+            </div>
+          </div>
+          {onOpenDiagnostics && (
+            <button
+              onClick={onOpenDiagnostics}
+              className="px-2.5 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-[11px] shrink-0 transition-colors cursor-pointer"
+            >
+              View Diagnostics
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Prominent warning when in Emulation mode and NOT connected */}
       {isEmulationDisconnected && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs font-mono text-rose-800 flex items-start gap-2.5">
-          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <strong>Sense HAT is NOT CONNECTED:</strong> Running in Emulation Mode without a physical Raspberry Pi Sense HAT board. No LEDs can be turned on and sensors are inactive (showing no data). Connect physical hardware to the Raspberry Pi 4 I2C bus or switch to <strong>Simulation Mode</strong>.
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs font-mono text-rose-800 flex items-start justify-between gap-2.5">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <strong>Sense HAT is NOT CONNECTED:</strong> Running in Emulation Mode without active Raspberry Pi Sense HAT link.
+              Click "Connect Hardware" to probe buses, or view diagnostics to see why the board is unlinked.
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onOpenDiagnostics && (
+              <button
+                onClick={onOpenDiagnostics}
+                className="px-2 py-1 rounded bg-rose-200 hover:bg-rose-300 text-rose-950 font-bold text-[11px] transition-colors cursor-pointer"
+              >
+                Diagnostics
+              </button>
+            )}
+            {onConnectHardware && (
+              <button
+                onClick={onConnectHardware}
+                disabled={isProbingHardware}
+                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Zap className="w-3 h-3 text-amber-300" />
+                <span>Connect</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -578,7 +648,7 @@ export function SenseHatTwin({
                 <span className="text-xs font-mono text-slate-500">°C</span>
               </div>
               <div className="text-[10px] text-slate-500 font-mono mt-1">
-                {sensors.isSimulated ? 'Simulated' : 'HTS221 (HW)'} · {((sensors.temperature * 9) / 5 + 32).toFixed(1)}°F
+                {sensors.isSimulated ? (isPartial ? 'Standby (I2C unlinked)' : 'Simulated') : 'HTS221 (HW)'} · {((sensors.temperature * 9) / 5 + 32).toFixed(1)}°F
               </div>
             </div>
 
@@ -597,7 +667,7 @@ export function SenseHatTwin({
                 <span className="text-xs font-mono text-slate-500">% rH</span>
               </div>
               <div className="text-[10px] text-slate-500 font-mono mt-1">
-                {sensors.isSimulated ? 'Simulated' : 'HTS221 (HW)'}
+                {sensors.isSimulated ? (isPartial ? 'Standby (I2C unlinked)' : 'Simulated') : 'HTS221 (HW)'}
               </div>
             </div>
 
@@ -616,7 +686,7 @@ export function SenseHatTwin({
                 <span className="text-xs font-mono text-slate-500">hPa</span>
               </div>
               <div className="text-[10px] text-slate-500 font-mono mt-1">
-                {sensors.isSimulated ? 'Simulated' : 'LPS25H (HW)'}
+                {sensors.isSimulated ? (isPartial ? 'Standby (I2C unlinked)' : 'Simulated') : 'LPS25H (HW)'}
               </div>
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
   TelemetryRecord,
   SenseHatSensors,
   EmulatedPeripheral,
+  HardwareDiagnosticReport,
 } from '../types/digitalTwin';
 
 export function useDigitalTwin() {
@@ -53,6 +54,13 @@ export function useDigitalTwin() {
         switch (msg.type) {
           case 'init.state':
             setState(msg.payload);
+            if (msg.payload?.diagnostics) {
+              setDiagnostics(msg.payload.diagnostics);
+            }
+            break;
+
+          case 'hardware.diagnostics':
+            setDiagnostics(msg.payload);
             break;
 
           case 'gpio.update':
@@ -387,6 +395,40 @@ export function useDigitalTwin() {
     lcdStatus?: string;
   } | null>(null);
 
+  // Hardware Diagnostics and Error Alert States
+  const [diagnostics, setDiagnostics] = useState<HardwareDiagnosticReport | null>(null);
+  const [isRunningDiag, setIsRunningDiag] = useState(false);
+  const [isDiagModalOpen, setIsDiagModalOpen] = useState(false);
+  const [hardwareWarning, setHardwareWarning] = useState<string | null>(null);
+
+  const runHardwareDiagnostics = useCallback(async () => {
+    setIsRunningDiag(true);
+    try {
+      const res = await fetch('/api/hardware/diagnose', { method: 'POST' });
+      const data = await res.json();
+      if (data.diagnostics) {
+        setDiagnostics(data.diagnostics);
+        if (data.diagnostics.overallStatus === 'partial') {
+          setHardwareWarning(
+            'Partial hardware link: The 8×8 RGB LED Matrix (/dev/fb1) is active and synced! Environmental sensors are in standby mode.'
+          );
+        } else if (data.diagnostics.overallStatus === 'error') {
+          setHardwareWarning(
+            'Hardware connection issue detected: Check diagnostics for troubleshooting commands.'
+          );
+        } else {
+          setHardwareWarning(null);
+        }
+        return data.diagnostics;
+      }
+    } catch (e) {
+      console.error('Failed to run diagnostics', e);
+    } finally {
+      setIsRunningDiag(false);
+    }
+    return null;
+  }, []);
+
   const pingHardware = useCallback(async () => {
     setIsPinging(true);
     const start = performance.now();
@@ -434,17 +476,59 @@ export function useDigitalTwin() {
       const res = await fetch('/api/hardware/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force }),
+        body: JSON.stringify({ force, mode: 'emulation' }),
       });
       const data = await res.json();
       if (data.state) {
         setState(data.state);
       }
+      if (data.diagnostics) {
+        setDiagnostics(data.diagnostics);
+      }
+      if (data.warning) {
+        setHardwareWarning(data.warning);
+      } else if (data.statusLevel === 'partial') {
+        const errDetail = data.errorDetails ? ` (${data.errorDetails})` : '';
+        setHardwareWarning(
+          `Notice: 8×8 RGB LED Matrix (/dev/fb1) is CONNECTED & ACTIVE on your Raspberry Pi! Environmental sensors (HTS221/LPS25H) are unlinked${errDetail}. Click Diagnostics for fix commands.`
+        );
+      } else if (data.connected === false && force !== false) {
+        setHardwareWarning(
+          data.error || 'Hardware not detected on /dev/fb1 or /dev/i2c-1. Click Diagnostics for troubleshooting commands.'
+        );
+      } else {
+        setHardwareWarning(null);
+      }
       return data;
     } catch {
+      setHardwareWarning('Failed to connect to Raspberry Pi hardware daemon on port 3000.');
       return { connected: false };
     } finally {
       setTimeout(() => setIsProbingHardware(false), 300);
+    }
+  }, []);
+
+  const setSystemMode = useCallback(async (mode: 'simulation' | 'emulation') => {
+    try {
+      const res = await fetch('/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      const data = await res.json();
+      if (data.state) {
+        setState(data.state);
+      }
+      if (data.statusLevel === 'partial' && mode === 'emulation') {
+        setHardwareWarning(
+          'Notice: 8×8 RGB LED Matrix is active on Raspberry Pi (/dev/fb1). Environmental sensors are in standby mode.'
+        );
+      } else if (mode === 'simulation') {
+        setHardwareWarning(null);
+      }
+      return data;
+    } catch (err) {
+      console.error('[Pi-Digit] Failed to set system mode:', err);
     }
   }, []);
 
@@ -453,6 +537,9 @@ export function useDigitalTwin() {
     try {
       const res = await fetch('/api/hardware/probe', { method: 'POST' });
       const data = await res.json();
+      if (data.diagnostics) {
+        setDiagnostics(data.diagnostics);
+      }
       const stateRes = await fetch('/api/state');
       if (stateRes.ok) {
         const freshState = await stateRes.json();
@@ -496,6 +583,13 @@ export function useDigitalTwin() {
     isProbingHardware,
     isPinging,
     lastPingResult,
+    diagnostics,
+    isRunningDiag,
+    isDiagModalOpen,
+    setIsDiagModalOpen,
+    hardwareWarning,
+    setHardwareWarning,
+    runHardwareDiagnostics,
     terminalOutputs,
     telemetryHistory,
     toggleGpioPin,
@@ -508,6 +602,7 @@ export function useDigitalTwin() {
     connectHardware,
     probeHardware,
     pingHardware,
+    setSystemMode,
     setSensorSource,
     setOperatingMode,
     clearLcd,

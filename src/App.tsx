@@ -1,4 +1,10 @@
 import { useState } from 'react';
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  Wrench,
+} from 'lucide-react';
 import { useDigitalTwin } from './hooks/useDigitalTwin';
 import { HeaderRibbon } from './components/HeaderRibbon';
 import { SenseHatTwin } from './components/SenseHatTwin';
@@ -8,11 +14,13 @@ import { HardwareStatusPanel } from './components/HardwareStatusPanel';
 import { CodeStudio } from './components/CodeStudio';
 import { DataLoggerView } from './components/DataLoggerView';
 import { HelpAndGuide } from './components/HelpAndGuide';
+import { HardwareDiagnosticModal } from './components/HardwareDiagnosticModal';
 
 export default function App() {
   const [activeView, setActiveView] = useState<'workspace' | 'help'>('help');
   const [showSensorGraphs, setShowSensorGraphs] = useState(false);
   const [selectedMode, setSelectedMode] = useState<'simulation' | 'emulation'>('simulation');
+  const [copiedMainError, setCopiedMainError] = useState(false);
 
   const {
     state,
@@ -35,12 +43,37 @@ export default function App() {
     lastPingResult,
     isPinging,
     clearLcd,
+    setSystemMode,
     setSensorSource,
     setOperatingMode,
+    diagnostics,
+    isRunningDiag,
+    isDiagModalOpen,
+    setIsDiagModalOpen,
+    hardwareWarning,
+    setHardwareWarning,
+    runHardwareDiagnostics,
   } = useDigitalTwin();
 
   const handleSetMode = (mode: 'simulation' | 'emulation') => {
     setSelectedMode(mode);
+    setSystemMode(mode);
+  };
+
+  const handleCopyMainError = () => {
+    const errorText = `[Pi-Digit Hardware Error Report]
+Timestamp: ${new Date().toISOString()}
+Target: ${state?.system.model || 'Raspberry Pi 4'}
+Mode: ${selectedMode.toUpperCase()}
+Bus Link Status: ${state?.hardwareLinkStatus || 'unknown'}
+Sense HAT Connected: ${state?.isSenseHatConnected ? 'YES' : 'NO'}
+LED Matrix (/dev/fb1): ${diagnostics?.ledMatrix.message || 'Online'}
+Sensors: ${diagnostics?.sensors.error || diagnostics?.sensors.message || 'I2C communication unlinked'}
+Joystick: ${diagnostics?.joystick.message || 'Standby'}
+Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-config nonint do_i2c 0'}`;
+    navigator.clipboard?.writeText(errorText);
+    setCopiedMainError(true);
+    setTimeout(() => setCopiedMainError(false), 2500);
   };
 
   const handleToggleSensorGraphs = () => {
@@ -64,6 +97,7 @@ export default function App() {
         selectedMode={selectedMode}
         onSetMode={handleSetMode}
         onConnectHardware={() => connectHardware()}
+        onOpenDiagnostics={() => setIsDiagModalOpen(true)}
         isProbingHardware={isProbingHardware}
         githubUrl="https://github.com/waqarsqureshi/pi-digit"
       />
@@ -86,7 +120,7 @@ export default function App() {
                   </div>
                   <button
                     onClick={() => setShowSensorGraphs(false)}
-                    className="text-xs font-mono text-slate-500 hover:text-slate-800 px-2 py-0.5 rounded bg-slate-100 border border-slate-200"
+                    className="text-xs font-mono text-slate-500 hover:text-slate-800 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 cursor-pointer"
                   >
                     Hide ✕
                   </button>
@@ -98,6 +132,54 @@ export default function App() {
                   isPhysicalConnected={state.isSenseHatConnected}
                   onRunLoggerScript={handleRunLoggerScript}
                 />
+              </div>
+            )}
+
+            {/* ON-SCREEN HARDWARE STATUS ALERT BANNER (PARTIAL HW OR EMULATION NOTICE) */}
+            {selectedMode === 'emulation' && state.hardwareLinkStatus === 'partial' && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 sm:p-4 text-xs font-mono text-amber-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs animate-in fade-in">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <strong className="text-sm font-bold text-amber-900">
+                        Hardware Status: 8×8 RGB LED Matrix is Active & Working on Raspberry Pi
+                      </strong>
+                      <span className="px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-bold">
+                        /dev/fb1 ONLINE
+                      </span>
+                    </div>
+                    <p className="mt-1 text-slate-700 text-xs leading-relaxed">
+                      Physical LEDs are connected and respond to your Python scripts. Environmental sensors (HTS221/LPS25H) are unlinked on the I2C bus ({diagnostics?.sensors.error || 'I2C communication in standby'}). Click below to copy the error report or view fix commands.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  <button
+                    onClick={handleCopyMainError}
+                    className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-950 font-bold border border-amber-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs text-xs"
+                    title="Copy formatted diagnostic error report to clipboard"
+                  >
+                    {copiedMainError ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Copy Error Report</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setIsDiagModalOpen(true)}
+                    className="px-3 py-1.5 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold transition-colors cursor-pointer shadow-2xs text-xs flex items-center gap-1.5"
+                  >
+                    <Wrench className="w-3.5 h-3.5 text-amber-800" />
+                    <span>View Diagnostics</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -132,6 +214,10 @@ export default function App() {
                   onToggleSensorSource={setSensorSource}
                   operatingMode={state.operatingMode}
                   onToggleOperatingMode={setOperatingMode}
+                  diagnostics={diagnostics}
+                  onOpenDiagnostics={() => setIsDiagModalOpen(true)}
+                  hardwareWarning={hardwareWarning}
+                  onDismissWarning={() => setHardwareWarning(null)}
                 />
 
                 {/* Sense HAT Emulator (8x8 RGB LED Matrix & Telemetry) */}
@@ -141,12 +227,14 @@ export default function App() {
                   lastJoystick={state.lastJoystickEvent}
                   isSenseHatConnected={state.isSenseHatConnected}
                   selectedMode={selectedMode}
+                  hardwareLinkStatus={state.hardwareLinkStatus}
                   onSetPixel={setPixel}
                   onClearMatrix={clearMatrix}
                   onSetMatrixPattern={setMatrixPattern}
                   onTriggerJoystick={triggerJoystick}
                   onInjectSensors={injectSensors}
                   onConnectHardware={connectHardware}
+                  onOpenDiagnostics={() => setIsDiagModalOpen(true)}
                   isProbingHardware={isProbingHardware}
                 />
 
@@ -205,6 +293,18 @@ export default function App() {
           </a>
         </div>
       </footer>
+
+      {/* Hardware Diagnostics & Error Report Modal */}
+      <HardwareDiagnosticModal
+        isOpen={isDiagModalOpen}
+        onClose={() => setIsDiagModalOpen(false)}
+        diagnostics={diagnostics}
+        onRunDiagnostics={runHardwareDiagnostics}
+        isRunningDiag={isRunningDiag}
+        onSendToTerminal={(logText) => {
+          execBashCommand(`echo "${logText.replace(/"/g, '\\"')}"`);
+        }}
+      />
     </div>
   );
 }
