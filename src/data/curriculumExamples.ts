@@ -28,13 +28,69 @@ print("Hello Raspberry Pi Student! Ready for physical computing.")
 `,
   },
   {
-    id: 'py-02-sense-pixel',
-    title: '2. Sense HAT Red Pixel',
+    id: 'py-02-moving-name',
+    title: '2. Moving Name on Display (Marquee)',
+    language: 'python',
+    category: 'Sense HAT Display',
+    description: 'Scrolls student name across the Sense HAT 8x8 RGB matrix and 16x2 Character LCD in moving marquee format.',
+    filename: '02_moving_name.py',
+    code: `# 02. Moving Name Marquee on Display (Sense HAT & LCD)
+# Scrolls student name across the 8x8 RGB LED display and 16x2 LCD in moving format!
+from pi_twin import SenseHat, LCD
+import time
+
+sense = SenseHat()
+sense.clear()
+lcd = LCD()
+
+# -------------------------------------------------------------
+# STUDENT TASK: Change "Raspberry Pi" to your own name!
+# -------------------------------------------------------------
+student_name = "Raspberry Pi"
+
+print("=" * 60)
+print("  Pi-Digit: Moving Name Marquee Display on Sense HAT & LCD")
+print("=" * 60)
+print(f"Displaying moving name: '{student_name}'")
+print("Tip: Change student_name to display your own name in moving format!")
+
+# Part 1: Scroll name across the 8x8 RGB LED matrix display
+# scroll_speed: time in seconds between each column shift (0.07s is smooth)
+# text_colour: [R, G, B] color of the text (Warm Amber Gold: [255, 180, 0])
+# back_colour: [R, G, B] background color (Deep Navy Blue: [0, 0, 25])
+print("\\n[Display 1] Scrolling marquee across Sense HAT 8x8 RGB LED matrix...")
+sense.show_message(
+    student_name,
+    scroll_speed=0.07,
+    text_colour=[255, 180, 0],   # Warm Amber / Gold
+    back_colour=[0, 0, 25]       # Deep Navy Blue
+)
+
+time.sleep(0.3)
+sense.clear()
+
+# Part 2: Scroll name across 16x2 Character LCD display
+print("[Display 2] Scrolling moving text across 16x2 Character LCD...")
+lcd.clear()
+lcd.write("Student Name:")
+banner = f"*** {student_name} ***   "
+for i in range(len(banner)):
+    lcd.set_cursor(1, 0)
+    chunk = (banner[i:] + banner[:i])[:16]
+    lcd.write(chunk)
+    time.sleep(0.12)
+
+print(f"\\nFinished scrolling '{student_name}'. Display cleared.")
+`,
+  },
+  {
+    id: 'py-03-sense-pixel',
+    title: '3. Sense HAT Red Pixel',
     language: 'python',
     category: 'Sense HAT',
     description: 'Sets a single RGB LED on the 8x8 matrix to vibrant red at coordinate (0, 0).',
     filename: '02_red_pixel.py',
-    code: `# 02. Sense HAT Single Pixel
+    code: `# 03. Sense HAT Single Pixel
 # Sets pixel at coordinate (X=0, Y=0) to Red: RGB(255, 0, 0)
 
 from pi_twin import SenseHat
@@ -58,13 +114,13 @@ print("Pixel demo complete!")
 `,
   },
   {
-    id: 'py-03-colour-cycle',
-    title: '3. RGB Colour Cycle',
+    id: 'py-04-colour-cycle',
+    title: '4. RGB Colour Cycle',
     language: 'python',
     category: 'Sense HAT',
     description: 'Fills the entire 8x8 LED matrix with primary and secondary color cycles.',
     filename: '03_color_cycle.py',
-    code: `# 03. RGB Colour Cycle
+    code: `# 04. RGB Colour Cycle
 # Cycles full 8x8 matrix through Red, Green, Blue, Amber, Cyan, Magenta
 
 from pi_twin import SenseHat
@@ -93,13 +149,13 @@ print("Cycle finished. Matrix cleared.")
 `,
   },
   {
-    id: 'py-04-display-image',
-    title: '4. Display 8x8 Image',
+    id: 'py-05-display-image',
+    title: '5. Display 8x8 Image',
     language: 'python',
     category: 'Sense HAT',
     description: 'Renders an iconic 8x8 pixel art bitmap of the Raspberry Pi logo.',
     filename: '04_pi_image.py',
-    code: `# 04. Display 8x8 Raspberry Pi Bitmap
+    code: `# 05. Display 8x8 Raspberry Pi Bitmap
 
 from pi_twin import SenseHat
 import time
@@ -130,13 +186,13 @@ print("Bitmap displayed successfully.")
 `,
   },
   {
-    id: 'py-05-read-temp',
-    title: '5. Read Temperature',
+    id: 'py-06-read-temp',
+    title: '6. Read Temperature',
     language: 'python',
     category: 'Environmental Sensors',
     description: 'Polls the onboard temperature sensor and prints formatted readings.',
     filename: '05_read_temp.py',
-    code: `# 05. Read Temperature Telemetry
+    code: `# 06. Read Temperature Telemetry
 from pi_twin import SenseHat
 import time
 
@@ -158,13 +214,13 @@ print("Temperature telemetry monitoring complete.")
 `,
   },
   {
-    id: 'py-06-read-humidity',
-    title: '6. Read Humidity',
+    id: 'py-07-read-humidity',
+    title: '7. Read Humidity',
     language: 'python',
     category: 'Environmental Sensors',
     description: 'Reads relative humidity from the capacitive environmental sensor.',
     filename: '06_read_humidity.py',
-    code: `# 06. Read Humidity Telemetry
+    code: `# 07. Read Humidity Telemetry
 from pi_twin import SenseHat
 import time
 
@@ -180,13 +236,13 @@ print("Relative humidity logging finished.")
 `,
   },
   {
-    id: 'py-07-read-pressure',
-    title: '7. Read Barometric Pressure',
+    id: 'py-08-read-pressure',
+    title: '8. Read Barometric Pressure',
     language: 'python',
     category: 'Environmental Sensors',
     description: 'Reads atmospheric barometric pressure in hectopascals (hPa).',
     filename: '07_read_pressure.py',
-    code: `# 07. Read Barometric Pressure
+    code: `# 08. Read Barometric Pressure
 from pi_twin import SenseHat
 import time
 
@@ -204,13 +260,13 @@ print("Barometer sample batch complete.")
 `,
   },
   {
-    id: 'py-08-read-accel',
-    title: '8. Read Accelerometer (IMU)',
+    id: 'py-09-read-accel',
+    title: '9. Read Accelerometer (IMU)',
     language: 'python',
     category: 'IMU Motion',
     description: 'Reads 3-axis acceleration vectors (X, Y, Z) and pitch/roll tilt.',
     filename: '08_read_accel.py',
-    code: `# 08. Read IMU 3-Axis Accelerometer
+    code: `# 09. Read IMU 3-Axis Accelerometer
 from pi_twin import SenseHat
 import time
 
@@ -226,13 +282,13 @@ print("IMU telemetry stream complete.")
 `,
   },
   {
-    id: 'py-09-read-joystick',
-    title: '9. Read Joystick Events',
+    id: 'py-10-read-joystick',
+    title: '10. Read Joystick Events',
     language: 'python',
     category: 'Sense HAT Input',
     description: 'Inspects 5-way joystick state (Up, Down, Left, Right, Centre).',
     filename: '09_read_joystick.py',
-    code: `# 09. Read Joystick 5-Way Switch Events
+    code: `# 10. Read Joystick 5-Way Switch Events
 from pi_twin import SenseHat
 import time
 
@@ -253,16 +309,19 @@ print("Joystick listener demonstration ready.")
 `,
   },
   {
-    id: 'py-10-pwm-waveform',
-    title: '10. Hardware PWM Generator (Pin 18)',
+    id: 'py-11-pwm-waveform',
+    title: '11. Hardware PWM Generator (Pin 18)',
     language: 'python',
     category: 'PWM Signal Generation',
     description: 'Generates Pulse-Width Modulation signals on GPIO 18 (PWM0, Pin 12) streaming to the live oscilloscope.',
     filename: '10_pwm_waveform.py',
-    code: `# 10. Hardware PWM Signal Generator (GPIO 18 / PWM0)
+    code: `# 11. Hardware PWM Signal Generator (GPIO 18 / PWM0)
 # Generates Pulse-Width Modulation signals and streams live waveform to the Web App Oscilloscope!
 import time
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    from pi_twin import GPIO
 
 PWM_PIN = 18  # BCM 18 is Hardware PWM0 (Physical Pin 12)
 
@@ -301,13 +360,13 @@ print("PWM waveform demonstration completed.")
 `,
   },
   {
-    id: 'py-11-joystick-listener',
-    title: '11. Sense HAT Joystick Events',
+    id: 'py-12-joystick-listener',
+    title: '12. Sense HAT Joystick Events',
     language: 'python',
     category: 'Sense HAT Input',
     description: 'Captures 5-way joystick interactions (Up, Down, Left, Right, Centre).',
     filename: '09_joystick_events.py',
-    code: `# 11. Read Sense HAT 5-Way Joystick Events
+    code: `# 12. Read Sense HAT 5-Way Joystick Events
 from pi_twin import SenseHat
 import time
 
@@ -328,13 +387,13 @@ print("Joystick listener finished.")
 `,
   },
   {
-    id: 'py-12-lcd-hello',
-    title: '12. External LCD Display',
+    id: 'py-13-lcd-hello',
+    title: '13. External LCD Display',
     language: 'python',
     category: 'LCD Peripherals',
     description: 'Writes 16x2 / 20x4 alphanumeric text to external character LCD.',
     filename: '12_lcd_display.py',
-    code: `# 12. External LCD Viewport
+    code: `# 13. External LCD Viewport
 # Sends text commands to 16x2 / 20x4 I2C Character Display
 
 from pi_twin import LCD
@@ -353,13 +412,13 @@ print("LCD text synchronized on browser viewport.")
 `,
   },
   {
-    id: 'py-13-combined-system',
-    title: '13. Combined Sensor + LED + LCD',
+    id: 'py-14-combined-system',
+    title: '14. Combined Sensor + LED + LCD',
     language: 'python',
     category: 'Integrated Projects',
     description: 'Reads temperature, updates LCD, sets GPIO 17, and displays on Sense HAT.',
     filename: '13_combined_system.py',
-    code: `# 13. Combined Classroom Capstone
+    code: `# 14. Combined Classroom Capstone
 # Integrates Sense HAT, GPIO, and LCD in a unified control loop
 
 from pi_twin import SenseHat, GPIO, LCD

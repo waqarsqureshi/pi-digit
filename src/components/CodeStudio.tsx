@@ -572,10 +572,16 @@ export function CodeStudio({
               <div className="px-2.5 py-1.5 bg-[#252526] border-b border-[#2d2d2d] flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono shrink-0">
                 <span className="text-slate-400 shrink-0 font-medium">Quick:</span>
                 <button
+                  onClick={() => handleRunBashCommand('python3 02_moving_name.py')}
+                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-amber-300 border border-[#3e3e42] transition-colors shrink-0 font-bold"
+                >
+                  python3 02_moving_name.py (Name)
+                </button>
+                <button
                   onClick={() => handleRunBashCommand('python3 10_pwm_waveform.py')}
                   className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
                 >
-                  python3 10_pwm_waveform.py
+                  python3 10_pwm_waveform.py (PWM)
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('python3 02_red_pixel.py')}

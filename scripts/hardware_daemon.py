@@ -39,6 +39,55 @@ def get_native_sense_hat():
         sys.path = orig_path
     return None
 
+def get_pwm_alt(channel):
+    """Returns correct alternate function for Raspberry Pi hardware PWM."""
+    return "a5" if int(channel) in (18, 19) else "a0"
+
+def apply_hardware_pwm(channel, duty, freq, active):
+    """
+    Directly drives physical Hardware PWM on Raspberry Pi 4 (GPIO 18 / PWM0 · Pin 12).
+    Uses Linux kernel sysfs /sys/class/pwm/pwmchip0 and pin muxing via pinctrl (Alt5 for GPIO 18).
+    """
+    try:
+        channel_num = int(channel)
+        alt = get_pwm_alt(channel_num)
+        if active:
+            subprocess.run(f"pinctrl set {channel_num} {alt} 2>/dev/null || raspi-gpio set {channel_num} {alt} 2>/dev/null", shell=True)
+        else:
+            subprocess.run(f"pinctrl set {channel_num} op dl 2>/dev/null || raspi-gpio set {channel_num} op dl 2>/dev/null", shell=True)
+
+        pwm_chip = "/sys/class/pwm/pwmchip0"
+        pwm_sub = "pwm1" if channel_num in (13, 19) else "pwm0"
+        pwm_id = "1" if channel_num in (13, 19) else "0"
+        pwm_path = f"{pwm_chip}/{pwm_sub}"
+
+        if os.path.exists(pwm_chip):
+            if not os.path.exists(pwm_path):
+                try:
+                    with open(f"{pwm_chip}/export", "w") as f:
+                        f.write(f"{pwm_id}\n")
+                except Exception:
+                    pass
+            if os.path.exists(pwm_path) and freq > 0:
+                period_ns = int(1_000_000_000 / freq)
+                duty_ns = int(period_ns * (max(0.0, min(100.0, duty)) / 100.0))
+                try:
+                    with open(f"{pwm_path}/duty_cycle", "w") as f:
+                        f.write("0\n")
+                except Exception:
+                    pass
+                try:
+                    with open(f"{pwm_path}/period", "w") as f:
+                        f.write(f"{period_ns}\n")
+                    with open(f"{pwm_path}/duty_cycle", "w") as f:
+                        f.write(f"{duty_ns}\n")
+                    with open(f"{pwm_path}/enable", "w") as f:
+                        f.write("1\n" if active else "0\n")
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[Pi Daemon] Error applying hardware PWM: {e}", file=sys.stderr)
+
 def process_ui_commands(sense):
     """Processes commands sent from the Web UI / Emulator to the physical hardware."""
     if not os.path.exists(CMD_FILE):
@@ -89,6 +138,31 @@ def process_ui_commands(sense):
                         f"pinctrl set {bcm} op {val_flag} 2>/dev/null || raspi-gpio set {bcm} op {val_flag} 2>/dev/null",
                         shell=True
                     )
+            elif action == "pwm":
+                channel = int(cmd.get("channel", 18))
+                duty = float(cmd.get("duty", 50.0))
+                freq = float(cmd.get("freq", 1000.0))
+                active = bool(cmd.get("active", True))
+                apply_hardware_pwm(channel, duty, freq, active)
+            elif action == "joystick":
+                direction = cmd.get("direction", "centre")
+                joy_action = cmd.get("action_type", "press")
+                if os.path.exists(SENSE_FILE):
+                    try:
+                        with open(SENSE_FILE, "r") as f:
+                            cur_data = json.load(f)
+                        cur_data["lastJoystick"] = {
+                            "direction": direction,
+                            "action": joy_action,
+                            "timestamp": int(time.time() * 1000),
+                            "source": "Web UI Keypad (Injected to Hardware)"
+                        }
+                        temp_file = SENSE_FILE + ".tmp"
+                        with open(temp_file, "w") as f:
+                            json.dump(cur_data, f)
+                        os.replace(temp_file, SENSE_FILE)
+                    except Exception:
+                        pass
         except Exception as e:
             print(f"[Pi Daemon] Error executing hardware command {action}: {e}", file=sys.stderr)
 

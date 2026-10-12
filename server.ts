@@ -117,7 +117,8 @@ let sensors: SenseHatSensors = {
 };
 
 let lastJoystickEvent: JoystickEvent | null = null;
-let sensorSource: 'hardware' | 'simulated' = isSenseHatConnected ? 'hardware' : 'simulated';
+let systemMode: 'simulation' | 'emulation' = 'simulation';
+let sensorSource: 'hardware' | 'simulated' = 'simulated';
 let operatingMode: 'execution' | 'emulation' = 'execution';
 
 let lcdState: LcdState = {
@@ -231,8 +232,9 @@ function getFullState(): FullHardwareState {
   return {
     connected: true,
     isPhysicalPi,
-    isSenseHatConnected,
-    simulationMode: !isSenseHatConnected,
+    isSenseHatConnected: systemMode === 'emulation' ? isSenseHatConnected : false,
+    simulationMode: systemMode === 'simulation',
+    systemMode,
     sensorSource,
     operatingMode,
     pollRateMs: 500,
@@ -264,11 +266,11 @@ function getFullState(): FullHardwareState {
 setInterval(() => {
   let isHardwareFresh = false;
 
-  if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
+  // In Emulation Mode only: read live physical hardware signals from Sense HAT daemon
+  if (systemMode === 'emulation' && fs.existsSync('/tmp/pi_sense_hardware.json')) {
     try {
       const stats = fs.statSync('/tmp/pi_sense_hardware.json');
       const ageMs = Date.now() - stats.mtimeMs;
-      // If file was updated within last 5 seconds and source is not simulated
       if (ageMs < 5000) {
         const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
         const hwData = JSON.parse(raw);
@@ -283,18 +285,19 @@ setInterval(() => {
           isSenseHatConnected = true;
           isPhysicalPi = true;
           isHardwareFresh = true;
-
-          if (hwData.lastJoystick && (!lastJoystickEvent || hwData.lastJoystick.timestamp !== lastJoystickEvent.timestamp)) {
-            lastJoystickEvent = hwData.lastJoystick;
-            broadcast('joystick.event', lastJoystickEvent);
-          }
         }
       }
     } catch (e) {}
   }
 
+  // In Simulation Mode: board is strictly forbidden from connecting to physical hardware
+  if (systemMode === 'simulation') {
+    isSenseHatConnected = false;
+    isHardwareFresh = false;
+  }
+
   if (!isHardwareFresh) {
-    if (sensorSource === 'hardware') {
+    if (sensorSource === 'hardware' && systemMode === 'emulation') {
       isSenseHatConnected = false;
     }
     // Subtle realistic physical sensor drift when simulating
@@ -326,6 +329,34 @@ setInterval(() => {
 
   broadcast('sensor.update', sensors);
 }, 500);
+
+// High-Responsiveness Physical Joystick & Keypad Polling Loop (50ms interval)
+let lastObservedJoyTs = 0;
+setInterval(() => {
+  if (systemMode !== 'emulation' || !isSenseHatConnected) return;
+  try {
+    if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
+      const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
+      const hwData = JSON.parse(raw);
+      if (hwData && hwData.lastJoystick && hwData.lastJoystick.timestamp > lastObservedJoyTs) {
+        lastObservedJoyTs = hwData.lastJoystick.timestamp;
+        lastJoystickEvent = {
+          direction: hwData.lastJoystick.direction,
+          action: hwData.lastJoystick.action || 'press',
+          timestamp: hwData.lastJoystick.timestamp,
+          source: 'hardware',
+        };
+        broadcast('joystick.event', lastJoystickEvent);
+        addTimelineTrace(
+          'hardware',
+          'Sense HAT Physical Keypad Press',
+          `Key: ${lastJoystickEvent.direction.toUpperCase()} (${lastJoystickEvent.action}) on Physical Sense HAT`,
+          'success'
+        );
+      }
+    }
+  } catch (e) {}
+}, 50);
 
 // --- WebSocket Connection Management ---
 wss.on('connection', (ws: WebSocket) => {
@@ -577,14 +608,33 @@ function clearMatrix(r = 0, g = 0, b = 0) {
 }
 
 function triggerJoystick(direction: JoystickEvent['direction'], action: JoystickEvent['action'] = 'press') {
+  const isEmulatingOnHw = systemMode === 'emulation' && isSenseHatConnected;
   lastJoystickEvent = {
     direction,
     action,
     timestamp: Date.now(),
+    source: isEmulatingOnHw ? 'hardware' : 'keypad',
   };
 
-  addTimelineTrace('hardware', 'Sense HAT Joystick Event', `${direction.toUpperCase()} - ${action.toUpperCase()}`, 'info');
+  addTimelineTrace(
+    'hardware',
+    'Sense HAT Keypad Event',
+    `${direction.toUpperCase()} (${action.toUpperCase()}) [Source: ${isEmulatingOnHw ? 'Physical Hardware' : 'Interactive Keypad'}]`,
+    'info'
+  );
   broadcast('joystick.event', lastJoystickEvent);
+
+  // Queue event for hardware daemon and update telemetry cache so student scripts receive it
+  try {
+    const joyCmd = { action: 'joystick', direction, action_type: action, timestamp: Date.now() };
+    fs.appendFileSync('/tmp/pi_hw_commands.jsonl', JSON.stringify(joyCmd) + '\n');
+    if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
+      const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
+      const cur = JSON.parse(raw);
+      cur.lastJoystick = lastJoystickEvent;
+      fs.writeFileSync('/tmp/pi_sense_hardware.json', JSON.stringify(cur));
+    }
+  } catch (e) {}
 }
 
 // --- Student Program Execution Engine ---
@@ -1221,6 +1271,12 @@ app.get('/api/sensors/source', (_req: Request, res: Response) => {
 
 app.post('/api/sensors/source', (req: Request, res: Response) => {
   const { source } = req.body;
+  if (systemMode === 'simulation' && source === 'hardware') {
+    return res.status(403).json({
+      success: false,
+      error: 'In simulation mode, connecting to actual board or physical sensors is not allowed. Switch to Emulation mode to connect actual hardware.',
+    });
+  }
   if (source === 'hardware' || source === 'simulated') {
     sensorSource = source;
     sensors.isSimulated = (source === 'simulated');
@@ -1229,6 +1285,53 @@ app.post('/api/sensors/source', (req: Request, res: Response) => {
     broadcast('init.state', getFullState());
   }
   res.json({ success: true, source: sensorSource, isSimulated: sensors.isSimulated });
+});
+
+app.get('/api/mode', (_req: Request, res: Response) => {
+  res.json({
+    mode: systemMode,
+    isConnected: isSenseHatConnected,
+    isPhysicalPi,
+    message: systemMode === 'simulation'
+      ? 'Simulation mode: Purely virtual digital twin. Physical board connection is blocked.'
+      : 'Emulation mode: Requires and interacts with physical Raspberry Pi hardware.',
+  });
+});
+
+app.post('/api/mode', (req: Request, res: Response) => {
+  const { mode } = req.body;
+  if (mode === 'simulation' || mode === 'emulation') {
+    systemMode = mode;
+    if (mode === 'simulation') {
+      // In simulation mode, board is not allowed to connect to actual board
+      isSenseHatConnected = false;
+      sensors.isSimulated = true;
+      sensorSource = 'simulated';
+      addTimelineTrace(
+        'backend',
+        'Mode Switched to Simulation',
+        'Simulation Mode Active. Hardware connections are completely blocked. Running virtual digital twin.',
+        'info'
+      );
+    } else {
+      // In emulation mode, board needs to be connected to actual hardware
+      addTimelineTrace(
+        'backend',
+        'Mode Switched to Emulation',
+        'Emulation Mode Active. Connecting to actual physical Raspberry Pi and Sense HAT.',
+        'info'
+      );
+      if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
+        isSenseHatConnected = true;
+        sensors.isSimulated = false;
+        sensorSource = 'hardware';
+      }
+    }
+    broadcast('mode.update', { mode: systemMode, isConnected: isSenseHatConnected });
+    broadcast('init.state', getFullState());
+    return res.json({ success: true, mode: systemMode, isConnected: isSenseHatConnected });
+  }
+  res.status(400).json({ error: 'Mode must be simulation or emulation' });
 });
 
 app.get('/api/operating-mode', (_req: Request, res: Response) => {
@@ -1248,6 +1351,15 @@ app.post('/api/operating-mode', (req: Request, res: Response) => {
 
 // Hardware Connection Probe & Link Endpoints
 app.post('/api/hardware/probe', (_req: Request, res: Response) => {
+  // In simulation mode, board is not allowed to connect to actual board
+  if (systemMode === 'simulation') {
+    return res.status(403).json({
+      connected: false,
+      detected: false,
+      message: 'In simulation mode, connecting to actual board is not allowed. Switch to Emulation mode to connect physical hardware.',
+    });
+  }
+
   let detected = false;
   let details = '';
   try {
@@ -1286,21 +1398,32 @@ app.post('/api/hardware/ping', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     latencyMs: latency,
-    connected: isSenseHatConnected,
+    connected: systemMode === 'emulation' && isSenseHatConnected,
     isPhysicalPi,
-    mode: isSenseHatConnected ? 'emulation' : 'simulation',
-    i2cStatus: isSenseHatConnected ? 'active (0x46, 0x5c, 0x6a)' : 'standby / emulated',
+    mode: systemMode,
+    i2cStatus: systemMode === 'emulation' && isSenseHatConnected ? 'active (0x46, 0x5c, 0x6a)' : 'standby / emulated',
     gpioStatus: '28 BCM pins active (/dev/gpiomem)',
     lcdStatus: 'I2C PCF8574T @ 0x27 ready',
     uptime: Math.floor(process.uptime()),
     timestamp: Date.now(),
-    message: isSenseHatConnected
+    message: systemMode === 'simulation'
+      ? 'Simulation mode active (Hardware connection disabled)'
+      : isSenseHatConnected
       ? 'Physical Raspberry Pi 4 hardware link active and responding'
-      : 'Hardware daemon active (Standby / Simulation fallback)',
+      : 'Emulation mode: Waiting for physical hardware connection',
   });
 });
 
 app.post('/api/hardware/connect', (req: Request, res: Response) => {
+  // In simulation mode, board is not allowed to connect to actual board
+  if (systemMode === 'simulation') {
+    return res.status(403).json({
+      success: false,
+      connected: false,
+      error: 'In simulation mode, connecting to actual board is not allowed. Switch to Emulation mode to connect actual hardware.',
+    });
+  }
+
   const { force } = req.body;
   // If force is explicitly provided, set it; otherwise toggle
   if (force !== undefined) {
@@ -1314,7 +1437,7 @@ app.post('/api/hardware/connect', (req: Request, res: Response) => {
     isSenseHatConnected ? 'Hardware Signals Linked' : 'Hardware Bus Disconnected',
     isSenseHatConnected
       ? 'Live hardware signals linked from physical Raspberry Pi pins and sensors'
-      : 'Hardware signals unlinked. Operating in offline emulation state.',
+      : 'Hardware signals unlinked.',
     isSenseHatConnected ? 'success' : 'warn'
   );
   broadcast('init.state', getFullState());

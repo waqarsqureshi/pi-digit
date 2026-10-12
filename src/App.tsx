@@ -146,6 +146,8 @@ export default function App() {
                   onSetMatrixPattern={setMatrixPattern}
                   onTriggerJoystick={triggerJoystick}
                   onInjectSensors={injectSensors}
+                  onConnectHardware={connectHardware}
+                  isProbingHardware={isProbingHardware}
                 />
 
                 {/* 16x2 Character LCD Display (Simulates I2C LCD for Curriculum Examples 12, 13 & C) */}

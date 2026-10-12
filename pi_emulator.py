@@ -54,6 +54,69 @@ def _get_native_sense_hat():
         sys.path = orig_path
     return None
 
+FONT_5x7 = {
+    ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+    '!': [0x00, 0x00, 0x5F, 0x00, 0x00],
+    '"': [0x00, 0x07, 0x00, 0x07, 0x00],
+    '#': [0x14, 0x7F, 0x14, 0x7F, 0x14],
+    '$': [0x24, 0x2A, 0x7F, 0x2A, 0x12],
+    '%': [0x23, 0x13, 0x08, 0x64, 0x62],
+    '&': [0x36, 0x49, 0x55, 0x22, 0x50],
+    "'": [0x00, 0x05, 0x03, 0x00, 0x00],
+    '(': [0x00, 0x1C, 0x22, 0x41, 0x00],
+    ')': [0x00, 0x41, 0x22, 0x1C, 0x00],
+    '*': [0x14, 0x08, 0x3E, 0x08, 0x14],
+    '+': [0x08, 0x08, 0x3E, 0x08, 0x08],
+    ',': [0x00, 0x50, 0x30, 0x00, 0x00],
+    '-': [0x08, 0x08, 0x08, 0x08, 0x08],
+    '.': [0x00, 0x60, 0x60, 0x00, 0x00],
+    '/': [0x20, 0x10, 0x08, 0x04, 0x02],
+    '0': [0x3E, 0x51, 0x49, 0x45, 0x3E],
+    '1': [0x00, 0x42, 0x7F, 0x40, 0x00],
+    '2': [0x42, 0x61, 0x51, 0x49, 0x46],
+    '3': [0x21, 0x41, 0x45, 0x4B, 0x31],
+    '4': [0x18, 0x14, 0x12, 0x7F, 0x10],
+    '5': [0x27, 0x45, 0x45, 0x45, 0x39],
+    '6': [0x3C, 0x4A, 0x49, 0x49, 0x30],
+    '7': [0x01, 0x71, 0x09, 0x05, 0x03],
+    '8': [0x36, 0x49, 0x49, 0x49, 0x36],
+    '9': [0x06, 0x49, 0x49, 0x29, 0x1E],
+    ':': [0x00, 0x36, 0x36, 0x00, 0x00],
+    ';': [0x00, 0x56, 0x36, 0x00, 0x00],
+    '<': [0x08, 0x14, 0x22, 0x41, 0x00],
+    '=': [0x14, 0x14, 0x14, 0x14, 0x14],
+    '>': [0x00, 0x41, 0x22, 0x14, 0x08],
+    '?': [0x02, 0x01, 0x51, 0x09, 0x06],
+    '@': [0x32, 0x49, 0x79, 0x41, 0x3E],
+    'A': [0x7E, 0x11, 0x11, 0x11, 0x7E],
+    'B': [0x7F, 0x49, 0x49, 0x49, 0x36],
+    'C': [0x3E, 0x41, 0x41, 0x41, 0x22],
+    'D': [0x7F, 0x41, 0x41, 0x22, 0x1C],
+    'E': [0x7F, 0x49, 0x49, 0x49, 0x41],
+    'F': [0x7F, 0x09, 0x09, 0x09, 0x01],
+    'G': [0x3E, 0x41, 0x49, 0x49, 0x7A],
+    'H': [0x7F, 0x08, 0x08, 0x08, 0x7F],
+    'I': [0x00, 0x41, 0x7F, 0x41, 0x00],
+    'J': [0x20, 0x40, 0x41, 0x3F, 0x01],
+    'K': [0x7F, 0x08, 0x14, 0x22, 0x41],
+    'L': [0x7F, 0x40, 0x40, 0x40, 0x40],
+    'M': [0x7F, 0x02, 0x0C, 0x02, 0x7F],
+    'N': [0x7F, 0x04, 0x08, 0x10, 0x7F],
+    'O': [0x3E, 0x41, 0x41, 0x41, 0x3E],
+    'P': [0x7F, 0x09, 0x09, 0x09, 0x06],
+    'Q': [0x3E, 0x41, 0x51, 0x21, 0x5E],
+    'R': [0x7F, 0x09, 0x19, 0x29, 0x46],
+    'S': [0x46, 0x49, 0x49, 0x49, 0x31],
+    'T': [0x01, 0x01, 0x7F, 0x01, 0x01],
+    'U': [0x3F, 0x40, 0x40, 0x40, 0x3F],
+    'V': [0x1F, 0x20, 0x40, 0x20, 0x1F],
+    'W': [0x7F, 0x20, 0x18, 0x20, 0x7F],
+    'X': [0x63, 0x14, 0x08, 0x14, 0x63],
+    'Y': [0x07, 0x08, 0x70, 0x08, 0x07],
+    'Z': [0x61, 0x51, 0x49, 0x45, 0x43],
+    '_': [0x80, 0x80, 0x80, 0x80, 0x80],
+}
+
 
 class SenseStick:
     """Emulates and bridges the Sense HAT 5-way joystick."""
@@ -247,17 +310,71 @@ class EmulatorSenseHat:
                 pass
         self._emit("clear", r=r, g=g, b=b)
 
-    def show_message(self, text_string, scroll_speed=0.1, text_colour=[255, 255, 255], back_colour=[0, 0, 0]):
-        self.clear(*back_colour)
-        for x in [3, 4]:
-            for y in [3, 4]:
-                self.set_pixel(x, y, *text_colour)
+    def show_message(self, text_string, scroll_speed=0.07, text_colour=[255, 255, 255], back_colour=[0, 0, 0]):
+        """
+        Scrolls text horizontally across the 8x8 RGB LED matrix display in a moving marquee format.
+        Updates physical hardware (framebuffer / Sense HAT) and digital twin in real time.
+        """
+        text_string = str(text_string)
+        tc = [int(max(0, min(255, c))) for c in text_colour]
+        bc = [int(max(0, min(255, c))) for c in back_colour]
+
+        # 1. Forward to physical hardware if native driver is attached
+        if self._real_sense and hasattr(self._real_sense, 'show_message'):
+            try:
+                self._real_sense.show_message(text_string, scroll_speed=scroll_speed, text_colour=tc, back_colour=bc)
+                return
+            except Exception:
+                pass
+
+        # 2. Build full horizontal column strip with 8 empty lead-in and lead-out columns
+        columns = [0] * 8
+        for ch in text_string:
+            ch_cols = FONT_5x7.get(ch.upper(), [0, 0, 0, 0, 0])
+            columns.extend(ch_cols)
+            columns.append(0)  # 1-column spacing between letters
+        columns.extend([0] * 8)
+
+        total_frames = len(columns) - 8
+        for offset in range(total_frames):
+            frame_pixels = []
+            for y in range(8):
+                for x in range(8):
+                    col_val = columns[offset + x]
+                    is_lit = bool((col_val >> y) & 1)
+                    frame_pixels.append(tc if is_lit else bc)
+            self.set_pixels(frame_pixels)
+            time.sleep(max(0.015, float(scroll_speed)))
+
+        self.clear(*bc)
 
     def show_letter(self, s, text_colour=[255, 255, 255], back_colour=[0, 0, 0]):
-        self.clear(*back_colour)
-        for x in [3, 4]:
-            for y in [3, 4]:
-                self.set_pixel(x, y, *text_colour)
+        """Displays a single character centered on the 8x8 RGB LED matrix."""
+        if not s:
+            self.clear(*back_colour)
+            return
+        tc = [int(max(0, min(255, c))) for c in text_colour]
+        bc = [int(max(0, min(255, c))) for c in back_colour]
+
+        if self._real_sense and hasattr(self._real_sense, 'show_letter'):
+            try:
+                self._real_sense.show_letter(s, text_colour=tc, back_colour=bc)
+                return
+            except Exception:
+                pass
+
+        char = str(s)[0].upper()
+        ch_cols = FONT_5x7.get(char, [0, 0, 0, 0, 0])
+        frame_pixels = []
+        for y in range(8):
+            for x in range(8):
+                if 1 <= x <= 5:
+                    col_val = ch_cols[x - 1]
+                    is_lit = bool((col_val >> y) & 1)
+                    frame_pixels.append(tc if is_lit else bc)
+                else:
+                    frame_pixels.append(bc)
+        self.set_pixels(frame_pixels)
 
     def get_temperature(self):
         return float(self._get_sensors().get("temperature", 24.6))
@@ -376,14 +493,61 @@ class EmulatorPWM:
 
     def stop(self):
         self.is_running = False
+        self._apply_hardware_pwm()
         self._emit(active=False)
 
     def _apply_hardware_pwm(self):
-        # If on physical Raspberry Pi, attempt hardware pin command
+        # 1. Drive physical pin muxing via pinctrl / raspi-gpio
+        # On Raspberry Pi 4 (BCM2711): GPIO 18 & 19 use Alt5 (a5) for hardware PWM.
+        # GPIO 12 & 13 use Alt0 (a0) for hardware PWM.
+        alt_func = "a5" if self.channel in (18, 19) else "a0"
         try:
-            if self.channel == 18 and self.is_running:
-                # Set GPIO 18 to alt0 for hardware PWM0
-                os.system(f"pinctrl set {self.channel} a0 >/dev/null 2>&1")
+            if self.is_running:
+                os.system(f"pinctrl set {self.channel} {alt_func} >/dev/null 2>&1 || raspi-gpio set {self.channel} {alt_func} >/dev/null 2>&1")
+            else:
+                os.system(f"pinctrl set {self.channel} op dl >/dev/null 2>&1 || raspi-gpio set {self.channel} op dl >/dev/null 2>&1")
+        except Exception:
+            pass
+
+        # 2. Drive Linux hardware PWM kernel interface (/sys/class/pwm/pwmchip0)
+        try:
+            pwm_chip = "/sys/class/pwm/pwmchip0"
+            pwm_sub = "pwm1" if self.channel in (13, 19) else "pwm0"
+            pwm_id = "1" if self.channel in (13, 19) else "0"
+            pwm_path = f"{pwm_chip}/{pwm_sub}"
+
+            if os.path.exists(pwm_chip):
+                if not os.path.exists(pwm_path):
+                    with open(f"{pwm_chip}/export", "w") as f:
+                        f.write(f"{pwm_id}\n")
+                if os.path.exists(pwm_path) and self.freq > 0:
+                    period_ns = int(1_000_000_000 / self.freq)
+                    duty_ns = int(period_ns * (max(0.0, min(100.0, self.duty)) / 100.0))
+                    try:
+                        with open(f"{pwm_path}/duty_cycle", "w") as f:
+                            f.write("0\n")
+                    except Exception:
+                        pass
+                    with open(f"{pwm_path}/period", "w") as f:
+                        f.write(f"{period_ns}\n")
+                    with open(f"{pwm_path}/duty_cycle", "w") as f:
+                        f.write(f"{duty_ns}\n")
+                    with open(f"{pwm_path}/enable", "w") as f:
+                        f.write("1\n" if self.is_running else "0\n")
+        except Exception:
+            pass
+
+        # 3. Queue command for background supervisor daemon
+        try:
+            with open("/tmp/pi_hw_commands.jsonl", "a") as f:
+                f.write(json.dumps({
+                    "action": "pwm",
+                    "channel": self.channel,
+                    "duty": self.duty,
+                    "freq": self.freq,
+                    "active": self.is_running,
+                    "timestamp": int(time.time() * 1000)
+                }) + "\n")
         except Exception:
             pass
 

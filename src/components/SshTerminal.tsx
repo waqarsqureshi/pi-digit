@@ -227,6 +227,12 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-mono">
             <span className="text-slate-500 shrink-0 text-[11px] font-bold">Quick Commands:</span>
             <button
+              onClick={() => handleRunCommand('python3 02_moving_name.py')}
+              className="px-2 py-1 rounded bg-amber-50 hover:bg-[#840038] text-amber-900 hover:text-white border border-amber-300 transition-colors shrink-0 text-[11px] font-bold"
+            >
+              python3 02_moving_name.py (Name Marquee)
+            </button>
+            <button
               onClick={() => handleRunCommand('python3 10_pwm_waveform.py')}
               className="px-2 py-1 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors shrink-0 text-[11px]"
             >

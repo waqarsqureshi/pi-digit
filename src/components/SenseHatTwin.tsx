@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   RotateCcw,
   Navigation,
@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   Sliders,
   PowerOff,
+  Zap,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   RgbColor,
@@ -29,6 +31,8 @@ interface SenseHatTwinProps {
   onSetMatrixPattern: (matrix: RgbColor[]) => void;
   onTriggerJoystick: (direction: JoystickDirection) => void;
   onInjectSensors: (values: Partial<SenseHatSensors>) => void;
+  onConnectHardware?: () => void;
+  isProbingHardware?: boolean;
 }
 
 const PALETTE: { name: string; color: RgbColor; hex: string }[] = [
@@ -54,6 +58,8 @@ export function SenseHatTwin({
   onSetMatrixPattern,
   onTriggerJoystick,
   onInjectSensors,
+  onConnectHardware,
+  isProbingHardware = false,
 }: SenseHatTwinProps) {
   const [selectedColor, setSelectedColor] = useState<RgbColor>([255, 0, 0]);
   const [hoveredPixel, setHoveredPixel] = useState<{ x: number; y: number } | null>(null);
@@ -61,10 +67,27 @@ export function SenseHatTwin({
   const [tempInput, setTempInput] = useState(sensors.temperature);
   const [humidityInput, setHumidityInput] = useState(sensors.humidity);
   const [pressureInput, setPressureInput] = useState(sensors.pressure);
+  const [activeHighlight, setActiveHighlight] = useState<JoystickDirection | null>(null);
 
   // In emulation mode with physical board connected vs standalone
   const isPhysicalLinked = selectedMode === 'emulation' && isSenseHatConnected;
   const isEmulationDisconnected = selectedMode === 'emulation' && !isSenseHatConnected;
+
+  // Animate and highlight keypad button when an event arrives (physical hardware or interactive)
+  useEffect(() => {
+    if (lastJoystick?.direction) {
+      setActiveHighlight(lastJoystick.direction);
+      const timer = setTimeout(() => {
+        setActiveHighlight(null);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [lastJoystick?.direction, lastJoystick?.timestamp]);
+
+  const handleKeypadPress = (direction: JoystickDirection) => {
+    setActiveHighlight(direction);
+    onTriggerJoystick(direction);
+  };
 
   const handlePixelClick = (x: number, y: number) => {
     // Both Mode 1 and Mode 2 support interactive pixel clicking, immediately updating UI and physical Sense HAT
@@ -365,81 +388,171 @@ export function SenseHatTwin({
 
         {/* Right: 5-Way Joystick & Real-Time Sensors */}
         <div className="xl:col-span-5 flex flex-col gap-3">
-          {/* Virtual 5-Way Joystick */}
+          {/* 5-Way Keypad / Joystick Controller */}
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-mono font-bold text-slate-800 flex items-center gap-1.5">
                 <Navigation className="w-3.5 h-3.5 text-[#840038]" />
-                <span>5-WAY JOYSTICK EMULATOR</span>
+                <span>
+                  {isPhysicalLinked
+                    ? 'SENSE HAT 5-WAY KEYPAD (HARDWARE)'
+                    : selectedMode === 'emulation'
+                    ? 'SENSE HAT KEYPAD (DISCONNECTED)'
+                    : '5-WAY KEYPAD (VIRTUAL TWIN)'}
+                </span>
               </span>
-              <span className="text-xs font-mono text-slate-500">
-                {isEmulationDisconnected
-                  ? 'Inactive'
-                  : lastJoystick
-                  ? `Last: ${lastJoystick.direction.toUpperCase()} (${lastJoystick.action})`
-                  : 'Idle'}
-              </span>
+              {isPhysicalLinked ? (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <span>ACTUAL HARDWARE</span>
+                </span>
+              ) : selectedMode === 'emulation' ? (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-rose-100 text-rose-800 border border-rose-300">
+                  UNLINKED
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-sky-100 text-sky-800 border border-sky-300">
+                  SIMULATED
+                </span>
+              )}
             </div>
+
+            {/* Hardware Key Press Banner in Emulation Mode */}
+            {isPhysicalLinked && (
+              <div className="mb-3 p-2 rounded-lg bg-emerald-50 border border-emerald-300 text-xs font-mono flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-1.5 text-emerald-900">
+                  <span className={`w-2 h-2 rounded-full ${activeHighlight ? 'bg-emerald-600 animate-ping' : 'bg-emerald-500'}`} />
+                  <span className="font-bold">Key Pressed on Actual Hardware:</span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-950 font-bold uppercase shadow-xs">
+                    {lastJoystick ? `${lastJoystick.direction} (${lastJoystick.action})` : 'READY'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-emerald-700 font-semibold hidden sm:flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  <span>Physical Sense HAT</span>
+                </span>
+              </div>
+            )}
+
+            {/* Emulation Mode Disconnected Notice */}
+            {isEmulationDisconnected && (
+              <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                <span className="text-amber-950 font-medium">
+                  <strong>Emulation Mode:</strong> Board must be connected to actual hardware.
+                </span>
+                {onConnectHardware && (
+                  <button
+                    onClick={onConnectHardware}
+                    disabled={isProbingHardware}
+                    className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shrink-0 transition-colors shadow-xs cursor-pointer"
+                  >
+                    <Zap className="w-3 h-3 text-amber-300" />
+                    <span>{isProbingHardware ? 'Probing...' : '⚡ Connect Hardware'}</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Simulation Mode Notice */}
+            {selectedMode === 'simulation' && (
+              <div className="mb-3 p-2 rounded-lg bg-sky-50 border border-sky-200 text-xs font-mono flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-sky-900">
+                  <span className="w-2 h-2 rounded-full bg-sky-500" />
+                  <span className="font-semibold">Virtual Simulation Keypad:</span>
+                  <span className="px-1.5 py-0.2 rounded bg-sky-200 text-sky-950 font-bold uppercase">
+                    {lastJoystick ? `${lastJoystick.direction} (${lastJoystick.action})` : 'IDLE'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 hidden sm:inline">
+                  (Physical connection blocked in simulation)
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center justify-center py-2">
               <div className="grid grid-cols-3 gap-1.5 w-36 h-36 p-1.5 bg-slate-200 border border-slate-300 rounded-xl relative shadow-inner">
                 <div />
                 <button
-                  onClick={() => onTriggerJoystick('up')}
+                  onClick={() => handleKeypadPress('up')}
+                  disabled={isEmulationDisconnected}
                   className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    lastJoystick?.direction === 'up'
-                      ? 'bg-[#840038] text-white border-[#840038] shadow-md'
+                    activeHighlight === 'up' || (!activeHighlight && lastJoystick?.direction === 'up')
+                      ? isPhysicalLinked
+                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
+                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
+                      : isEmulationDisconnected
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Joystick UP"
+                  title="Keypad UP"
                 >
                   ▲
                 </button>
                 <div />
 
                 <button
-                  onClick={() => onTriggerJoystick('left')}
+                  onClick={() => handleKeypadPress('left')}
+                  disabled={isEmulationDisconnected}
                   className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    lastJoystick?.direction === 'left'
-                      ? 'bg-[#840038] text-white border-[#840038] shadow-md'
+                    activeHighlight === 'left' || (!activeHighlight && lastJoystick?.direction === 'left')
+                      ? isPhysicalLinked
+                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
+                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
+                      : isEmulationDisconnected
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Joystick LEFT"
+                  title="Keypad LEFT"
                 >
                   ◀
                 </button>
                 <button
-                  onClick={() => onTriggerJoystick('centre')}
+                  onClick={() => handleKeypadPress('centre')}
+                  disabled={isEmulationDisconnected}
                   className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    lastJoystick?.direction === 'centre'
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-md'
+                    activeHighlight === 'centre' || (!activeHighlight && lastJoystick?.direction === 'centre')
+                      ? isPhysicalLinked
+                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
+                        : 'bg-amber-500 text-white border-amber-600 shadow-md'
+                      : isEmulationDisconnected
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                       : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 active:scale-95'
                   }`}
-                  title="Joystick CENTRE PRESS"
+                  title="Keypad CENTRE PRESS"
                 >
                   ●
                 </button>
                 <button
-                  onClick={() => onTriggerJoystick('right')}
+                  onClick={() => handleKeypadPress('right')}
+                  disabled={isEmulationDisconnected}
                   className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    lastJoystick?.direction === 'right'
-                      ? 'bg-[#840038] text-white border-[#840038] shadow-md'
+                    activeHighlight === 'right' || (!activeHighlight && lastJoystick?.direction === 'right')
+                      ? isPhysicalLinked
+                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
+                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
+                      : isEmulationDisconnected
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Joystick RIGHT"
+                  title="Keypad RIGHT"
                 >
                   ▶
                 </button>
 
                 <div />
                 <button
-                  onClick={() => onTriggerJoystick('down')}
+                  onClick={() => handleKeypadPress('down')}
+                  disabled={isEmulationDisconnected}
                   className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    lastJoystick?.direction === 'down'
-                      ? 'bg-[#840038] text-white border-[#840038] shadow-md'
+                    activeHighlight === 'down' || (!activeHighlight && lastJoystick?.direction === 'down')
+                      ? isPhysicalLinked
+                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
+                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
+                      : isEmulationDisconnected
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Joystick DOWN"
+                  title="Keypad DOWN"
                 >
                   ▼
                 </button>

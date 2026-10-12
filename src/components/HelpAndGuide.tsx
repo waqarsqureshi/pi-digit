@@ -166,11 +166,11 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
                   </span>
                   <DownloadCloud className="w-4 h-4 text-slate-400" />
                 </div>
-                <h3 className="font-bold text-slate-900 text-sm">Install Pi Libraries</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Install Pi Libraries (Hardware Only)</h3>
                 <p className="text-slate-600 text-[11px] leading-relaxed">
-                  <strong>On Physical Pi:</strong> Run APT command below to install official Sense HAT, GPIO/PWM, and I2C drivers.
+                  <strong>When needed:</strong> Only required if running on a <em>Physical Raspberry Pi 4</em> in Emulation Mode.
                   <br />
-                  <span className="text-emerald-700 font-medium">In-Browser Twin: Zero installs needed!</span>
+                  <strong className="text-emerald-700 font-medium">In Simulation Mode:</strong> Zero libraries or packages to install! Works directly out of the box.
                 </p>
                 <div className="mt-auto bg-slate-900 text-slate-100 p-2 rounded font-mono text-[11px] flex items-center justify-between group">
                   <span className="text-cyan-300 truncate">sudo apt install -y python3-sense-hat python3-rpi.gpio ...</span>
@@ -295,20 +295,26 @@ npm start`}
               <div className="mt-2 p-3 bg-slate-800/80 border border-slate-700 rounded-lg flex flex-col gap-1.5 text-[11px] text-slate-300">
                 <span className="text-amber-300 font-bold flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Required Raspberry Pi Hardware Libraries Checklist:</span>
+                  <span>Raspberry Pi Libraries Checklist — Do I need to install anything?</span>
                 </span>
-                <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1 text-[10px] sm:text-[11px]">
-                  <li>
-                    <strong className="text-cyan-300">python3-sense-hat:</strong> Required for the physical 8x8 RGB LED matrix, 5-way joystick (<code className="text-amber-200">sense.stick</code>), HTS221 temperature/humidity, LPS25H pressure, and LSM9DS1 9-DOF IMU accelerometer/gyroscope.
+                <ul className="list-disc list-inside space-y-1.5 text-slate-300 pl-1 text-[10px] sm:text-[11px]">
+                  <li className="text-emerald-300 font-semibold">
+                    <strong>1. Simulation Mode (Browser Digital Twin): NO INSTALLS NEEDED.</strong> You do not need to install any Raspberry Pi libraries or packages. The bundled digital twin simulator runs automatically out of the box with zero setup.
                   </li>
                   <li>
-                    <strong className="text-cyan-300">python3-rpi.gpio:</strong> Required for 40-pin GPIO header configuration and hardware PWM signal generation (<code className="text-amber-200">GPIO.PWM(18, 1000)</code>).
+                    <strong className="text-cyan-300">2. Emulation Mode (Actual Raspberry Pi 4 Hardware): YES, APT INSTALL REQUIRED.</strong> If you are connecting an actual Raspberry Pi 4 with a physical Sense HAT on your desk, run:
+                    <div className="my-1 p-1.5 rounded bg-slate-950 font-mono text-amber-300 text-[10px]">
+                      sudo apt update && sudo apt install -y python3-sense-hat python3-rpi.gpio python3-smbus i2c-tools
+                    </div>
                   </li>
                   <li>
-                    <strong className="text-cyan-300">i2c-tools:</strong> Provides <code className="text-amber-200">i2cdetect -y 1</code> to verify Sense HAT presence at addresses 0x46 (MCU), 0x5c (Pressure/Temp), and 0x6a (IMU Accelerometer).
+                    <strong className="text-cyan-300">• python3-sense-hat:</strong> Required for the physical 8x8 RGB LED matrix, 5-way joystick (<code className="text-amber-200">sense.stick</code>), and onboard sensors (HTS221, LPS25H, LSM9DS1).
                   </li>
                   <li>
-                    <strong className="text-emerald-300">Automatic Fallback in Simulation Mode:</strong> If running on a laptop or without physical hardware, Pi-Digit includes self-contained emulation modules (<code className="text-amber-200">pi_twin.py</code>, <code className="text-amber-200">pi_emulator.py</code>, <code className="text-amber-200">RPi/GPIO.py</code>) so student code runs flawlessly with zero external installs!
+                    <strong className="text-cyan-300">• python3-rpi.gpio:</strong> Required for 40-pin GPIO header configuration and hardware PWM signal generation (<code className="text-amber-200">GPIO.PWM(18, 1000)</code>).
+                  </li>
+                  <li>
+                    <strong className="text-cyan-300">• I2C Bus Activation:</strong> Enable the hardware I2C interface via <code className="text-amber-200">sudo raspi-config nonint do_i2c 0</code>.
                   </li>
                 </ul>
               </div>

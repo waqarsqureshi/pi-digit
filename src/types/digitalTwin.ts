@@ -42,6 +42,7 @@ export interface JoystickEvent {
   direction: JoystickDirection;
   action: JoystickAction;
   timestamp: number;
+  source?: 'hardware' | 'keypad' | 'simulation';
 }
 
 export interface LcdState {
@@ -112,6 +113,7 @@ export interface FullHardwareState {
   isPhysicalPi: boolean;
   isSenseHatConnected: boolean; // True if physical Sense HAT detected; false for simulation mode
   simulationMode: boolean;      // True if running simulated fallback
+  systemMode?: 'simulation' | 'emulation'; // Explicit system operating mode
   sensorSource: 'hardware' | 'simulated';
   operatingMode: 'execution' | 'emulation';
   pollRateMs: number;
