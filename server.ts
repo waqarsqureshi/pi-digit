@@ -1922,20 +1922,12 @@ async function start() {
   // Serve shared static assets directory
   app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-  app.get('/wiki', (_req, res) => {
-    res.redirect('/wiki.html');
-  });
-
-  app.get('/emulator', (_req, res) => {
-    res.redirect('/emulator/');
-  });
-
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'dist')));
-    app.get('/emulator*', (_req, res) => {
+    app.get(['/emulator', '/emulator/*', '/emulator/index.html'], (_req, res) => {
       res.sendFile(path.join(__dirname, 'dist', 'emulator', 'index.html'));
     });
-    app.get('/wiki*', (_req, res) => {
+    app.get(['/wiki', '/wiki.html', '/wiki/*'], (_req, res) => {
       res.sendFile(path.join(__dirname, 'dist', 'wiki.html'));
     });
     app.get('*', (_req, res) => {
@@ -1945,9 +1937,45 @@ async function start() {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: 'spa',
+      appType: 'custom',
     });
     app.use(vite.middlewares);
+
+    // Directly serve the emulator React SPA for /emulator, /emulator/, /emulator/index.html
+    app.get(['/emulator', '/emulator/*', '/emulator/index.html'], async (req, res, next) => {
+      try {
+        const emulatorHtmlPath = path.join(__dirname, 'emulator', 'index.html');
+        let html = await fs.promises.readFile(emulatorHtmlPath, 'utf-8');
+        html = await vite.transformIndexHtml(req.originalUrl, html);
+        res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+      } catch (e) {
+        next(e);
+      }
+    });
+
+    // Serve documentation wiki
+    app.get(['/wiki', '/wiki.html', '/wiki/*'], async (req, res, next) => {
+      try {
+        const wikiHtmlPath = path.join(__dirname, 'wiki.html');
+        let html = await fs.promises.readFile(wikiHtmlPath, 'utf-8');
+        html = await vite.transformIndexHtml(req.originalUrl, html);
+        res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+      } catch (e) {
+        next(e);
+      }
+    });
+
+    // Fallback to main landing page
+    app.get('*', async (req, res, next) => {
+      try {
+        const indexHtmlPath = path.join(__dirname, 'index.html');
+        let html = await fs.promises.readFile(indexHtmlPath, 'utf-8');
+        html = await vite.transformIndexHtml(req.originalUrl, html);
+        res.status(200).set({ 'Content-Type': 'text/html' }).send(html);
+      } catch (e) {
+        next(e);
+      }
+    });
   }
 
   startHardwareDaemon();
@@ -1969,15 +1997,17 @@ async function start() {
     console.log('  [Pi-Local Digital Twin] Daemon Active & Listening');
     console.log('======================================================================');
     console.log(`  ➜ Project Directory (pwd) : ${process.cwd()}`);
-    console.log(`  ➜ Local Loopback (Pi)     : ${net.localUrl}`);
+    console.log(`  ➜ Hardware Emulator (Pi)  : ${net.localUrl}/emulator/`);
     if (net.isOnline) {
-      console.log(`  ➜ Network IP (LAN)        : ${net.networkUrl}`);
-      console.log(`                            (Use this URL to connect from your laptop/PC)`);
-      console.log(`  ➜ mDNS Hostname           : http://raspberrypi.local:${PORT}`);
+      console.log(`  ➜ Hardware Emulator (LAN) : ${net.networkUrl}/emulator/`);
+      console.log(`                            (Use this URL to open emulator on your laptop/PC)`);
+      console.log(`  ➜ Hardware Emulator (mDNS): http://raspberrypi.local:${PORT}/emulator/`);
     } else {
       console.log(`  ➜ Network Status          : Offline / Standby (No active Wi-Fi or Ethernet LAN)`);
-      console.log(`  ➜ Loopback Access Only    : ${net.localUrl} (127.0.0.1)`);
+      console.log(`  ➜ Emulator Loopback Only  : ${net.localUrl}/emulator/ (127.0.0.1)`);
     }
+    console.log(`  ➜ Main Website & Guides   : http://localhost:${PORT}/`);
+    console.log(`  ➜ Documentation & Wiki    : http://localhost:${PORT}/wiki`);
     console.log('======================================================================\n');
   });
 }
