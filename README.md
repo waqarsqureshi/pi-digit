@@ -88,14 +88,16 @@ bash emulator/install.sh
 # 3. Reboot if kernel overlays were freshly enabled
 sudo reboot
 
-# 4. Start the emulator
+# 4. Start the emulator (Ensure your working directory is ~/pi-digit)
+cd ~/pi-digit
 npm start
 ```
 
-Once running, access the interfaces in your browser:
-- **Main Website:** `http://localhost:3000/`
-- **Emulator Interface:** `http://localhost:3000/emulator/`
-- **Documentation & Wiki:** `http://localhost:3000/wiki.html`
+Once running, the daemon outputs your Raspberry Pi's local network IP:
+- **Local Pi (Loopback):** `http://127.0.0.1:3000/emulator/` or `http://localhost:3000/emulator/`
+- **From Your Laptop / PC:** `http://<your-pi-ip>:3000/emulator/` (auto-detected on startup)
+- **Documentation & Wiki:** `http://<your-pi-ip>:3000/wiki.html`
+- **Main Website:** `http://<your-pi-ip>:3000/`
 
 ---
 

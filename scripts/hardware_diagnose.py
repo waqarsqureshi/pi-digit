@@ -7,6 +7,7 @@ and Python libraries. Outputs formatted terminal reports and JSON.
 import sys
 import os
 import json
+import socket
 import platform
 import subprocess
 import traceback
@@ -306,7 +307,44 @@ def run_diagnostics():
     else:
         report["pwm"]["ok"] = False
         report["pwm"]["message"] = "Kernel pwmchip0 not enabled (Software PWM fallback active)"
-        log("  ○ Hardware PWM: pwmchip0 not loaded (Software thread fallback active)")
+    # 6. Network Connection & Local IP Check
+    log("[5/5] Checking Network Connection & Local IP Address...")
+    local_ip = "127.0.0.1"
+    is_network_online = False
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5)
+        s.connect(('8.8.8.8', 80))
+        cand = s.getsockname()[0]
+        s.close()
+        if cand and not cand.startswith('127.') and not cand.startswith('169.254.'):
+            local_ip = cand
+            is_network_online = True
+    except Exception:
+        pass
+
+    if not is_network_online:
+        try:
+            hostname = socket.gethostname()
+            for ip in socket.gethostbyname_ex(hostname)[2]:
+                if not ip.startswith('127.') and not ip.startswith('169.254.'):
+                    local_ip = ip
+                    is_network_online = True
+                    break
+        except Exception:
+            pass
+
+    report["network"] = {
+        "localIp": local_ip,
+        "isOnline": is_network_online,
+        "url": f"http://{local_ip}:3000" if is_network_online else "http://127.0.0.1:3000",
+    }
+    if is_network_online:
+        log(f"  ✓ Local Network IP: {local_ip}")
+        log(f"    ➜ Access Web URL: http://{local_ip}:3000/emulator/")
+    else:
+        log("  ○ Local Loop Only: 127.0.0.1 (Offline / Standby)")
+        log("    ➜ Access Web URL: http://127.0.0.1:3000/emulator/")
 
     log("=" * 64)
 

@@ -299,10 +299,12 @@ git clone https://github.com/waqarsqureshi/pi-digit.git
 cd pi-digit
 
 # 4. Install npm dependencies and build the web application
+cd ~/pi-digit
 npm install
 npm run build
 
 # 5. Start the server (Listens on port 3000)
+# Working directory must be ~/pi-digit
 npm start`}
               </pre>
 
@@ -665,11 +667,21 @@ npm run build`}
 
               <div>
                 <span className="text-slate-700 font-bold block mb-1 font-sans">
-                  3.4 Start the Daemon Server:
+                  3.4 Set Working Directory (pwd) &amp; Start the Daemon Server:
                 </span>
                 <pre className="p-3 bg-slate-900 text-emerald-300 rounded-lg overflow-x-auto text-[11px]">
-{`npm start
-# Server listens on port 3000 across your local network`}
+{`# 1. Verify you are in the repository folder:
+cd ~/pi-digit
+pwd
+# Must output: /home/<user>/pi-digit
+
+# 2. Start the daemon:
+npm start
+
+# Automatically outputs detected LAN IP (or 127.0.0.1 if offline):
+# ➜ Localhost : http://127.0.0.1:3000/emulator/
+# ➜ Network   : http://<your-pi-ip>:3000/emulator/ (connect from your laptop/PC)
+# ➜ Hostname  : http://raspberrypi.local:3000/emulator/`}
                 </pre>
               </div>
 

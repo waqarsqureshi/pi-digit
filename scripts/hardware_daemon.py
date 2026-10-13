@@ -68,6 +68,7 @@ last_sense_load_err = ""
 def get_native_sense_hat(verbose=False):
     """Safely loads system sense_hat package, bypassing any local project files."""
     global last_sense_load_err
+    orig_path = list(sys.path)
     clean_path = [
         p for p in orig_path
         if p and p != '' and p != '.'

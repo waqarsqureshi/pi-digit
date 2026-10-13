@@ -229,26 +229,28 @@ bash emulator/install.sh</code></pre>
           </div>
         </div>
 
-        <h3 id="gs-launch">4. Launching the Emulator</h3>
-        <p>After rebooting, launch the daemon server:</p>
+        <h3 id="gs-launch">4. Launching the Emulator &amp; Connecting</h3>
+        <p>After rebooting, verify your working directory before starting the daemon:</p>
         <div class="code-box">
           <div class="code-box-header">
             <span>Terminal</span>
             <button class="btn-copy">Copy</button>
           </div>
-          <pre><code># Navigate to repository directory
+          <pre><code># 1. Switch to the pi-digit directory (check pwd)
 cd ~/pi-digit
+pwd
+# Expected output: /home/&lt;user&gt;/pi-digit
 
-# Start the Node.js server
+# 2. Start the daemon server
 npm start</code></pre>
         </div>
         <p>
-          The server will output: <code>[Pi-Local Digital Twin] Daemon running at http://0.0.0.0:3000</code>.
-          Open your browser on the Raspberry Pi (or a laptop on the same Wi-Fi/LAN) to:
+          On startup, the daemon inspects network interfaces and outputs your live connection URL:
         </p>
         <ul>
-          <li><strong>Local Pi Browser:</strong> <code>http://localhost:3000/emulator/</code></li>
-          <li><strong>Remote Network Browser:</strong> <code>http://&lt;raspberry-pi-ip&gt;:3000/emulator/</code></li>
+          <li><strong>Remote Network Browser (LAN):</strong> <code>http://&lt;your-pi-ip&gt;:3000/emulator/</code> (detected automatically from Wi-Fi or Ethernet)</li>
+          <li><strong>Local Pi Browser:</strong> <code>http://127.0.0.1:3000/emulator/</code> or <code>http://localhost:3000/emulator/</code></li>
+          <li><strong>Offline / Standby:</strong> If not connected to a network, the server automatically defaults to the local loopback (<code>127.0.0.1:3000</code>).</li>
         </ul>
 
         <h3 id="troubleshooting">5. Troubleshooting Guide</h3>

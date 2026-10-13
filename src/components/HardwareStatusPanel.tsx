@@ -456,11 +456,40 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
               </span>
             </div>
             <div>
-              <span className="text-slate-500 block">Daemon Status:</span>
-              <span className="font-semibold text-emerald-700">
-                Listening on 0.0.0.0:3000 (ws & REST)
+              <span className="text-slate-500 block">Connection IP &amp; Port:</span>
+              <span className="font-semibold text-emerald-700 flex items-center gap-1">
+                <Wifi className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span>
+                  {state?.network?.isOnline
+                    ? `${state.network.localIp}:${state.network.port} (LAN)`
+                    : '127.0.0.1:3000 (Local Loop)'}
+                </span>
               </span>
             </div>
+          </div>
+
+          {/* Network Web Access URL Row */}
+          <div className="mt-1 pt-2 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] bg-white p-2 rounded border border-slate-200">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-slate-500 font-semibold">Web Access URL:</span>
+              <code className="bg-slate-100 text-slate-900 px-1.5 py-0.5 rounded font-mono text-xs">
+                {state?.network?.networkUrl || `http://127.0.0.1:${state?.network?.port || 3000}`}
+              </code>
+              <span className="text-[10px] text-slate-500">
+                ({state?.network?.isOnline ? 'Connect from your laptop / PC browser' : 'Offline / Local loopback mode'})
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                const url = state?.network?.networkUrl || `http://127.0.0.1:${state?.network?.port || 3000}`;
+                navigator.clipboard?.writeText(url);
+              }}
+              className="text-xs text-[#840038] hover:underline font-bold flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+              title="Copy web access URL to clipboard"
+            >
+              <Copy className="w-3 h-3" />
+              <span>Copy URL</span>
+            </button>
           </div>
         </div>
       )}

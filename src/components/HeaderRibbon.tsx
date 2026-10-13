@@ -1,4 +1,5 @@
-import { Radio, LineChart, HelpCircle, ChevronDown, AlertTriangle, Cpu, Layers, Zap, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { Radio, LineChart, HelpCircle, ChevronDown, AlertTriangle, Cpu, Layers, Zap, CheckCircle2, Wifi, Copy, Check } from 'lucide-react';
 import { FullHardwareState } from '../types/digitalTwin';
 
 interface HeaderRibbonProps {
@@ -28,8 +29,16 @@ export function HeaderRibbon({
   isProbingHardware = false,
   githubUrl = 'https://github.com/waqarsqureshi/pi-digit',
 }: HeaderRibbonProps) {
+  const [copiedIp, setCopiedIp] = useState(false);
   const isPhysicalConnected = state?.isSenseHatConnected ?? false;
   const isPartial = isPhysicalConnected && state?.hardwareLinkStatus === 'partial';
+
+  const handleCopyIp = () => {
+    const url = state?.network?.networkUrl || `http://127.0.0.1:${state?.network?.port || 3000}`;
+    navigator.clipboard?.writeText(url);
+    setCopiedIp(true);
+    setTimeout(() => setCopiedIp(false), 2000);
+  };
 
   return (
     <header className="bg-[#840038] text-white shadow-md sticky top-0 z-40">
@@ -128,8 +137,35 @@ export function HeaderRibbon({
           </a>
         </nav>
 
-        {/* Zone 3: Hardware Emulator Badge */}
+        {/* Zone 3: Hardware Emulator & Network Connection Badges */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* LAN IP Address Indicator */}
+          <button
+            onClick={handleCopyIp}
+            className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded text-xs font-mono font-medium border transition-colors cursor-pointer ${
+              state?.network?.isOnline
+                ? 'bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 border-emerald-500/40'
+                : 'bg-white/10 hover:bg-white/15 text-amber-200 border-white/20'
+            }`}
+            title={
+              state?.network?.isOnline
+                ? `LAN IP: ${state.network.localIp} · Click to copy connection URL (${state.network.networkUrl})`
+                : 'Offline / Local loop only · Click to copy 127.0.0.1:3000'
+            }
+          >
+            <Wifi className={`w-3 h-3 ${state?.network?.isOnline ? 'text-emerald-400' : 'text-amber-300'}`} />
+            <span>
+              {state?.network?.isOnline
+                ? `${state.network.localIp}:${state.network.port}`
+                : '127.0.0.1:3000'}
+            </span>
+            {copiedIp ? (
+              <Check className="w-3 h-3 text-emerald-300 ml-0.5" />
+            ) : (
+              <Copy className="w-3 h-3 opacity-60 ml-0.5" />
+            )}
+          </button>
+
           <div className="bg-white/10 border border-white/20 px-2.5 py-1 rounded text-xs font-mono font-bold text-white flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
             <span>EMULATOR ENGINE</span>

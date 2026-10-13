@@ -395,22 +395,30 @@ bash emulator/install.sh</code></pre>
         <div style="background:#fff; border:1px solid var(--slate-200); border-radius:var(--radius-lg); padding:1.75rem; box-shadow:var(--shadow-sm);">
           <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
             <span style="font-family:var(--font-mono); font-size:0.8125rem; font-weight:700; color:var(--color-brand); background:var(--color-brand-subtle); padding:0.2rem 0.5rem; border-radius:4px;">STEP 3</span>
-            <h3 style="font-size:1.125rem; font-weight:700; color:var(--slate-900);">Launch the Emulator Daemon &amp; Open Web Interface</h3>
+            <h3 style="font-size:1.125rem; font-weight:700; color:var(--slate-900);">Set Working Directory (pwd) &amp; Launch Daemon</h3>
           </div>
           <p style="font-size:0.9375rem; color:var(--slate-600); margin-bottom:1rem;">
-            Start the server and open the emulator in Chromium on your Pi or from any device on your local network:
+            After rebooting, check that your terminal is in the <code>pi-digit</code> repository folder (<code>cd ~/pi-digit</code>) before executing <code>npm start</code>. The daemon will automatically detect your local IP address:
           </p>
           <div class="code-box">
             <div class="code-box-header">
               <span>Terminal</span>
               <button class="btn-copy">Copy</button>
             </div>
-            <pre><code># Start the emulator server
+            <pre><code># 1. Ensure you are in the project folder (required working directory)
+cd ~/pi-digit
+
+# Verify current working directory is the repository root
+pwd
+# Expected output: /home/&lt;user&gt;/pi-digit
+
+# 2. Start the daemon server
 npm start
 
-# Open your browser to:
-# http://localhost:3000/emulator/
-# (or http://&lt;your-pi-ip-address&gt;:3000/emulator/)</code></pre>
+# The server automatically outputs connection URLs on startup:
+# ➜ Local Pi (Loopback): http://127.0.0.1:3000/emulator/
+# ➜ Network LAN (Wi-Fi): http://&lt;your-pi-ip&gt;:3000/emulator/ (e.g. 192.168.1.xxx)
+# ➜ mDNS Hostname:       http://raspberrypi.local:3000/emulator/</code></pre>
           </div>
         </div>
       </div>

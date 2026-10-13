@@ -140,6 +140,16 @@ export interface HardwareDiagnosticReport {
   terminalLog: string;
 }
 
+export interface NetworkInterfaceInfo {
+  localIp: string;
+  isOnline: boolean;
+  hasInternet?: boolean;
+  port: number;
+  localUrl: string;
+  networkUrl: string;
+  allIps: string[];
+}
+
 export interface FullHardwareState {
   connected: boolean;
   isPhysicalPi: boolean;
@@ -165,6 +175,7 @@ export interface FullHardwareState {
   lcd?: LcdState;
   program: ProgramExecution;
   timeline: TimelineTrace[];
+  network?: NetworkInterfaceInfo;
   system: {
     hostname: string;
     model: string;

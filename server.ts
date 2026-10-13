@@ -4,6 +4,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import os from 'os';
+import dns from 'dns';
 import { spawn, exec, ChildProcess } from 'child_process';
 import { INITIAL_GPIO_PINS } from './src/data/raspberryPiPinout';
 import {
@@ -20,10 +22,62 @@ import {
   ProgramLanguage,
   LcdState,
   HardwareDiagnosticReport,
+  NetworkInterfaceInfo,
 } from './src/types/digitalTwin';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Local Network IP and Connection Detection
+let cachedInternetStatus = false;
+let lastInternetCheckTime = 0;
+
+function checkInternetReachability(): void {
+  const now = Date.now();
+  if (now - lastInternetCheckTime < 15000) return;
+  lastInternetCheckTime = now;
+  dns.lookup('google.com', (err) => {
+    cachedInternetStatus = !err;
+  });
+}
+
+export function getLocalNetworkInfo(port = 3000): NetworkInterfaceInfo {
+  checkInternetReachability();
+  const interfaces = os.networkInterfaces();
+  const candidates: { ip: string; name: string; priority: number }[] = [];
+
+  for (const [name, netList] of Object.entries(interfaces)) {
+    if (!netList) continue;
+    for (const net of netList) {
+      if (net.family === 'IPv4' && !net.internal) {
+        if (net.address.startsWith('169.254.')) continue;
+
+        let priority = 1;
+        if (/^(wlan|eth|en|wl)/i.test(name)) priority += 10;
+        if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(net.address)) priority += 5;
+        if (/^(docker|br-|veth|vmnet|tun|tap)/i.test(name)) priority -= 8;
+
+        candidates.push({ ip: net.address, name, priority });
+      }
+    }
+  }
+
+  candidates.sort((a, b) => b.priority - a.priority);
+
+  const isOnline = candidates.length > 0;
+  const localIp = isOnline ? candidates[0].ip : '127.0.0.1';
+  const allIps = isOnline ? candidates.map((c) => c.ip) : ['127.0.0.1'];
+
+  return {
+    localIp,
+    isOnline,
+    hasInternet: cachedInternetStatus,
+    port,
+    localUrl: `http://127.0.0.1:${port}`,
+    networkUrl: isOnline ? `http://${localIp}:${port}` : `http://127.0.0.1:${port}`,
+    allIps,
+  };
+}
 
 // Detect if running on a real physical Raspberry Pi with Sense HAT attached
 let isPhysicalPi = false;
@@ -358,6 +412,7 @@ function getFullState(): FullHardwareState {
     lcd: lcdState,
     program: programState,
     timeline: timelineTraces.slice(0, 30),
+    network: getLocalNetworkInfo(Number(process.env.PORT) || 3000),
     system: {
       hostname: 'raspberrypi-twin',
       model: isPhysicalPi ? 'Raspberry Pi 4 Model B Rev 1.4' : 'Raspberry Pi 4 (Emulated)',
@@ -1110,6 +1165,11 @@ app.get('/api/health', (_req: Request, res: Response) => {
     uptime: Math.floor(process.uptime()),
     timestamp: Date.now(),
   });
+});
+
+app.get('/api/network', (_req: Request, res: Response) => {
+  const PORT = Number(process.env.PORT) || 3000;
+  res.json(getLocalNetworkInfo(PORT));
 });
 
 app.get('/api/state', (_req: Request, res: Response) => {
@@ -1904,7 +1964,21 @@ async function start() {
   });
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Pi-Local Digital Twin] Daemon running at http://0.0.0.0:${PORT}`);
+    const net = getLocalNetworkInfo(PORT);
+    console.log('\n======================================================================');
+    console.log('  [Pi-Local Digital Twin] Daemon Active & Listening');
+    console.log('======================================================================');
+    console.log(`  ➜ Project Directory (pwd) : ${process.cwd()}`);
+    console.log(`  ➜ Local Loopback (Pi)     : ${net.localUrl}`);
+    if (net.isOnline) {
+      console.log(`  ➜ Network IP (LAN)        : ${net.networkUrl}`);
+      console.log(`                            (Use this URL to connect from your laptop/PC)`);
+      console.log(`  ➜ mDNS Hostname           : http://raspberrypi.local:${PORT}`);
+    } else {
+      console.log(`  ➜ Network Status          : Offline / Standby (No active Wi-Fi or Ethernet LAN)`);
+      console.log(`  ➜ Loopback Access Only    : ${net.localUrl} (127.0.0.1)`);
+    }
+    console.log('======================================================================\n');
   });
 }
 

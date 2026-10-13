@@ -3,12 +3,14 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+const rootDir = import.meta.dirname ?? path.resolve();
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(rootDir, '.'),
       },
     },
     server: {
@@ -21,9 +23,9 @@ export default defineConfig(() => {
     build: {
       rollupOptions: {
         input: {
-          main: path.resolve(__dirname, 'index.html'),
-          wiki: path.resolve(__dirname, 'wiki.html'),
-          emulator: path.resolve(__dirname, 'emulator/index.html'),
+          main: path.resolve(rootDir, 'index.html'),
+          wiki: path.resolve(rootDir, 'wiki.html'),
+          emulator: path.resolve(rootDir, 'emulator/index.html'),
         },
       },
     },

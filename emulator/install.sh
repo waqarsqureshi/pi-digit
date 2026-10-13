@@ -110,9 +110,11 @@ echo -e "${BLUE}================================================================
 if [ "$REBOOT_REQUIRED" = true ]; then
   echo -e "\n${YELLOW}NOTICE: Kernel overlays were enabled. Please reboot your Pi:${NC}"
   echo -e "  sudo reboot"
+  echo -e "\nAfter rebooting, navigate to the project directory (pwd) before running:"
+  echo -e "  ${GREEN}cd ~/pi-digit && npm start${NC}"
 else
-  echo -e "\nTo start the emulator now, run:"
-  echo -e "  ${GREEN}npm start${NC}"
+  echo -e "\nTo start the emulator now, run from the project root:"
+  echo -e "  ${GREEN}cd ~/pi-digit && npm start${NC}"
   echo -e "\nThen open in your browser:"
   echo -e "  ${BLUE}http://localhost:3000/emulator/${NC}"
 fi
