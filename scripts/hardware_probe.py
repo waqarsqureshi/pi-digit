@@ -113,8 +113,13 @@ def inspect_hardware():
     sense_lib_ok = False
     sense_lib_error = None
     try:
-        # Avoid local mock by removing cwd from path
-        clean_sys_path = [p for p in sys.path if p and p != "" and p != "." and not os.path.exists(os.path.join(p, "pi_emulator.py"))]
+        clean_sys_path = [
+            p for p in sys.path
+            if p and p != "" and p != "."
+            and not os.path.exists(os.path.join(p, "pi_emulator.py"))
+            and not os.path.exists(os.path.join(p, "src", "pi_emulator.py"))
+            and not (os.path.basename(p.rstrip("/\\")) == "src" and os.path.exists(os.path.join(p, "pi_emulator.py")))
+        ]
         orig = list(sys.path)
         sys.path = clean_sys_path
         sys.modules.pop("sense_hat", None)

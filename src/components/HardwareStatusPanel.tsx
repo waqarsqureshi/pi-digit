@@ -182,29 +182,19 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
             <span>{isPinging ? 'Pinging...' : 'Reconnect / Ping'}</span>
           </button>
 
-          {selectedMode === 'simulation' ? (
-            <div
-              className="px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1.5 select-none"
-              title="In simulation mode, connecting to actual board is not allowed. Switch to Emulation mode to connect physical hardware."
-            >
-              <span className="w-2 h-2 rounded-full bg-slate-400" />
-              <span>Link Disabled (Simulation)</span>
-            </div>
-          ) : (
-            <button
-              onClick={handleToggleConnect}
-              disabled={isPinging || isProbing}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ${
-                isLinked
-                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
-              title="Toggle physical hardware linkage bridge"
-            >
-              <Zap className={`w-3.5 h-3.5 ${isLinked ? 'text-rose-500' : 'text-amber-300'}`} />
-              <span>{isLinked ? 'Unlink Bridge' : 'Connect Hardware'}</span>
-            </button>
-          )}
+          <button
+            onClick={handleToggleConnect}
+            disabled={isPinging || isProbing}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ${
+              isLinked
+                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+            }`}
+            title="Toggle physical hardware linkage bridge"
+          >
+            <Zap className={`w-3.5 h-3.5 ${isLinked ? 'text-rose-500' : 'text-amber-300'}`} />
+            <span>{isLinked ? 'Unlink Bridge' : 'Connect Hardware'}</span>
+          </button>
         </div>
       </div>
 
@@ -337,23 +327,20 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
           <div className="flex items-center gap-1">
             <button
               onClick={() => onToggleSensorSource && onToggleSensorSource('hardware')}
-              disabled={selectedMode === 'simulation'}
               className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors flex items-center gap-1 ${
-                selectedMode === 'simulation'
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : isRealSensorsOn
+                isRealSensorsOn
                   ? 'bg-emerald-700 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
-              title={selectedMode === 'simulation' ? 'Hardware sensors disabled in simulation mode' : 'Read real sensor values from physical Sense HAT'}
+              title="Read real sensor values from physical Sense HAT"
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isRealSensorsOn && selectedMode !== 'simulation' ? 'bg-emerald-300 animate-pulse' : 'bg-slate-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isRealSensorsOn ? 'bg-emerald-300 animate-pulse' : 'bg-slate-400'}`} />
               <span>ON (Hardware)</span>
             </button>
             <button
               onClick={() => onToggleSensorSource && onToggleSensorSource('simulated')}
               className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
-                !isRealSensorsOn || selectedMode === 'simulation'
+                !isRealSensorsOn
                   ? 'bg-sky-700 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
@@ -431,10 +418,10 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
           <span className="truncate text-slate-300">
             {lastPingResult?.message ||
               (isLinked
-                ? `Hardware Link Active: ${operatingMode === 'emulation' ? 'UI clicks directly control physical LEDs and GPIO pins.' : 'Code execution mirrors to physical hardware and emulator.'}`
+                ? 'Hardware Link Active: Physical hardware synchronized with emulator.'
                 : isEmulationOffline
-                ? 'Emulation Mode: Physical hardware not detected. Click "Connect Hardware" to probe.'
-                : 'Simulation Mode: Full digital twin active. Python & C scripts execute with virtual hardware.')}
+                ? 'Hardware Emulator: Standby mode. Click "Connect Hardware" to probe.'
+                : 'Hardware Emulator: Ready. Python & C scripts execute with emulator engine.')}
           </span>
         </div>
 

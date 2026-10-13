@@ -10,16 +10,22 @@ import os
 import time
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 def get_sense():
     try:
-        from pi_emulator import EmulatorSenseHat
+        from py_twin import EmulatorSenseHat
         return EmulatorSenseHat()
     except Exception:
-        import sense_hat
-        return sense_hat.SenseHat()
+        try:
+            from pi_emulator import EmulatorSenseHat
+            return EmulatorSenseHat()
+        except Exception:
+            import sense_hat
+            return sense_hat.SenseHat()
 
 def main():
     print("=" * 65)

@@ -1,43 +1,553 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pi-Local Digital Twin | Raspberry Pi 4 & Sense HAT Simulator</title>
-    <meta name="description" content="Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi 4 with Sense HAT, 40-pin GPIO, LCD, and Python/C execution engine." />
-    
-    <!-- OpenGraph Social Cards -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Pi-Local Digital Twin" />
-    <meta property="og:title" content="Pi-Local Digital Twin | Raspberry Pi 4 & Sense HAT Simulator" />
-    <meta property="og:description" content="Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi 4 with Sense HAT, 40-pin GPIO, LCD, and Python/C execution engine." />
-    
-    <!-- Twitter Cards -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Pi-Local Digital Twin | Raspberry Pi 4 & Sense HAT Simulator" />
-    <meta name="twitter:description" content="Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi 4 with Sense HAT, 40-pin GPIO, LCD, and Python/C execution engine." />
-    <meta name="theme-color" content="#840038" />
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raspberry Pi Digital Twin | Hardware Emulator &amp; Remote Dashboard</title>
+  <meta name="description" content="High-fidelity Raspberry Pi Digital Twin emulator for Raspberry Pi 4/5 with Sense HAT, 40-pin GPIO, 16x2 LCD, and Python/C execution engine.">
+  
+  <!-- OpenGraph Cards -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Pi-Digital Twin">
+  <meta property="og:title" content="Raspberry Pi Digital Twin | Hardware Emulator">
+  <meta property="og:description" content="Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi with Sense HAT, 40-pin GPIO, LCD, and Python/C engine.">
+  <meta property="og:image" content="/assets/images/sense-hat-diagram.svg">
+  
+  <!-- Favicon & Stylesheets -->
+  <link rel="icon" type="image/svg+xml" href="/assets/images/pi-logo.svg">
+  <link rel="stylesheet" href="/assets/css/shared.css">
+  <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
 
-    <!-- Schema.org Structured Data -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Pi-Local Digital Twin",
-      "applicationCategory": "EducationalApplication",
-      "operatingSystem": "All, Linux, Raspberry Pi OS, macOS, Windows",
-      "description": "Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi 4 with Sense HAT, 40-pin GPIO, LCD, and Python/C execution engine.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      }
-    }
-    </script>
-  </head>
-  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-[#840038]/20 selection:text-[#840038]">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- Navigation Bar -->
+  <nav class="site-nav">
+    <div class="container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/images/pi-logo.svg" alt="Raspberry Pi Logo" width="32" height="32">
+        <span>Pi-Digital Twin</span>
+        <span class="nav-brand-badge">EMULATOR</span>
+      </a>
+
+      <button class="nav-mobile-toggle" aria-label="Toggle navigation">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="nav-links">
+        <a href="#features">Capabilities</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#install">Install on Pi</a>
+        <a href="#hardware">Supported Models</a>
+        <a href="/wiki.html">Documentation &amp; Wiki</a>
+        <a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer" class="nav-btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path>
+          </svg>
+          GitHub
+        </a>
+        <a href="#install" class="nav-btn-primary">
+          Install on Pi
+          <span aria-hidden="true">&darr;</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero-section">
+    <div class="hero-container">
+      <div class="hero-content">
+        <div class="hero-eyebrow">
+          <span>RASPBERRY PI HARDWARE EMULATOR</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>SENSE HAT &amp; GPIO ENGINE</span>
+        </div>
+        <h1 class="hero-title">
+          The Interactive Digital Twin for <span class="accent">Raspberry Pi</span>
+        </h1>
+        <p class="hero-desc">
+          Run, inspect, and debug Sense HAT LED matrix displays, 40-pin GPIO logic, and environmental telemetry directly on your physical Raspberry Pi with real-time web telemetry and native Linux syscall integration.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#install" class="btn-large-primary">
+            Install on Raspberry Pi
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+            </svg>
+          </a>
+          <a href="/wiki.html" class="btn-large-secondary">
+            Documentation &amp; Wiki
+          </a>
+          <a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer" class="btn-large-secondary">
+            View on GitHub
+          </a>
+        </div>
+
+        <!-- Quick Terminal Install Command Strip -->
+        <div class="quick-install-strip">
+          <span class="quick-install-code" id="quick-install-cmd">curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash</span>
+          <button class="btn-copy" data-copy-target="quick-install-cmd" aria-label="Copy install command">
+            <span>Copy</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hero Visual Preview Card -->
+      <div class="hero-preview-card">
+        <div class="preview-card-header">
+          <div class="preview-card-dots">
+            <span class="preview-dot red"></span>
+            <span class="preview-dot yellow"></span>
+            <span class="preview-dot green"></span>
+          </div>
+          <span class="preview-card-title">raspberrypi: /dev/fb1 &amp; /dev/i2c-1</span>
+        </div>
+        <div class="preview-card-img-wrap">
+          <img src="/assets/images/sense-hat-diagram.svg" alt="Sense HAT 8x8 Matrix and Sensor Architecture" width="580" height="330">
+        </div>
+        <div class="preview-card-footer">
+          <div class="status-indicator" id="live-hardware-status">
+            <span class="status-dot"></span>
+            <span>Live Emulation &amp; Telemetry Engine Active</span>
+          </div>
+          <a href="#install" style="color:var(--color-brand); font-weight:600; text-decoration:none; font-size:0.8125rem;">
+            Pi Setup Guide &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Key Capabilities Section -->
+  <section id="features" class="section-wrap">
+    <div class="section-container">
+      <div class="section-header">
+        <div class="section-kicker">ENGINEERING CAPABILITIES</div>
+        <h2 class="section-title">Hardware-Accurate Emulation on Raspberry Pi</h2>
+        <p class="section-subtitle">
+          Engineered for embedded Linux education and industrial digital twins. Seamlessly bridges physical hardware interfaces with live web visualization.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </div>
+          <h3 class="feature-title">8&times;8 RGB LED Matrix</h3>
+          <p class="feature-desc">
+            Directly binds to the Linux framebuffer driver at <code>/dev/fb1</code>. Renders 24-bit TrueColor gamma-corrected pixels with real-time feedback.
+          </p>
+          <div class="feature-meta">
+            <span>Kernel driver: rpi-sense-fb</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>16-bit RGB565 /dev/fb1</span>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">40-Pin GPIO Expansion</h3>
+          <p class="feature-desc">
+            Interactive representation of all 40 physical header pins with pull-up/pull-down resistor states, PWM frequency modulation, and hardware interrupts via <code>/dev/gpiomem</code>.
+          </p>
+          <div class="feature-meta">
+            <span>RPi.GPIO &amp; libgpiod</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>WiringPi compatible</span>
+          </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">Environmental Telemetry</h3>
+          <p class="feature-desc">
+            Polls live I2C sensors including the HTS221 (Temperature &amp; Relative Humidity), LPS25H (Barometric Atmospheric Pressure), and LSM9DS1 (9-DoF Inertial IMU).
+          </p>
+          <div class="feature-meta">
+            <span>I2C Bus 1</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>Addresses 0x5F, 0x5C, 0x6A</span>
+          </div>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="6" y1="9" x2="18" y2="9"></line>
+              <line x1="6" y1="15" x2="14" y2="15"></line>
+            </svg>
+          </div>
+          <h3 class="feature-title">16&times;2 HD44780 LCD Display</h3>
+          <p class="feature-desc">
+            Dedicated 16&times;2 character alphanumeric LCD module with PCF8574 I2C backpack support (address 0x27) for industrial readout programs and curriculum labs.
+          </p>
+          <div class="feature-meta">
+            <span>Hitachi HD44780 controller</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>I2C backpack 0x27</span>
+          </div>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+          </div>
+          <h3 class="feature-title">Embedded Web Terminal &amp; IDE</h3>
+          <p class="feature-desc">
+            Live in-browser code editor with multi-tab support for Python and C, integrated with a real interactive Linux shell for compiling and executing code on the Pi.
+          </p>
+          <div class="feature-meta">
+            <span>Python 3 &amp; GCC C99</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>Real-time bash stdout/stderr</span>
+          </div>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">Hardware Diagnostic Engine</h3>
+          <p class="feature-desc">
+            Self-healing diagnostic engine checks kernel overlays, i2cdetect buses, framebuffer paths, and group permissions, reporting precise terminal fix commands.
+          </p>
+          <div class="feature-meta">
+            <span>Automated sysfs probe</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>One-click clipboard export</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Breakdown -->
+  <section id="architecture" class="section-wrap alt-bg">
+    <div class="section-container">
+      <div class="arch-grid">
+        <div>
+          <div class="section-kicker">SYSTEM ARCHITECTURE</div>
+          <h2 class="section-title">How the Emulator Talks to Hardware</h2>
+          <p class="hero-desc">
+            The emulator runs as a lightweight Node.js and Python daemon directly on the Raspberry Pi OS userspace, eliminating latency and bridging local kernel drivers with the web frontend.
+          </p>
+
+          <div class="arch-steps">
+            <div class="arch-step-item">
+              <div class="arch-step-num">1</div>
+              <div class="arch-step-content">
+                <h3>Hardware Daemon &amp; Kernel Drivers</h3>
+                <p>A background Python daemon polls native Linux sysfs nodes (<code>/dev/fb1</code>, <code>/dev/i2c-1</code>, <code>/dev/gpiomem</code>) using <code>python3-sense-hat</code> and <code>RPi.GPIO</code>.</p>
+              </div>
+            </div>
+
+            <div class="arch-step-item">
+              <div class="arch-step-num">2</div>
+              <div class="arch-step-content">
+                <h3>Node.js IPC &amp; WebSocket Engine</h3>
+                <p>The Express backend establishes high-frequency WebSocket streams, synchronizing framebuffer frames, pin toggles, and sensor samples every 500ms.</p>
+              </div>
+            </div>
+
+            <div class="arch-step-item">
+              <div class="arch-step-num">3</div>
+              <div class="arch-step-content">
+                <h3>Interactive Twin Frontend</h3>
+                <p>The React digital twin dashboard renders the physical state, allows executing Python/C scripts, and delivers instant visual verification on your browser screen.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="code-box">
+            <div class="code-box-header">
+              <span>sample_sense_hat.py &mdash; Native Hardware Execution</span>
+              <button class="btn-copy">Copy</button>
+            </div>
+            <pre><code>from sense_hat import SenseHat
+import time
+
+sense = SenseHat()
+sense.clear()
+
+# Display temperature &amp; humidity on 8x8 matrix
+temp = sense.get_temperature()
+humidity = sense.get_humidity()
+
+print(f"Temperature: {temp:.1f} °C")
+print(f"Humidity:    {humidity:.1f} %")
+
+# Draw green heart on 8x8 LED matrix
+G = [0, 255, 0]
+O = [0, 0, 0]
+
+heart = [
+  O, G, G, O, O, G, G, O,
+  G, G, G, G, G, G, G, G,
+  G, G, G, G, G, G, G, G,
+  O, G, G, G, G, G, G, O,
+  O, O, G, G, G, G, O, O,
+  O, O, O, G, G, O, O, O,
+  O, O, O, O, O, O, O, O,
+  O, O, O, O, O, O, O, O
+]
+
+sense.set_pixels(heart)
+time.sleep(2)</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation Walkthrough Section -->
+  <section id="install" class="section-wrap">
+    <div class="section-container">
+      <div class="section-header">
+        <div class="section-kicker">STEP-BY-STEP INSTALLATION</div>
+        <h2 class="section-title">Install on Your Raspberry Pi</h2>
+        <p class="section-subtitle">
+          Follow these quick steps to get the emulator installed, configured, and running on your physical Raspberry Pi.
+        </p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:2rem; max-width:880px; margin:0 auto;">
+        <!-- Step 1 -->
+        <div style="background:#fff; border:1px solid var(--slate-200); border-radius:var(--radius-lg); padding:1.75rem; box-shadow:var(--shadow-sm);">
+          <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+            <span style="font-family:var(--font-mono); font-size:0.8125rem; font-weight:700; color:var(--color-brand); background:var(--color-brand-subtle); padding:0.2rem 0.5rem; border-radius:4px;">STEP 1</span>
+            <h3 style="font-size:1.125rem; font-weight:700; color:var(--slate-900);">Clone Repository &amp; Run Automated Installer</h3>
+          </div>
+          <p style="font-size:0.9375rem; color:var(--slate-600); margin-bottom:1rem;">
+            Open a terminal on your Raspberry Pi (or SSH into it) and run the installer script:
+          </p>
+          <div class="code-box">
+            <div class="code-box-header">
+              <span>Terminal (Raspberry Pi OS)</span>
+              <button class="btn-copy">Copy</button>
+            </div>
+            <pre><code># Clone repository
+git clone https://github.com/waqarsqureshi/pi-digit.git
+cd pi-digit
+
+# Run installation script (enables I2C, installs dependencies, sets up systemd)
+chmod +x emulator/install.sh
+bash emulator/install.sh</code></pre>
+          </div>
+          <div style="margin-top:0.75rem; font-size:0.8125rem;">
+            <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" style="color:var(--color-brand); text-decoration:none; font-weight:600;">
+              View emulator/install.sh on GitHub &rarr;
+            </a>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="background:#fff; border:1px solid var(--slate-200); border-radius:var(--radius-lg); padding:1.75rem; box-shadow:var(--shadow-sm);">
+          <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+            <span style="font-family:var(--font-mono); font-size:0.8125rem; font-weight:700; color:var(--color-brand); background:var(--color-brand-subtle); padding:0.2rem 0.5rem; border-radius:4px;">STEP 2</span>
+            <h3 style="font-size:1.125rem; font-weight:700; color:var(--slate-900);">Reboot to Apply Kernel I2C &amp; Framebuffer Overlays</h3>
+          </div>
+          <p style="font-size:0.9375rem; color:var(--slate-600); margin-bottom:1rem;">
+            If I2C or Sense HAT kernel modules were just enabled, reboot once to initialize <code>/dev/fb1</code>:
+          </p>
+          <div class="code-box">
+            <div class="code-box-header">
+              <span>Terminal</span>
+              <button class="btn-copy">Copy</button>
+            </div>
+            <pre><code>sudo reboot</code></pre>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="background:#fff; border:1px solid var(--slate-200); border-radius:var(--radius-lg); padding:1.75rem; box-shadow:var(--shadow-sm);">
+          <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem;">
+            <span style="font-family:var(--font-mono); font-size:0.8125rem; font-weight:700; color:var(--color-brand); background:var(--color-brand-subtle); padding:0.2rem 0.5rem; border-radius:4px;">STEP 3</span>
+            <h3 style="font-size:1.125rem; font-weight:700; color:var(--slate-900);">Launch the Emulator Daemon &amp; Open Web Interface</h3>
+          </div>
+          <p style="font-size:0.9375rem; color:var(--slate-600); margin-bottom:1rem;">
+            Start the server and open the emulator in Chromium on your Pi or from any device on your local network:
+          </p>
+          <div class="code-box">
+            <div class="code-box-header">
+              <span>Terminal</span>
+              <button class="btn-copy">Copy</button>
+            </div>
+            <pre><code># Start the emulator server
+npm start
+
+# Open your browser to:
+# http://localhost:3000/emulator/
+# (or http://&lt;your-pi-ip-address&gt;:3000/emulator/)</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hardware Compatibility Table -->
+  <section id="hardware" class="section-wrap alt-bg">
+    <div class="section-container">
+      <div class="section-header">
+        <div class="section-kicker">HARDWARE COMPATIBILITY</div>
+        <h2 class="section-title">Supported Devices &amp; Operating Systems</h2>
+        <p class="section-subtitle">
+          Verified on official Raspberry Pi hardware with Debian GNU/Linux kernel releases.
+        </p>
+      </div>
+
+      <div class="spec-table-wrap">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Raspberry Pi Hardware</th>
+              <th>Operating System</th>
+              <th>Sense HAT Support</th>
+              <th>GPIO Header (/dev/gpiomem)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Raspberry Pi 5 (4GB / 8GB / 16GB)</strong></td>
+              <td>Raspberry Pi OS (Bookworm 64-bit)</td>
+              <td>Full (/dev/fb1 &amp; I2C)</td>
+              <td>RP1 chip via libgpiod</td>
+              <td><span class="badge-verified">&check; Verified</span></td>
+            </tr>
+            <tr>
+              <td><strong>Raspberry Pi 4 Model B (2GB / 4GB / 8GB)</strong></td>
+              <td>Raspberry Pi OS (Bookworm &amp; Bullseye)</td>
+              <td>Full (/dev/fb1 &amp; I2C)</td>
+              <td>Direct bcm2835 /dev/gpiomem</td>
+              <td><span class="badge-verified">&check; Verified</span></td>
+            </tr>
+            <tr>
+              <td><strong>Raspberry Pi 400</strong></td>
+              <td>Raspberry Pi OS (64-bit &amp; 32-bit)</td>
+              <td>Full via 40-pin ribbon cable</td>
+              <td>Direct bcm2835 /dev/gpiomem</td>
+              <td><span class="badge-verified">&check; Verified</span></td>
+            </tr>
+            <tr>
+              <td><strong>Raspberry Pi 3 Model B+</strong></td>
+              <td>Raspberry Pi OS (Bullseye / Bookworm)</td>
+              <td>Full (/dev/fb1 &amp; I2C)</td>
+              <td>Direct bcm2835 /dev/gpiomem</td>
+              <td><span class="badge-verified">&check; Verified</span></td>
+            </tr>
+            <tr>
+              <td><strong>Raspberry Pi Zero 2 W</strong></td>
+              <td>Raspberry Pi OS Lite / Desktop</td>
+              <td>Supported (Mini I2C header)</td>
+              <td>Direct bcm2835 /dev/gpiomem</td>
+              <td><span class="badge-verified">&check; Verified</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Call to Action Banner -->
+      <div class="cta-banner">
+        <h2>Ready to Explore the Pi Digital Twin?</h2>
+        <p>
+          Inspect real-time telemetry, execute Python and C code on hardware, or read our extensive wiki documentation.
+        </p>
+        <div class="actions">
+          <a href="#install" class="btn-large-primary">
+            Install on Raspberry Pi &rarr;
+          </a>
+          <a href="/wiki.html" class="btn-large-secondary" style="background:rgba(255,255,255,0.1); color:#fff; border-color:rgba(255,255,255,0.2);">
+            Browse Wiki &amp; Docs
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+            <img src="/assets/images/pi-logo.svg" alt="Logo" width="24" height="24">
+            <span style="color:#fff; font-weight:700; font-size:1.0625rem;">Pi-Digital Twin</span>
+          </div>
+          <p style="line-height:1.6; max-width:320px;">
+            High-fidelity Raspberry Pi Digital Twin emulator for hardware-level experimentation, Sense HAT education, and remote telemetry monitoring.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Navigation</h4>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="#install">Install on Pi</a></li>
+            <li><a href="/wiki.html">Documentation &amp; Wiki</a></li>
+            <li><a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Hardware Docs</h4>
+          <ul>
+            <li><a href="/wiki.html#architecture">Sense HAT 8&times;8 Matrix</a></li>
+            <li><a href="/wiki.html#code-examples">HTS221 &amp; LPS25H I2C</a></li>
+            <li><a href="/wiki.html#architecture">40-Pin GPIO Layout</a></li>
+            <li><a href="/wiki.html#troubleshooting">Hardware Diagnostics</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Project Links</h4>
+          <ul>
+            <li><a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+            <li><a href="https://github.com/waqarsqureshi/pi-digit/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+            <li><a href="/LICENSE">MIT License</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 Raspberry Pi Digital Twin Project &middot; Open Source under MIT License</div>
+        <div>Engineered for Raspberry Pi OS &middot; No Python required for website &amp; wiki</div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/assets/js/main.js"></script>
+</body>
 </html>
-

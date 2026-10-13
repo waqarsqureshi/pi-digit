@@ -1,0 +1,7 @@
+# Raspberry Pi Digital Twin Emulator - Python Hardware Daemon Requirements
+# Compatible with Raspberry Pi OS (Debian 12 Bookworm & Debian 11 Bullseye)
+
+sense-hat>=2.6.0
+smbus2>=0.4.3
+RPi.GPIO>=0.7.1; platform_machine == "armv7l" or platform_machine == "aarch64"
+evdev>=1.6.0

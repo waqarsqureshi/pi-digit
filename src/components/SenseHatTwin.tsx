@@ -191,16 +191,14 @@ export function SenseHatTwin({
             </button>
           )}
 
-          {selectedMode === 'simulation' && (
-            <button
-              onClick={() => setShowInjectModal(!showInjectModal)}
-              className="px-2 py-0.5 text-xs font-mono rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors flex items-center gap-1 shadow-xs"
-              title="Inject simulated sensor values"
-            >
-              <Sliders className="w-3 h-3 text-amber-600" />
-              <span>Perturb</span>
-            </button>
-          )}
+          <button
+            onClick={() => setShowInjectModal(!showInjectModal)}
+            className="px-2 py-0.5 text-xs font-mono rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+            title="Inject test sensor values"
+          >
+            <Sliders className="w-3 h-3 text-amber-600" />
+            <span>Test Values</span>
+          </button>
         </div>
       </div>
 
@@ -262,8 +260,8 @@ export function SenseHatTwin({
         </div>
       )}
 
-      {/* Sensor Perturbation Drawer for Teachers (Simulation mode only) */}
-      {showInjectModal && selectedMode === 'simulation' && (
+      {/* Sensor Perturbation Drawer (Inject Test Values) */}
+      {showInjectModal && (
         <div className="p-3 bg-slate-50 rounded-lg border border-slate-300 flex flex-col gap-3 text-xs">
           <div className="flex items-center justify-between font-mono font-bold text-[#840038]">
             <span>Teacher Sensor Perturbation (Inject Test Values):</span>
@@ -523,21 +521,19 @@ export function SenseHatTwin({
               </div>
             )}
 
-            {/* Simulation Mode Notice */}
-            {selectedMode === 'simulation' && (
-              <div className="mb-3 p-2 rounded-lg bg-sky-50 border border-sky-200 text-xs font-mono flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-sky-900">
-                  <span className="w-2 h-2 rounded-full bg-sky-500" />
-                  <span className="font-semibold">Virtual Simulation Keypad:</span>
-                  <span className="px-1.5 py-0.2 rounded bg-sky-200 text-sky-950 font-bold uppercase">
-                    {lastJoystick ? `${lastJoystick.direction} (${lastJoystick.action})` : 'IDLE'}
-                  </span>
-                </div>
-                <span className="text-[10px] text-slate-500 hidden sm:inline">
-                  (Physical connection blocked in simulation)
+            {/* 5-Way Joystick Status Banner */}
+            <div className="mb-3 p-2 rounded-lg bg-slate-100 border border-slate-200 text-xs font-mono flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-slate-800">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="font-semibold">5-Way Joystick:</span>
+                <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-900 font-bold uppercase">
+                  {lastJoystick ? `${lastJoystick.direction} (${lastJoystick.action})` : 'IDLE'}
                 </span>
               </div>
-            )}
+              <span className="text-[10px] text-slate-500 hidden sm:inline">
+                Linux /dev/input/event* &middot; ATtiny88 MCU
+              </span>
+            </div>
 
             <div className="flex items-center justify-center py-2">
               <div className="grid grid-cols-3 gap-1.5 w-36 h-36 p-1.5 bg-slate-200 border border-slate-300 rounded-xl relative shadow-inner">

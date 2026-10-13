@@ -1,7 +1,17 @@
 # 08. 9-DOF IMU Accelerometer & Motion Telemetry
 # Reads real-time acceleration and orientation from Sense HAT LSM9DS1
+import sys
+import os
 import time
-from pi_emulator import SenseHat
+
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+try:
+    from py_twin import SenseHat
+except ImportError:
+    from pi_emulator import SenseHat
 
 sense = SenseHat()
 print("=== 9-DOF IMU Accelerometer Motion Stream ===")

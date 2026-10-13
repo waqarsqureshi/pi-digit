@@ -70,7 +70,20 @@ function runHardwareDiagnostics(): Promise<HardwareDiagnosticReport> {
       return resolve(fallbackReport);
     }
 
-    exec(`python3 "${diagScript}" --json`, (err, stdout) => {
+    exec(
+      `python3 "${diagScript}" --json`,
+      {
+        cwd: __dirname,
+        env: {
+          ...process.env,
+          PYTHONPATH: [
+            path.join(__dirname, 'src'),
+            path.join(__dirname, 'src', 'py_twin'),
+            __dirname,
+          ].join(path.delimiter),
+        },
+      },
+      (err, stdout) => {
       let report: HardwareDiagnosticReport;
       try {
         report = JSON.parse(stdout);
@@ -125,10 +138,12 @@ let currentPwmState = {
   active: false,
 };
 
-// Background Python Hardware Daemon Supervisor
+// Background Python Hardware Daemon Supervisor (Physical Pi host only)
 let hwDaemonProc: ChildProcess | null = null;
+let hwDaemonFailed = false;
+
 function startHardwareDaemon() {
-  if (hwDaemonProc) return;
+  if (hwDaemonProc || hwDaemonFailed) return;
   const daemonPath = path.join(__dirname, 'scripts', 'hardware_daemon.py');
   if (!fs.existsSync(daemonPath)) return;
 
@@ -137,9 +152,21 @@ function startHardwareDaemon() {
       cwd: __dirname,
       env: {
         ...process.env,
+        PYTHONPATH: [
+          path.join(__dirname, 'src'),
+          path.join(__dirname, 'src', 'py_twin'),
+          __dirname,
+        ].join(path.delimiter),
         PYTHONUNBUFFERED: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    hwDaemonProc.on('error', (err) => {
+      // In cloud environments without Python or physical Pi drivers, safely fall back to simulated mode
+      console.log(`[HwDaemon Info] Hardware daemon not running (${err.message}). Virtual digital twin mode active.`);
+      hwDaemonProc = null;
+      hwDaemonFailed = true;
     });
 
     hwDaemonProc.stdout?.on('data', (d) => {
@@ -155,12 +182,19 @@ function startHardwareDaemon() {
       }
     });
 
-    hwDaemonProc.on('exit', () => {
+    hwDaemonProc.on('exit', (code) => {
       hwDaemonProc = null;
-      setTimeout(startHardwareDaemon, 3000);
+      if (code === 0) {
+        setTimeout(startHardwareDaemon, 3000);
+      } else {
+        // In non-Pi or cloud hosts, exit indicates hardware daemon isn't supported; do not busy-retry
+        hwDaemonFailed = true;
+        console.log('[HwDaemon Info] Hardware daemon exited. Operating in browser virtual digital twin mode.');
+      }
     });
   } catch (err) {
-    console.error('[HwDaemon] Spawn error:', err);
+    hwDaemonFailed = true;
+    console.log('[HwDaemon Info] Spawn skipped, operating in virtual mode:', err);
   }
 }
 
@@ -192,7 +226,7 @@ let sensors: SenseHatSensors = {
 };
 
 let lastJoystickEvent: JoystickEvent | null = null;
-let systemMode: 'simulation' | 'emulation' = 'simulation';
+let systemMode: 'simulation' | 'emulation' = 'emulation';
 let sensorSource: 'hardware' | 'simulated' = 'simulated';
 let operatingMode: 'execution' | 'emulation' = 'execution';
 
@@ -913,7 +947,11 @@ async function executeStudentCode(
       cwd: process.cwd(),
       env: {
         ...process.env,
-        PYTHONPATH: process.cwd(),
+        PYTHONPATH: [
+          path.join(process.cwd(), 'src'),
+          path.join(process.cwd(), 'src', 'py_twin'),
+          process.cwd(),
+        ].join(path.delimiter),
         PYTHONUNBUFFERED: '1',
       },
     });
@@ -1261,10 +1299,13 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
     const parts = trimmed.split(' ');
     const script = parts[1] || '01_hello.py';
     let execCmd = trimmed;
-    // Auto-resolve script in example-codes if not found in root
+    // Auto-resolve script in src or example-codes if not found in root
     if (parts[1] && !fs.existsSync(path.join(process.cwd(), parts[1]))) {
+      const srcPath = path.join(process.cwd(), 'src', parts[1]);
       const examplePath = path.join(process.cwd(), 'example-codes', parts[1]);
-      if (fs.existsSync(examplePath)) {
+      if (fs.existsSync(srcPath)) {
+        execCmd = `${parts[0]} ${path.join('src', parts[1])}${parts.length > 2 ? ' ' + parts.slice(2).join(' ') : ''}`;
+      } else if (fs.existsSync(examplePath)) {
         execCmd = `${parts[0]} ${path.join('example-codes', parts[1])}${parts.length > 2 ? ' ' + parts.slice(2).join(' ') : ''}`;
       }
     }
@@ -1278,7 +1319,11 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
           timeout: 10000,
           env: {
             ...process.env,
-            PYTHONPATH: process.cwd(),
+            PYTHONPATH: [
+              path.join(process.cwd(), 'src'),
+              path.join(process.cwd(), 'src', 'py_twin'),
+              process.cwd(),
+            ].join(path.delimiter),
             PYTHONUNBUFFERED: '1',
           },
         },
@@ -1814,8 +1859,25 @@ app.post('/api/reset', (_req: Request, res: Response) => {
 async function start() {
   const PORT = Number(process.env.PORT) || 3000;
 
+  // Serve shared static assets directory
+  app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
+  app.get('/wiki', (_req, res) => {
+    res.redirect('/wiki.html');
+  });
+
+  app.get('/emulator', (_req, res) => {
+    res.redirect('/emulator/');
+  });
+
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'dist')));
+    app.get('/emulator*', (_req, res) => {
+      res.sendFile(path.join(__dirname, 'dist', 'emulator', 'index.html'));
+    });
+    app.get('/wiki*', (_req, res) => {
+      res.sendFile(path.join(__dirname, 'dist', 'wiki.html'));
+    });
     app.get('*', (_req, res) => {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     });

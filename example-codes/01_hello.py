@@ -1,7 +1,14 @@
 # 01. Hello World
 # Pi-Digit Physical Computing & Digital Twin
+import sys
+import os
 import time
-from pi_emulator import System
+
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+from py_twin import System
 
 print("=== Pi-Digit Physical Computing Foundation ===")
 print("Host: Raspberry Pi 4 Model B (Bookworm)")

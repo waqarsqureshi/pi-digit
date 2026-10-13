@@ -98,12 +98,29 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
           {onGoToWorkspace && (
             <button
               onClick={onGoToWorkspace}
-              className="self-start sm:self-auto px-3.5 py-1.5 bg-[#840038] hover:bg-[#6c002e] text-white text-xs font-mono font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+              className="self-start sm:self-auto px-3.5 py-1.5 bg-[#840038] hover:bg-[#6c002e] text-white text-xs font-mono font-bold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
             >
               <span>Launch Studio</span>
               <ArrowRight className="w-3.5 h-3.5 text-amber-300" />
             </button>
           )}
+        </div>
+
+        {/* Full Wiki Link Banner */}
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2 text-rose-950">
+            <span className="font-bold text-xs sm:text-sm">Complete Technical Documentation &amp; Wiki:</span>
+            <span className="text-slate-600 hidden md:inline">&mdash; Architecture diagrams, register maps, and step-by-step Pi installation</span>
+          </div>
+          <a
+            href="/wiki.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 bg-[#840038] hover:bg-[#6c002e] text-white font-bold rounded-lg transition-colors flex items-center gap-1.5 shrink-0 text-xs shadow-xs"
+          >
+            <span>Open Full Wiki (wiki.html)</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
         </div>
 
         {/* PROMINENT GETTING STARTED CALLOUT CARD (DEFAULT VIEW) */}
@@ -166,11 +183,9 @@ export function HelpAndGuide({ onGoToWorkspace }: HelpAndGuideProps) {
                   </span>
                   <DownloadCloud className="w-4 h-4 text-slate-400" />
                 </div>
-                <h3 className="font-bold text-slate-900 text-sm">Install Pi Libraries (Hardware Only)</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Automated Installer Script</h3>
                 <p className="text-slate-600 text-[11px] leading-relaxed">
-                  <strong>When needed:</strong> Only required if running on a <em>Physical Raspberry Pi 4</em> in Emulation Mode.
-                  <br />
-                  <strong className="text-emerald-700 font-medium">In Simulation Mode:</strong> Zero libraries or packages to install! Works directly out of the box.
+                  Run the turnkey installer script to configure groups, install <code>python3-sense-hat</code>, and enable kernel overlays.
                 </p>
                 <div className="mt-auto bg-slate-900 text-slate-100 p-2 rounded font-mono text-[11px] flex items-center justify-between group">
                   <span className="text-cyan-300 truncate">sudo apt install -y python3-sense-hat python3-rpi.gpio ...</span>
@@ -299,40 +314,40 @@ npm start`}
                 </span>
                 <ul className="list-disc list-inside space-y-1.5 text-slate-300 pl-1 text-[10px] sm:text-[11px]">
                   <li className="text-emerald-300 font-semibold">
-                    <strong>1. Simulation Mode (Browser Digital Twin): NO INSTALLS NEEDED.</strong> You do not need to install any Raspberry Pi libraries or packages. The bundled digital twin simulator runs automatically out of the box with zero setup.
+                    <strong>Automated Setup via installer script:</strong> The bundled script <code>bash emulator/install.sh</code> detects dependencies and configures system packages automatically.
                   </li>
                   <li>
-                    <strong className="text-cyan-300">2. Emulation Mode (Actual Raspberry Pi 4 Hardware): YES, APT INSTALL REQUIRED.</strong> If you are connecting an actual Raspberry Pi 4 with a physical Sense HAT on your desk, run:
+                    <strong className="text-cyan-300">Manual Package Installation:</strong> If configuring manually on Raspberry Pi OS:
                     <div className="my-1 p-1.5 rounded bg-slate-950 font-mono text-amber-300 text-[10px]">
-                      sudo apt update && sudo apt install -y python3-sense-hat python3-rpi.gpio python3-smbus i2c-tools
+                      sudo apt update &amp;&amp; sudo apt install -y python3-sense-hat python3-rpi.gpio python3-smbus i2c-tools
                     </div>
                   </li>
                   <li>
-                    <strong className="text-cyan-300">• python3-sense-hat:</strong> Required for the physical 8x8 RGB LED matrix, 5-way joystick (<code className="text-amber-200">sense.stick</code>), and onboard sensors (HTS221, LPS25H, LSM9DS1).
+                    <strong className="text-cyan-300">&bull; python3-sense-hat:</strong> Required for the physical 8&times;8 RGB LED matrix, 5-way joystick (<code className="text-amber-200">sense.stick</code>), and onboard sensors (HTS221, LPS25H, LSM9DS1).
                   </li>
                   <li>
-                    <strong className="text-cyan-300">• python3-rpi.gpio:</strong> Required for 40-pin GPIO header configuration and hardware PWM signal generation (<code className="text-amber-200">GPIO.PWM(18, 1000)</code>).
+                    <strong className="text-cyan-300">&bull; python3-rpi.gpio:</strong> Required for 40-pin GPIO header configuration and hardware PWM signal generation (<code className="text-amber-200">GPIO.PWM(18, 1000)</code>).
                   </li>
                   <li>
-                    <strong className="text-cyan-300">• I2C Bus Activation:</strong> Enable the hardware I2C interface via <code className="text-amber-200">sudo raspi-config nonint do_i2c 0</code>.
+                    <strong className="text-cyan-300">&bull; I2C Bus Activation:</strong> Enable the hardware I2C interface via <code className="text-amber-200">sudo raspi-config nonint do_i2c 0</code>.
                   </li>
                 </ul>
               </div>
 
               <div className="mt-2 pt-2 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 gap-2">
                 <div>
-                  <span className="text-emerald-400 font-bold">✔ Once running: </span>
+                  <span className="text-emerald-400 font-bold">&check; Once running: </span>
                   <span>Point your computer browser to </span>
-                  <code className="text-amber-300 bg-slate-800 px-1 py-0.5 rounded">http://raspberrypi.local:3000</code>
+                  <code className="text-amber-300 bg-slate-800 px-1 py-0.5 rounded">http://raspberrypi.local:3000/emulator/</code>
                   <span> or </span>
-                  <code className="text-amber-300 bg-slate-800 px-1 py-0.5 rounded">http://localhost:3000</code>
+                  <code className="text-amber-300 bg-slate-800 px-1 py-0.5 rounded">http://localhost:3000/emulator/</code>
                 </div>
                 {onGoToWorkspace && (
                   <button
                     onClick={onGoToWorkspace}
-                    className="text-amber-300 hover:underline font-bold flex items-center gap-1 self-start sm:self-auto"
+                    className="text-amber-300 hover:underline font-bold flex items-center gap-1 self-start sm:self-auto cursor-pointer"
                   >
-                    <span>Try In-Browser Simulation Now</span>
+                    <span>Launch Workspace Now</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 )}

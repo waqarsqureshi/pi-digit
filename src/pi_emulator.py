@@ -41,7 +41,13 @@ def _clear_fb(r=0, g=0, b=0):
 def _get_native_sense_hat():
     """Safely loads system sense_hat, bypassing local project mock files."""
     orig_path = list(sys.path)
-    clean_path = [p for p in orig_path if p and p != '' and p != '.' and not os.path.exists(os.path.join(p, 'pi_emulator.py'))]
+    clean_path = [
+        p for p in orig_path
+        if p and p != '' and p != '.'
+        and not os.path.exists(os.path.join(p, 'pi_emulator.py'))
+        and not os.path.exists(os.path.join(p, 'src', 'pi_emulator.py'))
+        and not (os.path.basename(p.rstrip('/\\')) == 'src' and os.path.exists(os.path.join(p, 'pi_emulator.py')))
+    ]
     try:
         sys.path = clean_path
         sys.modules.pop('sense_hat', None)

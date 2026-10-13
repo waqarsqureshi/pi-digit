@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wiki &amp; Technical Documentation | Raspberry Pi Digital Twin</title>
+  <meta name="description" content="Comprehensive technical documentation, hardware architecture guide, code execution manual, and installation procedures for the Raspberry Pi Digital Twin emulator.">
+  
+  <link rel="icon" type="image/svg+xml" href="/assets/images/pi-logo.svg">
+  <link rel="stylesheet" href="/assets/css/shared.css">
+  <link rel="stylesheet" href="/assets/css/wiki.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <nav class="site-nav">
+    <div class="container">
+      <a href="/" class="nav-brand">
+        <img src="/assets/images/pi-logo.svg" alt="Raspberry Pi Logo" width="32" height="32">
+        <span>Pi-Digital Twin</span>
+        <span class="nav-brand-badge">DOCS &amp; WIKI</span>
+      </a>
+
+      <button class="nav-mobile-toggle" aria-label="Toggle navigation">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="nav-links">
+        <a href="/">Main Website</a>
+        <a href="/wiki.html" class="active">Documentation</a>
+        <a href="#getting-started">Getting Started</a>
+        <a href="#code-examples">Write Code</a>
+        <a href="#architecture">Architecture</a>
+        <a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer" class="nav-btn-secondary">
+          GitHub
+        </a>
+        <a href="#getting-started" class="nav-btn-primary">
+          Install on Pi &darr;
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Wiki Main Layout: Sidebar TOC + Content Area -->
+  <div class="wiki-layout">
+    
+    <!-- Left Sticky Table of Contents -->
+    <aside class="wiki-sidebar">
+      <div class="wiki-search-box">
+        <svg class="wiki-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="wiki-search" class="wiki-search-input" placeholder="Search documentation...">
+      </div>
+
+      <div class="toc-heading">TABLE OF CONTENTS</div>
+      <ul class="toc-list" id="toc-container">
+        <li class="toc-item active">
+          <a href="#intro">A. Introduction</a>
+          <ul class="toc-sublist">
+            <li><a href="#intro-purpose">Purpose &amp; Goals</a></li>
+            <li><a href="#intro-capabilities">Core Capabilities</a></li>
+            <li><a href="#intro-requirements">System Requirements</a></li>
+          </ul>
+        </li>
+        <li class="toc-item">
+          <a href="#getting-started">B. Getting Started</a>
+          <ul class="toc-sublist">
+            <li><a href="#gs-prerequisites">Prerequisites</a></li>
+            <li><a href="#gs-clone">Obtaining Source</a></li>
+            <li><a href="#gs-install">Step-by-Step Setup</a></li>
+            <li><a href="#gs-launch">Launching the Emulator</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+          </ul>
+        </li>
+        <li class="toc-item">
+          <a href="#code-examples">C. How to Write &amp; Run Code</a>
+          <ul class="toc-sublist">
+            <li><a href="#code-ide">Integrated Code Studio</a></li>
+            <li><a href="#code-python">Python Sense HAT API</a></li>
+            <li><a href="#code-gpio">C &amp; GPIO Programming</a></li>
+            <li><a href="#code-bash">Shell Scripts &amp; Terminal</a></li>
+            <li><a href="#code-hardware-distinction">Physical vs Emulated Execution</a></li>
+          </ul>
+        </li>
+        <li class="toc-item">
+          <a href="#architecture">D. Architecture &amp; Features</a>
+          <ul class="toc-sublist">
+            <li><a href="#arch-fb">Sense HAT /dev/fb1 Framebuffer</a></li>
+            <li><a href="#arch-i2c">I2C Sensor Bus (HTS221/LPS25H)</a></li>
+            <li><a href="#arch-gpio">40-Pin Header &amp; /dev/gpiomem</a></li>
+            <li><a href="#arch-lcd">16x2 HD44780 Character LCD</a></li>
+            <li><a href="#arch-ipc">Daemon IPC &amp; WebSockets</a></li>
+          </ul>
+        </li>
+        <li class="toc-item">
+          <a href="#installation-ops">E. Install, Updates &amp; Uninstall</a>
+          <ul class="toc-sublist">
+            <li><a href="#ops-install">Automated install.sh</a></li>
+            <li><a href="#ops-service">Systemd Daemon Service</a></li>
+            <li><a href="#ops-update">Updating from GitHub</a></li>
+            <li><a href="#ops-uninstall">Clean Uninstallation</a></li>
+          </ul>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Content Articles -->
+    <main class="wiki-content">
+      
+      <!-- Wiki Article Header -->
+      <header class="wiki-header">
+        <div class="wiki-header-meta">
+          <span>Official Technical Wiki</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>Version 2.4.0</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>Updated March 2026</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>Static Documentation &middot; Zero Backend Required</span>
+        </div>
+        <h1 class="wiki-title">Raspberry Pi Digital Twin Emulator</h1>
+        <p class="wiki-lead">
+          Comprehensive manual for deploying, programming, and monitoring the hardware emulator on Raspberry Pi 4, Pi 5, Pi 400, and compatible single-board computers.
+        </p>
+
+        <div class="wiki-subnav">
+          <a href="#intro" class="wiki-subnav-btn">Introduction</a>
+          <a href="#getting-started" class="wiki-subnav-btn">Getting Started</a>
+          <a href="#code-examples" class="wiki-subnav-btn">Code Snippets</a>
+          <a href="#architecture" class="wiki-subnav-btn">Architecture</a>
+          <a href="#installation-ops" class="wiki-subnav-btn" style="background:var(--color-brand); color:#fff; font-weight:600;">Install on Pi</a>
+        </div>
+      </header>
+
+      <!-- SECTION A: INTRODUCTION -->
+      <section id="intro" class="wiki-section">
+        <h2>A. Introduction</h2>
+        
+        <h3 id="intro-purpose">1. Purpose of the Digital Twin Emulator</h3>
+        <p>
+          The Raspberry Pi Digital Twin Emulator is an educational and industrial engineering system designed to bridge physical hardware interfaces with high-fidelity, real-time web monitoring and execution tools.
+        </p>
+        <p>
+          Unlike pure browser mockups, this application is engineered to run on a host Raspberry Pi running Raspberry Pi OS (Debian Linux). It binds directly to native Linux kernel subsystems:
+        </p>
+        <ul>
+          <li><strong>Linux Framebuffer (<code>/dev/fb1</code>):</strong> Provides direct 16-bit RGB565 and 24-bit RGB pixel rendering for the Sense HAT 8&times;8 LED matrix.</li>
+          <li><strong>Linux I2C Bus Subsystem (<code>/dev/i2c-1</code>):</strong> Interfaces with the STMicroelectronics HTS221 temperature/humidity sensor and LPS25H barometric pressure sensor.</li>
+          <li><strong>BCM2835 / RP1 GPIO Memory Interface (<code>/dev/gpiomem</code>):</strong> Directly maps physical 40-pin GPIO registers with zero-latency input/output states and PWM frequency timers.</li>
+          <li><strong>Input Event Subsystem (<code>/dev/input/event*</code>):</strong> Reads the Sense HAT 5-way joystick (Up, Down, Left, Right, Enter/Click) via the ATtiny88 microcontroller.</li>
+        </ul>
+
+        <h3 id="intro-capabilities">2. Principal Capabilities</h3>
+        <p>
+          The emulator operates continuously on port <code>3000</code> of your Raspberry Pi, serving an interactive digital twin console that provides:
+        </p>
+        <ul>
+          <li><strong>Real-time Bilateral Hardware Sync:</strong> Python and C programs executed on the Pi update the physical hardware and mirror their states instantly to the web UI via WebSockets.</li>
+          <li><strong>Live Code Studio:</strong> Multi-tab editor supporting Python 3 and C (GCC C99), with instant compilation, execution, process termination, and standard input/output streaming.</li>
+          <li><strong>Virtual Hardware Fallback:</strong> If sensors are unlinked or you are testing logic prior to attaching a HAT, the emulator keeps your scripts running without throwing unhandled exceptions.</li>
+          <li><strong>Live Diagnostics Console:</strong> Scans device tree overlays, permissions, framebuffer devices, and I2C addresses, outputting copyable troubleshooting commands.</li>
+        </ul>
+
+        <h3 id="intro-requirements">3. Hardware &amp; Software Requirements</h3>
+        <div class="callout callout-info">
+          <div class="callout-icon">&curren;</div>
+          <div>
+            <strong>Verified Requirements:</strong>
+            Raspberry Pi 4 Model B (any RAM revision) or Raspberry Pi 5 running <strong>Raspberry Pi OS (Bookworm 64-bit or Bullseye)</strong> with Node.js 18+ and Python 3.9+.
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION B: GETTING STARTED -->
+      <section id="getting-started" class="wiki-section">
+        <h2>B. Getting Started</h2>
+
+        <h3 id="gs-prerequisites">1. Prerequisites</h3>
+        <p>Before installing, ensure your Raspberry Pi has internet access and standard build utilities:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal (Raspberry Pi OS)</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code># Update package repositories
+sudo apt update &amp;&amp; sudo apt install -y git curl build-essential python3 python3-pip</code></pre>
+        </div>
+
+        <h3 id="gs-clone">2. Obtaining the Project from GitHub</h3>
+        <p>Clone the official repository to your Pi's home directory:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>git clone https://github.com/waqarsqureshi/pi-digit.git
+cd pi-digit</code></pre>
+        </div>
+
+        <h3 id="gs-install">3. Step-by-Step Installation</h3>
+        <p>
+          The repository includes a dedicated <code>emulator/install.sh</code> script that configures group permissions (I2C, GPIO, input, video), installs dependencies, and sets up the systemd service:
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code># Make installer executable and run
+chmod +x emulator/install.sh
+bash emulator/install.sh</code></pre>
+        </div>
+        <p style="font-size:0.875rem;">
+          <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" style="color:var(--color-brand); font-weight:600; text-decoration:none;">
+            View emulator/install.sh directly on GitHub &rarr;
+          </a>
+        </p>
+
+        <div class="callout callout-warning">
+          <div class="callout-icon">&excl;</div>
+          <div>
+            <strong>Reboot Recommended:</strong> If this is your first time enabling I2C or the Sense HAT device tree overlay, run <code>sudo reboot</code> after the installer finishes so the Linux kernel can bind <code>/dev/fb1</code>.
+          </div>
+        </div>
+
+        <h3 id="gs-launch">4. Launching the Emulator</h3>
+        <p>After rebooting, launch the daemon server:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code># Navigate to repository directory
+cd ~/pi-digit
+
+# Start the Node.js server
+npm start</code></pre>
+        </div>
+        <p>
+          The server will output: <code>[Pi-Local Digital Twin] Daemon running at http://0.0.0.0:3000</code>.
+          Open your browser on the Raspberry Pi (or a laptop on the same Wi-Fi/LAN) to:
+        </p>
+        <ul>
+          <li><strong>Local Pi Browser:</strong> <code>http://localhost:3000/emulator/</code></li>
+          <li><strong>Remote Network Browser:</strong> <code>http://&lt;raspberry-pi-ip&gt;:3000/emulator/</code></li>
+        </ul>
+
+        <h3 id="troubleshooting">5. Troubleshooting Guide</h3>
+        <p>Common issues encountered on Raspberry Pi OS and their resolutions:</p>
+        
+        <p><strong>Issue A: "No module named 'sense_hat'"</strong></p>
+        <p>Install the system sense-hat driver package:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Fix Command</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>sudo apt install -y python3-sense-hat python3-smbus</code></pre>
+        </div>
+
+        <p><strong>Issue B: "Permission denied on /dev/fb1 or /dev/i2c-1"</strong></p>
+        <p>Add your user account (usually <code>pi</code> or your chosen username) to hardware groups:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Fix Command</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>sudo usermod -a -G i2c,gpio,input,video $USER
+newgrp i2c</code></pre>
+        </div>
+
+        <p><strong>Issue C: "/dev/fb1 not found"</strong></p>
+        <p>Enable the Sense HAT overlay in your boot configuration file:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Raspberry Pi OS Bookworm / Bullseye</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code># Check /boot/firmware/config.txt or /boot/config.txt
+# Ensure the following lines are present:
+dtparam=i2c_arm=on
+dtoverlay=rpi-sense</code></pre>
+        </div>
+      </section>
+
+      <!-- SECTION C: HOW TO WRITE AND RUN CODE -->
+      <section id="code-examples" class="wiki-section">
+        <h2>C. How to Write and Run Code</h2>
+
+        <h3 id="code-ide">1. Integrated Code Studio</h3>
+        <p>
+          The emulator interface includes a built-in Code Studio on the left half of the screen. You can:
+        </p>
+        <ul>
+          <li>Switch between predefined template tabs (Python LED animations, sensor polling, C GPIO triggers, LCD messages).</li>
+          <li>Write custom Python 3 or C99 code directly in the browser editor.</li>
+          <li>Click <strong>Run Script</strong> to execute the code with a configurable timeout.</li>
+          <li>View real-time standard output (stdout), errors (stderr), and exit codes streamed to the terminal log.</li>
+        </ul>
+
+        <h3 id="code-python">2. Python Sense HAT API Examples</h3>
+        <p>
+          The emulator supports the standard Raspberry Pi Foundation <code>sense_hat</code> library alongside the unified <code>py_twin</code> library located in <code>src/</code>. Code written using <code>from py_twin import SenseHat, GPIO, PWM, LCD</code>, <code>from sense_hat import SenseHat</code>, or <code>from pi_twin import SenseHat</code> runs without modification.
+        </p>
+
+        <p><strong>Example 1: Displaying Temperature &amp; Humidity</strong></p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>read_sensors.py</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>from sense_hat import SenseHat
+import time
+
+sense = SenseHat()
+
+# Read calibrated sensors
+temp = sense.get_temperature()
+humidity = sense.get_humidity()
+pressure = sense.get_pressure()
+
+print(f"Temperature: {temp:.2f} °C")
+print(f"Humidity:    {humidity:.2f} %")
+print(f"Pressure:    {pressure:.2f} hPa")
+
+# Scroll temperature across the 8x8 LED matrix
+sense.show_message(f"{temp:.1f}C", text_colour=[255, 120, 0], scroll_speed=0.08)</code></pre>
+        </div>
+
+        <p><strong>Example 2: 8&times;8 RGB LED Matrix Pixel Manipulation</strong></p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>matrix_rainbow.py</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>from sense_hat import SenseHat
+import time
+
+sense = SenseHat()
+sense.clear()
+
+# Draw diagonal gradient
+for x in range(8):
+    for y in range(8):
+        r = int((x / 7.0) * 255)
+        g = int((y / 7.0) * 255)
+        b = int(((x + y) / 14.0) * 255)
+        sense.set_pixel(x, y, r, g, b)
+
+time.sleep(3)
+sense.clear()</code></pre>
+        </div>
+
+        <h3 id="code-gpio">3. C &amp; GPIO Programming</h3>
+        <p>
+          You can write C programs to interact with the 40-pin GPIO header. The emulator backend compiles C scripts using <code>gcc -O2 -Wall</code> and executes them in an isolated subprocess:
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>gpio_blink.c</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>#include &lt;stdio.h&gt;
+#include &lt;unistd.h&gt;
+#include "pi_twin.h"
+
+int main(void) {
+    printf("Initializing GPIO Pin 17 Output...\n");
+    pi_gpio_set_mode(17, PI_OUTPUT);
+
+    for (int i = 0; i &lt; 5; i++) {
+        printf("LED ON (Pin 17 HIGH)\n");
+        pi_gpio_write(17, PI_HIGH);
+        usleep(300000); // 300 ms
+
+        printf("LED OFF (Pin 17 LOW)\n");
+        pi_gpio_write(17, PI_LOW);
+        usleep(300000);
+    }
+
+    printf("Cycle completed successfully.\n");
+    return 0;
+}</code></pre>
+        </div>
+
+        <h3 id="code-bash">4. Shell Scripts &amp; Terminal Execution</h3>
+        <p>
+          The embedded web terminal at the bottom of the Code Studio supports interactive shell commands:
+        </p>
+        <ul>
+          <li><code>diagnose</code> &mdash; Runs an instant hardware check across all buses.</li>
+          <li><code>blink-test</code> &mdash; Flashes the physical 8&times;8 LED matrix to verify <code>/dev/fb1</code>.</li>
+          <li><code>i2c-check</code> &mdash; Probes I2C devices at addresses 0x5F, 0x5C, and 0x6A.</li>
+          <li><code>fb-check</code> &mdash; Inspects available framebuffer nodes.</li>
+          <li><code>gpio readall</code> &mdash; Prints a table of physical pin states.</li>
+        </ul>
+
+        <h3 id="code-hardware-distinction">5. Physical vs. Emulated Execution</h3>
+        <div class="callout callout-success">
+          <div class="callout-icon">&check;</div>
+          <div>
+            <strong>Transparent Fallback:</strong> If a Sense HAT is physically plugged into the Pi, your code writes directly to <code>/dev/fb1</code> and queries the real I2C sensors. If the HAT is not present, the emulator's Python wrapper seamlessly channels values into the digital twin memory buffer so your program runs cleanly without crashing.
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION D: EMULATOR ARCHITECTURE AND FEATURES -->
+      <section id="architecture" class="wiki-section">
+        <h2>D. Emulator Architecture &amp; Features</h2>
+
+        <h3 id="arch-fb">1. Sense HAT 8&times;8 LED Matrix &amp; /dev/fb1</h3>
+        <p>
+          The Sense HAT LED matrix is controlled by an Atmel ATtiny88 microcontroller communicating via I2C with the Raspberry Pi's Broadcom SoC. In Linux, the <code>rpi-sense-fb</code> kernel driver creates a framebuffer node at <code>/dev/fb1</code> with 64 pixels formatted as 16-bit RGB565 words (5 bits Red, 6 bits Green, 5 bits Blue):
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Framebuffer Technical Specification</span>
+          </div>
+          <pre><code>Device Node    : /dev/fb1
+Resolution     : 8 x 8 pixels (64 total)
+Color Format   : RGB565 (2 bytes per pixel, 128 bytes total frame)
+Bit Allocation : R[15:11], G[10:5], B[4:0]
+Gamma Table    : 32-level nonlinear intensity curve</code></pre>
+        </div>
+
+        <h3 id="arch-i2c">2. I2C Sensor Bus Architecture</h3>
+        <p>
+          The Sense HAT multiplexes three primary sensor chips on I2C Bus 1:
+        </p>
+        <ul>
+          <li><strong>HTS221 (0x5F):</strong> Capacitive digital relative humidity and temperature sensor. Outputs 16-bit raw registers converted using factory calibration constants stored in internal flash.</li>
+          <li><strong>LPS25H (0x5C):</strong> Piezoresistive absolute pressure sensor operating from 260 to 1260 hPa. Also provides secondary internal temperature readings.</li>
+          <li><strong>LSM9DS1 (0x6A &amp; 0x1C):</strong> 3D accelerometer, 3D gyroscope, and 3D magnetometer producing 9 degrees of freedom inertial telemetry.</li>
+        </ul>
+
+        <h3 id="arch-gpio">3. 40-Pin GPIO Expansion &amp; /dev/gpiomem</h3>
+        <p>
+          The 40-pin header provides access to 28 user-controllable GPIO pins, two 5V power rails, two 3.3V power rails, and eight ground pins:
+        </p>
+        <ul>
+          <li>Pins 3 &amp; 5: <strong>I2C-1 (SDA &amp; SCL)</strong> &mdash; Reserved for Sense HAT and LCD communication.</li>
+          <li>Pins 7, 11, 12, 13, 15, 16, 18, 22: <strong>General Purpose GPIO</strong> &mdash; Available for external breadboard sensors, LEDs, and push buttons.</li>
+          <li>Pins 19, 21, 23, 24, 26: <strong>SPI-0</strong> &mdash; High-speed peripheral bus.</li>
+        </ul>
+
+        <h3 id="arch-lcd">4. 16&times;2 HD44780 Alphanumeric LCD</h3>
+        <p>
+          The emulator includes a character LCD driver mapped to standard HD44780 controller commands. When communicating over I2C, it uses a PCF8574 8-bit I/O expander at address <code>0x27</code>:
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>HD44780 I2C Command Protocol</span>
+          </div>
+          <pre><code>I2C Address : 0x27 (or 0x3F)
+Data Format : 4-bit nibble mode via PCF8574
+Pin Map     : P0=RS, P1=RW, P2=EN, P3=Backlight, P4=D4, P5=D5, P6=D6, P7=D7
+Lines       : 2 lines x 16 characters (5x8 dot matrix font)</code></pre>
+        </div>
+
+        <h3 id="arch-ipc">5. Daemon IPC &amp; WebSockets</h3>
+        <p>
+          The system architecture separates hardware polling from frontend presentation:
+        </p>
+        <ol>
+          <li>A persistent Python hardware daemon (<code>scripts/hardware_daemon.py</code>) samples <code>/dev/fb1</code> and I2C every 250ms, writing a structured state snapshot to <code>/tmp/pi_sense_hardware.json</code>.</li>
+          <li>The Node.js server (<code>server.ts</code>) monitors this file and emits delta updates over a WebSocket stream (<code>ws://localhost:3000/ws</code>).</li>
+          <li>The React frontend updates the UI smoothly at 60 FPS, maintaining minimal CPU load on the Raspberry Pi.</li>
+        </ol>
+      </section>
+
+      <!-- SECTION E: INSTALLATION, UPDATES, AND UNINSTALLATION -->
+      <section id="installation-ops" class="wiki-section">
+        <h2>E. Installation, Updates &amp; Uninstallation</h2>
+
+        <h3 id="ops-install">1. Automated Installation Script</h3>
+        <p>The standard installation command downloads and configures all components:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash</code></pre>
+        </div>
+        <p style="font-size:0.875rem;">
+          <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" style="color:var(--color-brand); font-weight:600; text-decoration:none;">
+            Inspect installer source on GitHub: github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh &rarr;
+          </a>
+        </p>
+
+        <h3 id="ops-service">2. Running as a Persistent Systemd Service</h3>
+        <p>
+          To make the emulator start automatically when your Raspberry Pi boots up, configure a systemd service:
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Create /etc/systemd/system/pi-twin.service</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>sudo tee /etc/systemd/system/pi-twin.service &gt; /dev/null &lt;&lt; 'EOF'
+[Unit]
+Description=Raspberry Pi Digital Twin Emulator Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/pi-digit
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable pi-twin.service
+sudo systemctl start pi-twin.service</code></pre>
+        </div>
+
+        <h3 id="ops-update">3. Updating the Emulator</h3>
+        <p>To pull the latest enhancements and bug fixes from GitHub:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code>cd ~/pi-digit
+git pull origin main
+npm install --production
+npm run build</code></pre>
+        </div>
+
+        <h3 id="ops-uninstall">4. Clean Uninstallation</h3>
+        <p>If you wish to remove the emulator from your Raspberry Pi:</p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code># Stop and disable systemd service if installed
+sudo systemctl stop pi-twin.service 2&gt;/dev/null
+sudo systemctl disable pi-twin.service 2&gt;/dev/null
+sudo rm -f /etc/systemd/system/pi-twin.service
+sudo systemctl daemon-reload
+
+# Remove project directory
+rm -rf ~/pi-digit</code></pre>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+            <img src="/assets/images/pi-logo.svg" alt="Logo" width="24" height="24">
+            <span style="color:#fff; font-weight:700; font-size:1.0625rem;">Pi-Digital Twin</span>
+          </div>
+          <p style="line-height:1.6;">
+            Open source educational digital twin and hardware emulator for Raspberry Pi single-board computers.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Wiki Sections</h4>
+          <ul>
+            <li><a href="#intro">A. Introduction</a></li>
+            <li><a href="#getting-started">B. Getting Started</a></li>
+            <li><a href="#code-examples">C. How to Write Code</a></li>
+            <li><a href="#architecture">D. Architecture</a></li>
+            <li><a href="#installation-ops">E. Installation &amp; Ops</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Navigation</h4>
+          <ul>
+            <li><a href="/">Main Website</a></li>
+            <li><a href="#getting-started">Install on Pi</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+            <li><a href="/LICENSE">License (MIT)</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Repository</h4>
+          <ul>
+            <li><a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer">GitHub Project</a></li>
+            <li><a href="https://github.com/waqarsqureshi/pi-digit/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+            <li><a href="https://github.com/waqarsqureshi/pi-digit/issues" target="_blank" rel="noopener noreferrer">Bug Reports</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 Raspberry Pi Digital Twin Project &middot; MIT Licensed</div>
+        <div>Independent static documentation &middot; Zero backend runtime dependency</div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/assets/js/wiki.js"></script>
+</body>
+</html>

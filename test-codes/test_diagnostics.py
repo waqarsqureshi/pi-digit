@@ -12,8 +12,10 @@ import json
 import subprocess
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 def print_header(title):
     print("=" * 65)
@@ -28,7 +30,13 @@ def print_result(test_name, passed, detail=""):
 def safe_import_system_sense_hat():
     """Safely loads system sense_hat, bypassing local project mock files."""
     orig_path = list(sys.path)
-    clean_path = [p for p in orig_path if p and p != '' and p != '.' and not os.path.exists(os.path.join(p, 'pi_emulator.py'))]
+    clean_path = [
+        p for p in orig_path
+        if p and p != '' and p != '.'
+        and not os.path.exists(os.path.join(p, 'pi_emulator.py'))
+        and not os.path.exists(os.path.join(p, 'src', 'pi_emulator.py'))
+        and not (os.path.basename(p.rstrip('/\\')) == 'src' and os.path.exists(os.path.join(p, 'pi_emulator.py')))
+    ]
     try:
         sys.path = clean_path
         sys.modules.pop('sense_hat', None)
@@ -42,12 +50,17 @@ def safe_import_system_sense_hat():
     
     # Try local emulator library as fallback
     try:
-        if PROJECT_ROOT not in sys.path:
-            sys.path.insert(0, PROJECT_ROOT)
-        from pi_emulator import EmulatorSenseHat
+        for p in (SRC_DIR, PROJECT_ROOT):
+            if p not in sys.path:
+                sys.path.insert(0, p)
+        from py_twin import EmulatorSenseHat
         return EmulatorSenseHat()
     except Exception:
-        return None
+        try:
+            from pi_emulator import EmulatorSenseHat
+            return EmulatorSenseHat()
+        except Exception:
+            return None
 
 def main():
     print_header("Raspberry Pi 4 & Sense HAT Hardware Diagnostics")

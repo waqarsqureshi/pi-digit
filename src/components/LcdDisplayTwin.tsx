@@ -57,7 +57,7 @@ export function LcdDisplayTwin({
               </span>
             ) : (
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold bg-sky-100 text-sky-800 border border-sky-300">
-                SIMULATION (HD44780 @ 0x27)
+                HARDWARE TWIN (HD44780 @ 0x27)
               </span>
             )}
           </div>

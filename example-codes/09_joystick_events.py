@@ -1,6 +1,16 @@
 # 09. Read Sense HAT 5-Way Joystick Events
-from pi_twin import SenseHat
+import sys
+import os
 import time
+
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+try:
+    from py_twin import SenseHat
+except ImportError:
+    from pi_twin import SenseHat
 
 sense = SenseHat()
 print("=== Sense HAT 5-Way Joystick Event Listener ===")

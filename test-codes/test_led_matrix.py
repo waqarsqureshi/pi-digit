@@ -9,12 +9,20 @@ import os
 import time
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 def get_sense():
     orig_path = list(sys.path)
-    clean_path = [p for p in orig_path if p and p != '' and p != '.' and not os.path.exists(os.path.join(p, 'pi_emulator.py'))]
+    clean_path = [
+        p for p in orig_path
+        if p and p != '' and p != '.'
+        and not os.path.exists(os.path.join(p, 'pi_emulator.py'))
+        and not os.path.exists(os.path.join(p, 'src', 'pi_emulator.py'))
+        and not (os.path.basename(p.rstrip('/\\')) == 'src' and os.path.exists(os.path.join(p, 'pi_emulator.py')))
+    ]
     try:
         sys.path = clean_path
         sys.modules.pop('sense_hat', None)
@@ -26,10 +34,12 @@ def get_sense():
     finally:
         sys.path = orig_path
 
-    if PROJECT_ROOT not in sys.path:
-        sys.path.insert(0, PROJECT_ROOT)
-    from pi_emulator import EmulatorSenseHat
-    return EmulatorSenseHat()
+    try:
+        from py_twin import EmulatorSenseHat
+        return EmulatorSenseHat()
+    except Exception:
+        from pi_emulator import EmulatorSenseHat
+        return EmulatorSenseHat()
 
 def main():
     print("=" * 60)

@@ -7,14 +7,19 @@ import time
 
 # Ensure project modules are discovered regardless of execution directory
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 try:
-    from pi_twin import SenseHat, LCD
+    from py_twin import SenseHat, LCD
 except ImportError:
-    from sense_hat import SenseHat
-    LCD = None
+    try:
+        from pi_twin import SenseHat, LCD
+    except ImportError:
+        from sense_hat import SenseHat
+        LCD = None
 
 sense = SenseHat()
 sense.clear()

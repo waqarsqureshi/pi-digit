@@ -1,6 +1,16 @@
 # Sense HAT Sensor Telemetry Logger
-from pi_twin import SenseHat
+import sys
+import os
 import time
+
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+try:
+    from py_twin import SenseHat
+except ImportError:
+    from pi_twin import SenseHat
 
 sense = SenseHat()
 

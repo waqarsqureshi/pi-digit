@@ -11,16 +11,22 @@ import time
 import json
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 def get_gpio():
     try:
-        from pi_emulator import EmulatorGPIO
+        from py_twin import EmulatorGPIO
         return EmulatorGPIO
     except Exception:
-        import RPi.GPIO as GPIO
-        return GPIO
+        try:
+            from pi_emulator import EmulatorGPIO
+            return EmulatorGPIO
+        except Exception:
+            import RPi.GPIO as GPIO
+            return GPIO
 
 def main():
     GPIO = get_gpio()

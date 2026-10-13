@@ -17,9 +17,9 @@ import { HelpAndGuide } from './components/HelpAndGuide';
 import { HardwareDiagnosticModal } from './components/HardwareDiagnosticModal';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'workspace' | 'help'>('help');
+  const [activeView, setActiveView] = useState<'workspace' | 'help'>('workspace');
   const [showSensorGraphs, setShowSensorGraphs] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<'simulation' | 'emulation'>('simulation');
+  const [selectedMode, setSelectedMode] = useState<'simulation' | 'emulation'>('emulation');
   const [copiedMainError, setCopiedMainError] = useState(false);
 
   const {

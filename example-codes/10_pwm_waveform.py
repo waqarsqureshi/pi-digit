@@ -4,15 +4,20 @@ import sys
 import os
 import time
 
-# Ensure project root is in python search path
+# Ensure project src and root are in python search path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 try:
     import RPi.GPIO as GPIO
 except ImportError:
-    from pi_emulator import EmulatorGPIO as GPIO
+    try:
+        from py_twin import EmulatorGPIO as GPIO
+    except ImportError:
+        from pi_emulator import EmulatorGPIO as GPIO
 
 PWM_PIN = 18  # BCM 18 is Hardware PWM0 (Physical Pin 12)
 

@@ -1,7 +1,17 @@
 # 02. Sense HAT Single Pixel
 # Sets pixel at coordinate (X=0, Y=0) to Red: RGB(255, 0, 0)
-from pi_twin import SenseHat
+import sys
+import os
 import time
+
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+try:
+    from py_twin import SenseHat
+except ImportError:
+    from pi_twin import SenseHat
 
 sense = SenseHat()
 sense.clear()

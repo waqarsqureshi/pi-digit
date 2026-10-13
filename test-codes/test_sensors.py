@@ -11,13 +11,21 @@ import os
 import time
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 def get_sense_instance():
     # Attempt real hardware first
     orig_path = list(sys.path)
-    clean_path = [p for p in orig_path if p and p != '' and p != '.' and not os.path.exists(os.path.join(p, 'pi_emulator.py'))]
+    clean_path = [
+        p for p in orig_path
+        if p and p != '' and p != '.'
+        and not os.path.exists(os.path.join(p, 'pi_emulator.py'))
+        and not os.path.exists(os.path.join(p, 'src', 'pi_emulator.py'))
+        and not (os.path.basename(p.rstrip('/\\')) == 'src' and os.path.exists(os.path.join(p, 'pi_emulator.py')))
+    ]
     try:
         sys.path = clean_path
         sys.modules.pop('sense_hat', None)
@@ -30,10 +38,12 @@ def get_sense_instance():
         sys.path = orig_path
 
     # Fallback to emulator
-    if PROJECT_ROOT not in sys.path:
-        sys.path.insert(0, PROJECT_ROOT)
-    from pi_emulator import EmulatorSenseHat
-    return EmulatorSenseHat(), "Emulator / Digital Twin Driver"
+    try:
+        from py_twin import EmulatorSenseHat
+        return EmulatorSenseHat(), "Emulator / Digital Twin Driver"
+    except Exception:
+        from pi_emulator import EmulatorSenseHat
+        return EmulatorSenseHat(), "Emulator / Digital Twin Driver"
 
 def main():
     sense, source_desc = get_sense_instance()

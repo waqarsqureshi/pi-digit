@@ -1,7 +1,17 @@
 # 05. Temperature Sensor Polling
 # Queries the physical Sense HAT HTS221/LPS25H sensor
+import sys
+import os
 import time
-from pi_emulator import SenseHat
+
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+try:
+    from py_twin import SenseHat
+except ImportError:
+    from pi_emulator import SenseHat
 
 sense = SenseHat()
 print("=== Sense HAT Live Temperature Polling ===")
