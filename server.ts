@@ -442,7 +442,20 @@ setInterval(() => {
         const hwData = JSON.parse(raw);
         if (hwData) {
           if (typeof hwData.temperature === 'number') {
-            sensors.temperature = hwData.temperature;
+            let t = hwData.temperature;
+            // Handle if temperature arrives in Fahrenheit (e.g. 132°F)
+            if (t > 70 && t < 170) {
+              t = ((t - 32) * 5) / 9; // convert to Celsius (~55.5°C)
+            }
+            // Calibrate to realistic ambient room temperature (~21-25°C)
+            if (t > 38) {
+              sensors.rawTemperature = hwData.rawTemperature || t;
+              sensors.temperature = Number(Math.max(18.5, t - 25.5).toFixed(1));
+            } else {
+              sensors.temperature = Number(t.toFixed(1));
+              sensors.rawTemperature = hwData.rawTemperature || t;
+            }
+            sensors.cpuTemperature = hwData.cpuTemperature;
             sensors.humidity = hwData.humidity ?? sensors.humidity;
             sensors.pressure = hwData.pressure ?? sensors.pressure;
             sensors.compassHeading = hwData.heading || hwData.compassHeading || sensors.compassHeading;
@@ -520,24 +533,31 @@ setInterval(() => {
 // High-Responsiveness Physical Joystick & Keypad Polling Loop (50ms interval)
 let lastObservedJoyTs = 0;
 setInterval(() => {
-  if (systemMode !== 'emulation' || !isSenseHatConnected) return;
+  if (systemMode !== 'emulation') return;
   try {
     if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
       const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
       const hwData = JSON.parse(raw);
       if (hwData && hwData.lastJoystick && hwData.lastJoystick.timestamp > lastObservedJoyTs) {
         lastObservedJoyTs = hwData.lastJoystick.timestamp;
+        let d = String(hwData.lastJoystick.direction || 'middle').toLowerCase();
+        if (d === 'centre' || d === 'center' || d === 'enter' || d === 'ok') d = 'middle';
+        let act = String(hwData.lastJoystick.action || 'press').toLowerCase();
+        if (act === 'pressed') act = 'press';
+        else if (act === 'released') act = 'release';
+        else if (act === 'held') act = 'hold';
+
         lastJoystickEvent = {
-          direction: hwData.lastJoystick.direction,
-          action: hwData.lastJoystick.action || 'press',
+          direction: d as JoystickEvent['direction'],
+          action: act as JoystickEvent['action'],
           timestamp: hwData.lastJoystick.timestamp,
           source: 'hardware',
         };
         broadcast('joystick.event', lastJoystickEvent);
         addTimelineTrace(
           'hardware',
-          'Sense HAT Physical Keypad Press',
-          `Key: ${lastJoystickEvent.direction.toUpperCase()} (${lastJoystickEvent.action}) on Physical Sense HAT`,
+          'Sense HAT Physical Keypad Event',
+          `Key: ${lastJoystickEvent.direction.toUpperCase()} (${lastJoystickEvent.action.toUpperCase()}) on Physical Sense HAT`,
           'success'
         );
       }
@@ -796,9 +816,18 @@ function clearMatrix(r = 0, g = 0, b = 0) {
 
 function triggerJoystick(direction: JoystickEvent['direction'], action: JoystickEvent['action'] = 'press') {
   const isEmulatingOnHw = systemMode === 'emulation' && isSenseHatConnected;
+  let normDir = String(direction).toLowerCase() as JoystickEvent['direction'];
+  if (normDir === 'centre' || normDir === 'center' || normDir === 'enter' || normDir === 'ok') {
+    normDir = 'middle';
+  }
+  let normAct = String(action).toLowerCase() as JoystickEvent['action'];
+  if (normAct === 'pressed') normAct = 'press';
+  else if (normAct === 'released') normAct = 'release';
+  else if (normAct === 'held') normAct = 'hold';
+
   lastJoystickEvent = {
-    direction,
-    action,
+    direction: normDir,
+    action: normAct,
     timestamp: Date.now(),
     source: isEmulatingOnHw ? 'hardware' : 'keypad',
   };
@@ -806,21 +835,32 @@ function triggerJoystick(direction: JoystickEvent['direction'], action: Joystick
   addTimelineTrace(
     'hardware',
     'Sense HAT Keypad Event',
-    `${direction.toUpperCase()} (${action.toUpperCase()}) [Source: ${isEmulatingOnHw ? 'Physical Hardware' : 'Interactive Keypad'}]`,
+    `${normDir.toUpperCase()} (${normAct.toUpperCase()}) [Source: ${isEmulatingOnHw ? 'Physical Hardware' : 'Interactive Keypad'}]`,
     'info'
   );
   broadcast('joystick.event', lastJoystickEvent);
 
   // Queue event for hardware daemon and update telemetry cache so student scripts receive it
   try {
-    const joyCmd = { action: 'joystick', direction, action_type: action, timestamp: Date.now() };
+    const joyCmd = { action: 'joystick', direction: normDir, action_type: normAct, timestamp: Date.now() };
     fs.appendFileSync('/tmp/pi_hw_commands.jsonl', JSON.stringify(joyCmd) + '\n');
+    let cur: any = {};
     if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
-      const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
-      const cur = JSON.parse(raw);
-      cur.lastJoystick = lastJoystickEvent;
-      fs.writeFileSync('/tmp/pi_sense_hardware.json', JSON.stringify(cur));
+      try {
+        cur = JSON.parse(fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8')) || {};
+      } catch (e) {
+        cur = {};
+      }
     }
+    cur.lastJoystick = lastJoystickEvent;
+    if (!Array.isArray(cur.joystickEvents)) cur.joystickEvents = [];
+    cur.joystickEvents.push(lastJoystickEvent);
+    if (cur.joystickEvents.length > 25) cur.joystickEvents = cur.joystickEvents.slice(-25);
+    cur.temperature = sensors.temperature;
+    cur.humidity = sensors.humidity;
+    cur.pressure = sensors.pressure;
+    cur.timestamp = Date.now();
+    fs.writeFileSync('/tmp/pi_sense_hardware.json', JSON.stringify(cur));
   } catch (e) {}
 }
 
@@ -832,6 +872,19 @@ function syncFilesToTmp() {
   try {
     fs.writeFileSync('/tmp/pi_twin_sensors.json', JSON.stringify(sensors));
     fs.writeFileSync('/tmp/pi_twin_gpio.json', JSON.stringify(gpioPins));
+    let cur: any = {};
+    if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
+      try {
+        cur = JSON.parse(fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8')) || {};
+      } catch (e) {
+        cur = {};
+      }
+    }
+    cur.temperature = sensors.temperature;
+    cur.humidity = sensors.humidity;
+    cur.pressure = sensors.pressure;
+    if (lastJoystickEvent) cur.lastJoystick = lastJoystickEvent;
+    fs.writeFileSync('/tmp/pi_sense_hardware.json', JSON.stringify(cur));
   } catch (e) {
     // Ignore error in read-only environment
   }

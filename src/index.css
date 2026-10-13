@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --color-brand: #840038;
+    --color-brand-light: #b91845;
+    --color-brand-dark: #5c0027;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: #1e293b;
+    background-color: #f8fafc;
+  }
+}

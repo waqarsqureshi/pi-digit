@@ -1,4 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
+import {
+  Play,
+  Square,
+  Upload,
+  Download,
+  FolderCode,
+  Terminal,
+  FileCode,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Trash2,
+  Check,
+  Code2,
+} from 'lucide-react';
 import { CURRICULUM_EXAMPLES } from '../data/curriculumExamples';
 import {
   ProgramLanguage,
@@ -116,7 +131,6 @@ export function CodeStudio({
     }
   };
 
-  // Fixed: Scroll ONLY inside the terminal container without moving the browser window/viewport
   useEffect(() => {
     if (activeBottomTab === 'output' && terminalContainerRef.current) {
       terminalContainerRef.current.scrollTop = terminalContainerRef.current.scrollHeight;
@@ -145,7 +159,6 @@ export function CodeStudio({
     onRunProgram(currentCode, currentLanguage, currentFilename, timeoutSeconds * 1000);
   };
 
-  // Save Code to Local Drive
   const handleSaveToDisk = () => {
     try {
       const blob = new Blob([currentCode], { type: 'text/plain;charset=utf-8' });
@@ -166,7 +179,6 @@ export function CodeStudio({
     }
   };
 
-  // Open / Upload Code from Local Drive
   const handleOpenFileClick = () => {
     fileInputRef.current?.click();
   };
@@ -194,7 +206,6 @@ export function CodeStudio({
     e.target.value = '';
   };
 
-  // Bash Terminal Command Execution
   const handleRunBashCommand = async (cmdToRun: string) => {
     const cmd = cmdToRun.trim();
     if (!cmd) return;
@@ -238,34 +249,32 @@ export function CodeStudio({
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (bashHistory.length > 0) {
-        const nextIdx = bashHistoryIndex === -1 ? bashHistory.length - 1 : Math.max(0, bashHistoryIndex - 1);
+        const nextIdx = bashHistoryIndex + 1 < bashHistory.length ? bashHistoryIndex + 1 : bashHistoryIndex;
         setBashHistoryIndex(nextIdx);
-        setBashInput(bashHistory[nextIdx]);
+        setBashInput(bashHistory[bashHistory.length - 1 - nextIdx] || '');
       }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (bashHistoryIndex !== -1) {
-        const nextIdx = bashHistoryIndex + 1;
-        if (nextIdx >= bashHistory.length) {
-          setBashHistoryIndex(-1);
-          setBashInput('');
-        } else {
-          setBashHistoryIndex(nextIdx);
-          setBashInput(bashHistory[nextIdx]);
-        }
+      if (bashHistoryIndex > 0) {
+        const nextIdx = bashHistoryIndex - 1;
+        setBashHistoryIndex(nextIdx);
+        setBashInput(bashHistory[bashHistory.length - 1 - nextIdx] || '');
+      } else if (bashHistoryIndex === 0) {
+        setBashHistoryIndex(-1);
+        setBashInput('');
       }
     }
   };
 
+  const currentExample = CURRICULUM_EXAMPLES.find((e) => e.id === selectedExampleId);
+  const lineCount = currentCode.split('\n').length;
+  const isRunning = program.status === 'running';
+
   const pythonExamples = CURRICULUM_EXAMPLES.filter((e) => e.language === 'python');
   const cExamples = CURRICULUM_EXAMPLES.filter((e) => e.language === 'c');
-  const lineCount = currentCode.split('\n').length;
-  const isRunning = program.status === 'running' || program.status === 'compiling';
-  const currentExample = CURRICULUM_EXAMPLES.find((e) => e.id === selectedExampleId);
 
   return (
-    <div className="flex flex-col gap-3 text-slate-800 min-w-0">
-      {/* Hidden file input */}
+    <div className="flex flex-col gap-2 min-w-0">
       <input
         type="file"
         ref={fileInputRef}
@@ -275,59 +284,73 @@ export function CodeStudio({
       />
 
       {/* Main IDE Container (VS Code Studio Look) */}
-      <div className="bg-[#1e1e1e] border border-slate-700 rounded-xl overflow-hidden shadow-sm flex flex-col">
+      <div className="bg-[#1e1e1e] border border-slate-700/60 rounded-xl overflow-hidden shadow-xs flex flex-col">
         {/* Top IDE Toolbar */}
-        <div className="px-3 py-2 bg-[#252526] border-b border-[#333333] flex flex-wrap items-center justify-between gap-2 text-xs">
-          {/* File Badge & Labs Selector */}
+        <div className="px-3 py-2 bg-[#252526] border-b border-[#333333] flex flex-wrap items-center justify-between gap-2.5 text-xs">
+          {/* File Tab & Curriculum Selector */}
           <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={() => setIsExamplesMenuOpen(!isExamplesMenuOpen)}
-              className="px-2.5 py-1 rounded bg-[#333333] hover:bg-[#3e3e42] text-slate-200 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors border border-slate-600"
-            >
-              <span>Curriculum Labs</span>
-              <span className="text-[10px] text-slate-400">
-                {isExamplesMenuOpen ? '▲' : '▼'}
+            {/* Active File Tab */}
+            <div className="flex items-center gap-2 px-2.5 py-1 bg-[#1e1e1e] border border-[#3e3e42] rounded-md text-slate-200 text-xs font-medium shadow-2xs">
+              <FileCode className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="font-mono text-slate-100 font-semibold truncate max-w-[150px] sm:max-w-[200px]">
+                {currentFilename}
               </span>
-            </button>
-
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#1e1e1e] border border-[#3c3c3c] rounded text-slate-200 font-mono text-xs">
-              <span className="text-amber-400 font-bold">{currentFilename}</span>
-              <span className="text-[10px] text-slate-400 uppercase font-sans">
-                {currentLanguage === 'python' ? 'Python 3' : 'C'}
+              <span className="text-[10px] text-slate-400 uppercase px-1 py-0.2 bg-white/5 rounded">
+                {currentLanguage === 'python' ? 'Python' : 'C'}
               </span>
             </div>
 
+            {/* Curriculum Labs Trigger */}
+            <button
+              onClick={() => setIsExamplesMenuOpen(!isExamplesMenuOpen)}
+              className="px-2.5 py-1 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors border border-[#3e3e42] cursor-pointer"
+              title="Browse curriculum sample programs"
+            >
+              <FolderCode className="w-3.5 h-3.5 text-rose-300" />
+              <span className="hidden sm:inline">Labs ({CURRICULUM_EXAMPLES.length})</span>
+              <span className="sm:hidden">Labs</span>
+              {isExamplesMenuOpen ? (
+                <ChevronUp className="w-3 h-3 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              )}
+            </button>
+
             {saveStatus && (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
-                {saveStatus}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                <span>{saveStatus}</span>
               </span>
             )}
           </div>
 
           {/* Right Action Controls: Open, Save, Timeout, Run */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handleOpenFileClick}
-              className="px-2 py-1 rounded bg-[#2d2d2d] hover:bg-[#3a3a3a] text-slate-300 hover:text-white text-xs font-mono transition-colors border border-[#3e3e42]"
+              className="px-2.5 py-1 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-300 hover:text-white text-xs font-medium transition-colors border border-[#3e3e42] flex items-center gap-1 cursor-pointer"
               title="Open code file from local disk"
             >
-              Open
+              <Upload className="w-3 h-3 text-slate-400" />
+              <span className="hidden sm:inline">Open</span>
             </button>
 
             <button
               onClick={handleSaveToDisk}
-              className="px-2 py-1 rounded bg-[#2d2d2d] hover:bg-[#3a3a3a] text-slate-300 hover:text-white text-xs font-mono transition-colors border border-[#3e3e42]"
+              className="px-2.5 py-1 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-300 hover:text-white text-xs font-medium transition-colors border border-[#3e3e42] flex items-center gap-1 cursor-pointer"
               title="Save current code to local disk"
             >
-              Save
+              <Download className="w-3 h-3 text-slate-400" />
+              <span className="hidden sm:inline">Save</span>
             </button>
 
-            <div className="flex items-center gap-1 text-slate-400 font-mono text-[11px] ml-1">
-              <span>Timeout:</span>
+            <div className="flex items-center gap-1 text-slate-400 text-xs ml-0.5">
+              <Clock className="w-3 h-3 text-slate-500" />
               <select
                 value={timeoutSeconds}
                 onChange={(e) => setTimeoutSeconds(Number(e.target.value))}
-                className="bg-[#1e1e1e] border border-[#3e3e42] rounded px-1.5 py-0.5 text-slate-200 text-xs focus:outline-none"
+                className="bg-[#1e1e1e] border border-[#3e3e42] rounded-md px-1.5 py-0.5 text-slate-200 text-xs focus:outline-none cursor-pointer"
+                title="Execution timeout in seconds"
               >
                 <option value={5}>5s</option>
                 <option value={10}>10s</option>
@@ -338,16 +361,18 @@ export function CodeStudio({
             {isRunning ? (
               <button
                 onClick={onStopProgram}
-                className="px-3 py-1 bg-rose-700 hover:bg-rose-600 text-white rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                className="px-3 py-1 bg-rose-700 hover:bg-rose-600 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
               >
-                <span>■ Stop</span>
+                <Square className="w-3 h-3 fill-current" />
+                <span>Stop</span>
               </button>
             ) : (
               <button
                 onClick={handleRun}
-                className="px-3 py-1 bg-[#840038] hover:bg-[#a00045] text-white rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                className="px-3.5 py-1 bg-[#840038] hover:bg-[#9d0043] text-white rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
               >
-                <span>▶ Run</span>
+                <Play className="w-3 h-3 fill-current" />
+                <span>Run</span>
               </button>
             )}
           </div>
@@ -355,69 +380,77 @@ export function CodeStudio({
 
         {/* Retractable Examples Drawer */}
         {isExamplesMenuOpen && (
-          <div className="p-3 bg-[#252526] border-b border-[#333333] grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
+          <div className="p-3.5 bg-[#252526] border-b border-[#333333] grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs animate-in slide-in-from-top-1 duration-150">
             {/* Python Examples */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-mono font-bold text-amber-400 pb-1 border-b border-[#3c3c3c] flex justify-between">
-                <span>PYTHON 3 ({pythonExamples.length})</span>
-                <span className="text-[10px] text-slate-400 font-normal">Select to load</span>
-              </span>
-              <div className="grid grid-cols-1 gap-1 max-h-44 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between pb-1 border-b border-[#3c3c3c]">
+                <span className="font-semibold text-amber-300 flex items-center gap-1.5">
+                  <Code2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Python 3 Scripts ({pythonExamples.length})</span>
+                </span>
+                <span className="text-[10px] text-slate-400">Click to load</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
                 {pythonExamples.map((ex) => (
                   <button
                     key={ex.id}
                     onClick={() => handleSelectExample(ex.id)}
-                    className={`text-left px-2 py-1 rounded text-xs transition-colors flex items-center justify-between font-mono ${
+                    className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between cursor-pointer ${
                       selectedExampleId === ex.id
-                        ? 'bg-[#840038] text-white font-medium'
+                        ? 'bg-[#840038] text-white font-medium shadow-2xs'
                         : 'text-slate-300 hover:bg-[#333333] hover:text-white'
                     }`}
                   >
                     <span className="truncate">{ex.title}</span>
-                    <span className="text-[10px] opacity-60 ml-1">.py</span>
+                    <span className="text-[10px] font-mono opacity-60 ml-1">.py</span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* C Examples */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-mono font-bold text-cyan-400 pb-1 border-b border-[#3c3c3c] flex justify-between">
-                <span>GCC C ({cExamples.length})</span>
-                <span className="text-[10px] text-slate-400 font-normal">Select to load</span>
-              </span>
-              <div className="grid grid-cols-1 gap-1 max-h-44 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between pb-1 border-b border-[#3c3c3c]">
+                <span className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                  <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>GCC C Programs ({cExamples.length})</span>
+                </span>
+                <span className="text-[10px] text-slate-400">Click to load</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
                 {cExamples.map((ex) => (
                   <button
                     key={ex.id}
                     onClick={() => handleSelectExample(ex.id)}
-                    className={`text-left px-2 py-1 rounded text-xs transition-colors flex items-center justify-between font-mono ${
+                    className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between cursor-pointer ${
                       selectedExampleId === ex.id
-                        ? 'bg-[#840038] text-white font-medium'
+                        ? 'bg-[#840038] text-white font-medium shadow-2xs'
                         : 'text-slate-300 hover:bg-[#333333] hover:text-white'
                     }`}
                   >
                     <span className="truncate">{ex.title}</span>
-                    <span className="text-[10px] opacity-60 ml-1">.c</span>
+                    <span className="text-[10px] font-mono opacity-60 ml-1">.c</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="sm:col-span-2 pt-1 border-t border-[#3c3c3c] text-[10px] font-mono text-slate-400 flex justify-between">
-              <span className="truncate">{currentExample?.description}</span>
+            <div className="sm:col-span-2 pt-1.5 border-t border-[#3c3c3c] text-xs text-slate-400 flex items-center justify-between">
+              <span className="truncate text-slate-300 font-mono text-[11px]">
+                {currentExample?.description}
+              </span>
               <button
                 onClick={() => setIsExamplesMenuOpen(false)}
-                className="text-amber-400 hover:underline shrink-0 ml-2"
+                className="text-amber-300 hover:text-amber-200 text-xs font-medium cursor-pointer ml-2 shrink-0"
               >
-                Close [▲]
+                Close Drawer ▲
               </button>
             </div>
           </div>
         )}
 
         {/* Code Editor Area with Real-Time Syntax Highlighting */}
-        <div className="relative flex bg-[#1e1e1e] text-slate-100 overflow-hidden text-xs font-mono min-h-[300px] max-h-[350px]">
+        <div className="relative flex bg-[#1e1e1e] text-slate-100 overflow-hidden text-xs font-mono min-h-[300px] max-h-[360px]">
           {/* Line Numbers */}
           <div
             ref={lineNumbersRef}
@@ -464,36 +497,37 @@ export function CodeStudio({
           </div>
         </div>
 
-        {/* VS Code Bottom Panel: OUTPUT vs TERMINAL Tabs */}
+        {/* Modern Bottom Panel: OUTPUT vs TERMINAL Tabs */}
         <div className="border-t border-[#2d2d2d] flex flex-col bg-[#181818]">
           {/* Panel Header Tabs */}
-          <div className="px-3 py-1 bg-[#252526] border-b border-[#333333] flex items-center justify-between text-xs font-mono">
-            {/* Left: Tab Switcher */}
-            <div className="flex items-center gap-1">
+          <div className="px-3 py-1.5 bg-[#252526] border-b border-[#333333] flex items-center justify-between text-xs">
+            {/* Left: Modern Segmented Tab Switcher */}
+            <div className="inline-flex p-0.5 bg-[#1a1a1a] rounded-lg border border-[#333333]">
               <button
                 onClick={() => setActiveBottomTab('output')}
-                className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeBottomTab === 'output'
-                    ? 'border-amber-400 text-white font-bold bg-[#1e1e1e]'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'bg-[#2d2d30] text-white shadow-2xs font-semibold'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <span>Output</span>
                 {program.status === 'running' && (
-                  <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 )}
               </button>
 
               <button
                 onClick={() => setActiveBottomTab('terminal')}
-                className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeBottomTab === 'terminal'
-                    ? 'border-amber-400 text-white font-bold bg-[#1e1e1e]'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    ? 'bg-[#2d2d30] text-white shadow-2xs font-semibold'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
+                <Terminal className="w-3 h-3 text-slate-400" />
                 <span>Terminal</span>
-                <span className="ml-1 text-[10px] text-emerald-400 font-normal lowercase">(bash)</span>
+                <span className="text-[10px] text-emerald-400 font-mono">(bash)</span>
               </button>
             </div>
 
@@ -502,34 +536,38 @@ export function CodeStudio({
               {activeBottomTab === 'output' && (
                 <>
                   {program.status === 'completed' && (
-                    <span className="text-[10px] text-emerald-400 font-mono font-medium">
+                    <span className="text-[11px] text-emerald-400 font-mono font-medium">
                       Exit Code: 0
                     </span>
                   )}
                   {(program.status === 'error' || program.status === 'terminated') && (
-                    <span className="text-[10px] text-rose-400 font-mono font-medium">
+                    <span className="text-[11px] text-rose-400 font-mono font-medium">
                       Exit Code: {program.exitCode ?? 1}
                     </span>
                   )}
                   <button
                     onClick={onClearTerminal}
-                    className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-slate-300 text-[10px] font-mono transition-colors"
+                    className="px-2 py-1 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-300 hover:text-white text-xs font-medium transition-colors border border-[#3e3e42] flex items-center gap-1 cursor-pointer"
+                    title="Clear program output console"
                   >
-                    Clear
+                    <Trash2 className="w-3 h-3" />
+                    <span>Clear</span>
                   </button>
                 </>
               )}
 
               {activeBottomTab === 'terminal' && (
                 <>
-                  <span className="hidden sm:inline text-[10px] text-slate-400 font-mono">
+                  <span className="hidden sm:inline text-[11px] text-slate-400 font-mono">
                     pi@raspberrypi.local
                   </span>
                   <button
                     onClick={() => setBashLogs([])}
-                    className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-slate-300 text-[10px] font-mono transition-colors"
+                    className="px-2 py-1 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-300 hover:text-white text-xs font-medium transition-colors border border-[#3e3e42] flex items-center gap-1 cursor-pointer"
+                    title="Clear bash terminal history"
                   >
-                    Clear
+                    <Trash2 className="w-3 h-3" />
+                    <span>Clear</span>
                   </button>
                 </>
               )}
@@ -540,11 +578,11 @@ export function CodeStudio({
           {activeBottomTab === 'output' && (
             <div
               ref={terminalContainerRef}
-              className="p-2.5 text-xs font-mono overflow-y-auto flex flex-col gap-1 min-h-[170px] max-h-[220px] select-text bg-[#1e1e1e]"
+              className="p-3 text-xs font-mono overflow-y-auto flex flex-col gap-1 min-h-[170px] max-h-[220px] select-text bg-[#1e1e1e]"
             >
               {terminalOutputs.length === 0 ? (
-                <div className="text-slate-500 italic text-[11px] p-1">
-                  Ready. Click &quot;▶ Run&quot; above to execute the script in this console.
+                <div className="text-slate-500 italic text-xs p-1">
+                  Ready. Click &quot;Run&quot; above to execute the script in this console.
                 </div>
               ) : (
                 terminalOutputs.map((out) => (
@@ -554,7 +592,7 @@ export function CodeStudio({
                       out.stream === 'stderr'
                         ? 'text-rose-400'
                         : out.stream === 'system'
-                        ? 'text-amber-400'
+                        ? 'text-amber-300'
                         : 'text-slate-200'
                     }`}
                   >
@@ -569,59 +607,53 @@ export function CodeStudio({
           {activeBottomTab === 'terminal' && (
             <div className="flex flex-col bg-[#1e1e1e] min-h-[170px] max-h-[240px]">
               {/* Quick Bash Commands Bar */}
-              <div className="px-2.5 py-1.5 bg-[#252526] border-b border-[#2d2d2d] flex items-center gap-1.5 overflow-x-auto text-[11px] font-mono shrink-0">
-                <span className="text-slate-400 shrink-0 font-medium">Quick:</span>
+              <div className="px-2.5 py-1.5 bg-[#252526] border-b border-[#2d2d2d] flex items-center gap-1.5 overflow-x-auto text-xs shrink-0">
+                <span className="text-slate-400 shrink-0 font-medium text-[11px]">Quick:</span>
                 <button
                   onClick={() => handleRunBashCommand('python3 02_moving_name.py')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-amber-300 border border-[#3e3e42] transition-colors shrink-0 font-bold"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-amber-300 border border-[#3e3e42] transition-colors shrink-0 text-xs font-medium cursor-pointer"
                 >
-                  python3 02_moving_name.py (Name)
+                  Name (.py)
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('python3 10_pwm_waveform.py')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 border border-[#3e3e42] transition-colors shrink-0 text-xs cursor-pointer"
                 >
-                  python3 10_pwm_waveform.py (PWM)
+                  PWM (.py)
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('python3 02_red_pixel.py')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 border border-[#3e3e42] transition-colors shrink-0 text-xs cursor-pointer"
                 >
-                  python3 02_red_pixel.py
+                  Pixel (.py)
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('python3 03_color_cycle.py')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 border border-[#3e3e42] transition-colors shrink-0 text-xs cursor-pointer"
                 >
-                  python3 03_color_cycle.py
+                  Rainbow (.py)
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('pinout')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 border border-[#3e3e42] transition-colors shrink-0 text-xs font-mono cursor-pointer"
                 >
                   pinout
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('i2cdetect -y 1')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 border border-[#3e3e42] transition-colors shrink-0 text-xs font-mono cursor-pointer"
                 >
                   i2cdetect -y 1
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('vcgencmd measure_temp')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 border border-[#3e3e42] transition-colors shrink-0 text-xs font-mono cursor-pointer"
                 >
-                  vcgencmd measure_temp
-                </button>
-                <button
-                  onClick={() => handleRunBashCommand('uname -a')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-slate-200 border border-[#3e3e42] transition-colors shrink-0"
-                >
-                  uname -a
+                  temp
                 </button>
                 <button
                   onClick={() => handleRunBashCommand('help')}
-                  className="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#444444] text-amber-300 border border-[#3e3e42] transition-colors shrink-0"
+                  className="px-2 py-0.5 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-amber-300 border border-[#3e3e42] transition-colors shrink-0 text-xs font-medium cursor-pointer"
                 >
                   help
                 </button>
@@ -630,7 +662,7 @@ export function CodeStudio({
               {/* Scrolling Terminal Output Buffer */}
               <div
                 ref={bashContainerRef}
-                className="flex-1 p-2.5 text-xs font-mono overflow-y-auto flex flex-col gap-1 select-text max-h-[160px]"
+                className="flex-1 p-3 text-xs font-mono overflow-y-auto flex flex-col gap-1 select-text max-h-[160px]"
               >
                 {bashLogs.map((log) => (
                   <div
@@ -639,7 +671,7 @@ export function CodeStudio({
                       log.type === 'system'
                         ? 'text-cyan-400'
                         : log.type === 'cmd'
-                        ? 'text-amber-300 font-bold'
+                        ? 'text-amber-300 font-semibold'
                         : 'text-slate-200'
                     }`}
                   >
@@ -654,9 +686,9 @@ export function CodeStudio({
                   e.preventDefault();
                   handleRunBashCommand(bashInput);
                 }}
-                className="px-3 py-1.5 bg-[#181818] border-t border-[#2d2d2d] flex items-center gap-2 text-xs font-mono"
+                className="px-3 py-2 bg-[#181818] border-t border-[#2d2d2d] flex items-center gap-2 text-xs font-mono"
               >
-                <span className="text-amber-400 font-bold select-none shrink-0">
+                <span className="text-amber-400 font-semibold select-none shrink-0">
                   pi@raspberrypi:~$
                 </span>
                 <input
@@ -669,9 +701,9 @@ export function CodeStudio({
                 />
                 <button
                   type="submit"
-                  className="px-2 py-0.5 bg-[#840038] hover:bg-[#a00045] text-white rounded text-xs font-bold transition-colors"
+                  className="px-2.5 py-1 bg-[#840038] hover:bg-[#a00045] text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  ↵
+                  ↵ Run
                 </button>
               </form>
             </div>

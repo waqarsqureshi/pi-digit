@@ -285,35 +285,35 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
       )}
 
       {/* DUAL MODE & SENSOR SOURCE CONTROL BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono p-2 bg-slate-50 border border-slate-200 rounded-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-2 bg-slate-50/80 border border-slate-200/90 rounded-xl">
         {/* Operating Mode Selector */}
-        <div className="flex items-center justify-between gap-2 p-1.5 bg-white border border-slate-200 rounded">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between gap-2 p-1.5 bg-white border border-slate-200/80 rounded-lg shadow-2xs">
+          <div className="flex items-center gap-1.5 pl-1">
             <Terminal className="w-3.5 h-3.5 text-[#840038]" />
-            <span className="font-semibold text-slate-700">Mode:</span>
+            <span className="font-semibold text-slate-700 text-xs">Engine:</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="inline-flex p-0.5 bg-slate-100 rounded-md">
             <button
               onClick={() => onToggleOperatingMode && onToggleOperatingMode('execution')}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
                 operatingMode === 'execution'
-                  ? 'bg-[#840038] text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
               title="Mode 1: User Python/C code runs on Pi and visualizes in emulator"
             >
-              1: Code Execution
+              1: Code Runner
             </button>
             <button
               onClick={() => onToggleOperatingMode && onToggleOperatingMode('emulation')}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
                 operatingMode === 'emulation'
-                  ? 'bg-emerald-700 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-white text-emerald-800 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
               title="Mode 2: UI directly controls physical hardware (Remote Control Panel)"
             >
-              2: UI Controls Hardware
+              2: UI Control
             </button>
           </div>
         </div>

@@ -233,11 +233,57 @@ def process_ui_commands(sense, fb_path=None):
         except Exception as e:
             print(f"[Pi Daemon] Error executing hardware command {action}: {e}", file=sys.stderr)
 
+def get_cpu_temp():
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+            return float(f.read().strip()) / 1000.0
+    except Exception:
+        pass
+    try:
+        res = os.popen("vcgencmd measure_temp").readline()
+        if "temp=" in res:
+            return float(res.replace("temp=", "").replace("'C", "").strip())
+    except Exception:
+        pass
+    return None
+
+def find_joystick_device():
+    """Finds physical Sense HAT joystick /dev/input event node."""
+    input_dir = "/dev/input"
+    if not os.path.exists(input_dir):
+        return None
+    try:
+        for entry in sorted(os.listdir(input_dir)):
+            if entry.startswith("event"):
+                full_p = os.path.join(input_dir, entry)
+                sys_name = f"/sys/class/input/{entry}/device/name"
+                if os.path.exists(sys_name):
+                    try:
+                        with open(sys_name, "r") as sf:
+                            name = sf.read().lower()
+                        if "sense hat" in name or "joystick" in name:
+                            return full_p
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+    return None
+
 def main():
     print("[Pi Hardware Daemon] Starting Bidirectional Sync Service (Hardware <-> Web UI)...")
     sense = get_native_sense_hat()
     has_sense_hat = sense is not None
     fb_path = get_fb_device()
+
+    joy_dev_path = find_joystick_device()
+    joy_fd = None
+    if joy_dev_path:
+        try:
+            joy_fd = os.open(joy_dev_path, os.O_RDONLY | os.O_NONBLOCK)
+            print(f"[Pi Hardware Daemon] Physical Sense HAT joystick event listener attached to {joy_dev_path}")
+        except Exception as e:
+            joy_fd = None
+            print(f"[Pi Hardware Daemon] Notice: Direct evdev open on {joy_dev_path}: {e}")
 
     if has_sense_hat:
         print("[Pi Hardware Daemon] Native Sense HAT driver connected to I2C-1 bus.")
@@ -248,15 +294,85 @@ def main():
 
     last_poll_sec = 0
     last_retry_time = int(time.time())
+    persisted_last_joystick = None
+    recent_joystick_events = []
 
     while True:
         try:
             # 1. UI-to-Hardware: execute queued UI actions on hardware
             process_ui_commands(sense, fb_path)
 
+            # Check direct evdev joystick if available (captures press, hold/repeat, release)
+            if joy_fd is not None:
+                try:
+                    import struct
+                    # Read 16 or 24 bytes per input_event
+                    while True:
+                        try:
+                            # Try 64-bit packet (qqHHi = 24 bytes) or 32-bit (llHHI = 16 bytes)
+                            raw_ev = os.read(joy_fd, 24)
+                            if not raw_ev:
+                                break
+                            if len(raw_ev) == 24:
+                                sec, usec, ev_type, ev_code, ev_val = struct.unpack("qqHHi", raw_ev)
+                            elif len(raw_ev) == 16:
+                                sec, usec, ev_type, ev_code, ev_val = struct.unpack("llHHI", raw_ev)
+                            else:
+                                break
+
+                            # EV_KEY = 1
+                            if ev_type == 1:
+                                key_map = {
+                                    103: "up",
+                                    108: "down",
+                                    105: "left",
+                                    106: "right",
+                                    28: "middle",   # KEY_ENTER
+                                    352: "middle",  # KEY_OK
+                                }
+                                if ev_code in key_map:
+                                    d = key_map[ev_code]
+                                    if ev_val == 1:
+                                        act = "press"
+                                    elif ev_val == 2:
+                                        act = "hold"
+                                    elif ev_val == 0:
+                                        act = "release"
+                                    else:
+                                        act = "press"
+
+                                    ev_payload = {
+                                        "direction": d,
+                                        "action": act,
+                                        "timestamp": int(time.time() * 1000),
+                                        "source": "Physical Joystick (/dev/input evdev)"
+                                    }
+                                    persisted_last_joystick = ev_payload
+                                    recent_joystick_events.append(ev_payload)
+                                    if len(recent_joystick_events) > 25:
+                                        recent_joystick_events.pop(0)
+                        except (BlockingIOError, InterruptedError):
+                            break
+                except Exception:
+                    pass
+
             # 2. Hardware-to-UI: read live physical telemetry
             if has_sense_hat and sense:
-                t = round(sense.get_temperature(), 2)
+                raw_t = round(sense.get_temperature(), 2)
+                cpu_t = get_cpu_temp()
+                # On Raspberry Pi 4, the Sense HAT sits directly above the BCM2711 SoC,
+                # absorbing CPU heat and reading ~50-56°C (~132°F) even in room temperature.
+                # Calibrate to ambient laboratory temperature using Raspberry Pi formula.
+                calc_raw = (raw_t - 32.0) * 5.0 / 9.0 if raw_t > 70.0 else raw_t
+                if cpu_t and calc_raw:
+                    ambient_t = round(calc_raw - (cpu_t / 2.0), 1)
+                    if ambient_t < 16.0 or ambient_t > 36.0:
+                        ambient_t = round(max(18.5, calc_raw - 25.5), 1)
+                elif calc_raw > 38.0:
+                    ambient_t = round(max(18.5, calc_raw - 25.5), 1)
+                else:
+                    ambient_t = round(calc_raw, 1)
+
                 h = round(sense.get_humidity(), 1)
                 p = round(sense.get_pressure(), 2)
                 orient = sense.get_orientation()
@@ -265,7 +381,9 @@ def main():
                 heading = round(orient.get("yaw", 0.0), 1)
 
                 data = {
-                    "temperature": t,
+                    "temperature": ambient_t,
+                    "rawTemperature": raw_t,
+                    "cpuTemperature": cpu_t,
                     "humidity": h,
                     "pressure": p,
                     "pitch": round(orient.get("pitch", 0.0), 2),
@@ -290,18 +408,39 @@ def main():
                     "source": "Physical Sense HAT (HTS221 / LPS25H / LSM9DS1)"
                 }
 
-                # Physical joystick event polling
+                # Physical joystick event polling via sense.stick
                 try:
                     events = sense.stick.get_events()
                     if events:
-                        last_ev = events[-1]
-                        data["lastJoystick"] = {
-                            "direction": last_ev.direction,
-                            "action": last_ev.action,
-                            "timestamp": int(time.time() * 1000)
-                        }
+                        for ev in events:
+                            d = str(ev.direction).lower()
+                            if d in ('centre', 'center', 'enter', 'middle', 'ok'):
+                                d = 'middle'
+                            act = str(ev.action).lower()
+                            if act in ('pressed', 'press'):
+                                act = 'press'
+                            elif act in ('released', 'release'):
+                                act = 'release'
+                            elif act in ('held', 'hold'):
+                                act = 'hold'
+
+                            ev_payload = {
+                                "direction": d,
+                                "action": act,
+                                "timestamp": int(time.time() * 1000),
+                                "source": "Physical Sense HAT Joystick"
+                            }
+                            persisted_last_joystick = ev_payload
+                            recent_joystick_events.append(ev_payload)
+                            if len(recent_joystick_events) > 25:
+                                recent_joystick_events.pop(0)
                 except Exception:
                     pass
+
+                if persisted_last_joystick:
+                    data["lastJoystick"] = persisted_last_joystick
+                if recent_joystick_events:
+                    data["joystickEvents"] = recent_joystick_events[-20:]
 
                 # Atomic write to /tmp/pi_sense_hardware.json
                 temp_file = SENSE_FILE + ".tmp"
@@ -312,7 +451,7 @@ def main():
             elif fb_path or os.path.exists("/sys/bus/i2c/devices/1-0046"):
                 # Partial hardware connection: LED matrix is alive on /dev/fb1 or ATTiny88 MCU
                 now_sec = int(time.time())
-                if now_sec != last_poll_sec:
+                if now_sec != last_poll_sec or persisted_last_joystick:
                     last_poll_sec = now_sec
                     data = {
                         "temperature": 24.5,
@@ -333,6 +472,10 @@ def main():
                         "sensorError": last_sense_load_err or "Sensors in standby / I2C communication unlinked",
                         "source": f"Physical 8x8 LED Matrix ({fb_path or '/dev/fb1'}) · Sensors Standby"
                     }
+                    if persisted_last_joystick:
+                        data["lastJoystick"] = persisted_last_joystick
+                    if recent_joystick_events:
+                        data["joystickEvents"] = recent_joystick_events[-20:]
                     temp_file = SENSE_FILE + ".tmp"
                     with open(temp_file, "w") as f:
                         json.dump(data, f)

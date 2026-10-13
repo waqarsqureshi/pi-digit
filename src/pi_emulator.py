@@ -4,11 +4,34 @@ Supports dual-mode execution:
 1. Forwards all commands to real physical hardware (Sense HAT framebuffer / GPIO).
 2. Mirrors all operations to the Web Emulator UI via real-time IPC events.
 """
+from collections import namedtuple
 import sys
 import json
 import time
 import os
-from collections import namedtuple
+
+class DirectionStr(str):
+    def __eq__(self, other):
+        if not isinstance(other, (str, DirectionStr)):
+            return False
+        s_self = str(self).lower()
+        s_other = str(other).lower()
+        if s_self in ('middle', 'centre', 'center', 'enter') and s_other in ('middle', 'centre', 'center', 'enter'):
+            return True
+        return s_self == s_other
+
+class ActionStr(str):
+    def __eq__(self, other):
+        if not isinstance(other, (str, ActionStr)):
+            return False
+        norm = {
+            'press': 'pressed', 'pressed': 'pressed',
+            'release': 'released', 'released': 'released',
+            'hold': 'held', 'held': 'held'
+        }
+        s_self = norm.get(str(self).lower(), str(self).lower())
+        s_other = norm.get(str(other).lower(), str(other).lower())
+        return s_self == s_other
 
 InputEvent = namedtuple('InputEvent', ('timestamp', 'direction', 'action'))
 
@@ -126,29 +149,50 @@ FONT_5x7 = {
 
 class SenseStick:
     """Emulates and bridges the Sense HAT 5-way joystick."""
-    direction_any = 'any'
-    direction_up = 'up'
-    direction_down = 'down'
-    direction_left = 'left'
-    direction_right = 'right'
-    direction_middle = 'centre'
+    direction_any = DirectionStr('any')
+    direction_up = DirectionStr('up')
+    direction_down = DirectionStr('down')
+    direction_left = DirectionStr('left')
+    direction_right = DirectionStr('right')
+    direction_middle = DirectionStr('middle')
+    direction_centre = DirectionStr('middle')
+    direction_enter = DirectionStr('middle')
 
-    action_any = 'any'
-    action_pressed = 'press'
-    action_released = 'release'
-    action_held = 'hold'
+    action_any = ActionStr('any')
+    action_pressed = ActionStr('pressed')
+    action_released = ActionStr('released')
+    action_held = ActionStr('held')
+    action_press = ActionStr('pressed')
+    action_release = ActionStr('released')
+    action_hold = ActionStr('held')
 
     def __init__(self, hat):
         self._hat = hat
         self._last_event_time = 0
 
     def get_events(self):
+        collected = []
         # 1. Check real physical stick if native hardware is present
         if self._hat._real_sense and hasattr(self._hat._real_sense, 'stick'):
             try:
                 events = self._hat._real_sense.stick.get_events()
                 if events:
-                    return events
+                    for ev in events:
+                        d_str = str(ev.direction).lower()
+                        if d_str in ('centre', 'center', 'enter', 'middle'):
+                            d_str = 'middle'
+                        act_str = str(ev.action).lower()
+                        if act_str in ('press', 'pressed'): act_norm = 'pressed'
+                        elif act_str in ('release', 'released'): act_norm = 'released'
+                        elif act_str in ('hold', 'held'): act_norm = 'held'
+                        else: act_norm = act_str
+                        collected.append(InputEvent(
+                            getattr(ev, 'timestamp', time.time()),
+                            DirectionStr(d_str),
+                            ActionStr(act_norm)
+                        ))
+                    if collected:
+                        return collected
             except Exception:
                 pass
 
@@ -157,12 +201,39 @@ class SenseStick:
             try:
                 with open('/tmp/pi_sense_hardware.json', 'r') as f:
                     data = json.load(f)
+
+                    # Check recent events array
+                    recent = data.get('joystickEvents', [])
+                    if isinstance(recent, list) and recent:
+                        for ev_item in recent:
+                            ts = ev_item.get('timestamp', 0)
+                            if ts > self._last_event_time:
+                                self._last_event_time = ts
+                                raw_dir = ev_item.get('direction', 'middle')
+                                if raw_dir in ('centre', 'center', 'enter'):
+                                    raw_dir = 'middle'
+                                raw_act = ev_item.get('action', 'press')
+                                if raw_act in ('press', 'pressed'): act_norm = 'pressed'
+                                elif raw_act in ('release', 'released'): act_norm = 'released'
+                                elif raw_act in ('hold', 'held'): act_norm = 'held'
+                                else: act_norm = raw_act
+                                collected.append(InputEvent(time.time(), DirectionStr(raw_dir), ActionStr(act_norm)))
+                        if collected:
+                            return collected
+
+                    # Fallback to single lastJoystick
                     last_ev = data.get('lastJoystick')
                     if last_ev and last_ev.get('timestamp', 0) > self._last_event_time:
                         self._last_event_time = last_ev['timestamp']
-                        direction = last_ev.get('direction', 'centre')
-                        action = last_ev.get('action', 'press')
-                        return [InputEvent(time.time(), direction, action)]
+                        raw_dir = last_ev.get('direction', 'middle')
+                        if raw_dir in ('centre', 'center', 'enter'):
+                            raw_dir = 'middle'
+                        raw_act = last_ev.get('action', 'press')
+                        if raw_act in ('press', 'pressed'): act_norm = 'pressed'
+                        elif raw_act in ('release', 'released'): act_norm = 'released'
+                        elif raw_act in ('hold', 'held'): act_norm = 'held'
+                        else: act_norm = raw_act
+                        return [InputEvent(time.time(), DirectionStr(raw_dir), ActionStr(act_norm))]
             except Exception:
                 pass
 
@@ -174,7 +245,7 @@ class SenseStick:
             events = self.get_events()
             if events:
                 return events[-1]
-            time.sleep(0.05)
+            time.sleep(0.04)
         return None
 
 
@@ -200,6 +271,14 @@ class EmulatorSenseHat:
                 with open('/tmp/pi_sense_hardware.json', 'r') as f:
                     data = json.load(f)
                     if data and isinstance(data, dict):
+                        t = float(data.get("temperature", 24.6))
+                        # If temperature arrives in Fahrenheit (e.g. ~132°F), convert to Celsius
+                        if t > 70.0:
+                            t = (t - 32.0) * 5.0 / 9.0
+                        # Calibrate Raspberry Pi 4 CPU radiant heat
+                        if t > 38.0:
+                            t = round(max(18.5, t - 25.5), 1)
+                        data["temperature"] = t
                         return data
             except Exception:
                 pass
@@ -208,8 +287,12 @@ class EmulatorSenseHat:
         if self._real_sense:
             try:
                 orient = self._real_sense.get_orientation()
+                raw_t = round(self._real_sense.get_temperature(), 2)
+                calc_raw = (raw_t - 32.0) * 5.0 / 9.0 if raw_t > 70.0 else raw_t
+                ambient_t = round(max(18.5, calc_raw - 25.5), 1) if calc_raw > 38.0 else round(calc_raw, 1)
                 return {
-                    "temperature": round(self._real_sense.get_temperature(), 2),
+                    "temperature": ambient_t,
+                    "rawTemperature": raw_t,
                     "humidity": round(self._real_sense.get_humidity(), 1),
                     "pressure": round(self._real_sense.get_pressure(), 2),
                     "accelerometer": self._real_sense.get_accelerometer_raw(),
@@ -383,7 +466,12 @@ class EmulatorSenseHat:
         self.set_pixels(frame_pixels)
 
     def get_temperature(self):
-        return float(self._get_sensors().get("temperature", 24.6))
+        t = float(self._get_sensors().get("temperature", 24.6))
+        if t > 70.0:
+            t = (t - 32.0) * 5.0 / 9.0
+        if t > 38.0:
+            t = round(max(18.5, t - 25.5), 1)
+        return round(t, 2)
 
     def get_temperature_from_humidity(self):
         return self.get_temperature()
@@ -462,6 +550,23 @@ class EmulatorSenseHat:
         events = self.stick.get_events()
         if events:
             return {"direction": events[-1].direction, "action": events[-1].action}
+        if os.path.exists('/tmp/pi_sense_hardware.json'):
+            try:
+                with open('/tmp/pi_sense_hardware.json', 'r') as f:
+                    data = json.load(f)
+                    last_ev = data.get('lastJoystick')
+                    if last_ev:
+                        raw_dir = last_ev.get('direction', 'middle')
+                        if raw_dir in ('centre', 'center', 'enter'):
+                            raw_dir = 'middle'
+                        raw_act = last_ev.get('action', 'press')
+                        if raw_act in ('press', 'pressed'): act_norm = 'pressed'
+                        elif raw_act in ('release', 'released'): act_norm = 'released'
+                        elif raw_act in ('hold', 'held'): act_norm = 'held'
+                        else: act_norm = raw_act
+                        return {"direction": DirectionStr(raw_dir), "action": ActionStr(act_norm)}
+            except Exception:
+                pass
         return None
 
     def simulate_joystick(self, direction='centre', action='press'):

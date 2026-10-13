@@ -24,7 +24,9 @@ export interface GpioPin {
 export type RgbColor = [number, number, number]; // [0-255, 0-255, 0-255]
 
 export interface SenseHatSensors {
-  temperature: number; // °C
+  temperature: number; // °C (ambient calibrated)
+  rawTemperature?: number; // °C (uncalibrated HTS221 reading)
+  cpuTemperature?: number; // °C (BCM2711 SoC temperature)
   humidity: number;    // %
   pressure: number;    // hPa
   accelerometer: { x: number; y: number; z: number }; // g
@@ -35,7 +37,7 @@ export interface SenseHatSensors {
   isSimulated: boolean;
 }
 
-export type JoystickDirection = 'up' | 'down' | 'left' | 'right' | 'centre';
+export type JoystickDirection = 'up' | 'down' | 'left' | 'right' | 'middle' | 'centre';
 export type JoystickAction = 'press' | 'release' | 'hold';
 
 export interface JoystickEvent {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   RotateCcw,
   Navigation,
@@ -9,15 +9,16 @@ import {
   Compass,
   AlertTriangle,
   Sliders,
-  PowerOff,
   Zap,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import {
   RgbColor,
   SenseHatSensors,
   JoystickEvent,
   JoystickDirection,
+  JoystickAction,
 } from '../types/digitalTwin';
 
 interface SenseHatTwinProps {
@@ -30,7 +31,7 @@ interface SenseHatTwinProps {
   onSetPixel: (x: number, y: number, color: RgbColor) => void;
   onClearMatrix: (color?: RgbColor) => void;
   onSetMatrixPattern: (matrix: RgbColor[]) => void;
-  onTriggerJoystick: (direction: JoystickDirection) => void;
+  onTriggerJoystick: (direction: JoystickDirection, action?: JoystickAction) => void;
   onInjectSensors: (values: Partial<SenseHatSensors>) => void;
   onConnectHardware?: () => void;
   onOpenDiagnostics?: () => void;
@@ -72,202 +73,274 @@ export function SenseHatTwin({
   const [humidityInput, setHumidityInput] = useState(sensors.humidity);
   const [pressureInput, setPressureInput] = useState(sensors.pressure);
   const [activeHighlight, setActiveHighlight] = useState<JoystickDirection | null>(null);
+  const [activeActionState, setActiveActionState] = useState<JoystickAction | null>(null);
+
+  // Joystick press, hold, and release tracking
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const holdIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activeDirectionRef = useRef<JoystickDirection | null>(null);
+  const isHoldingRef = useRef<boolean>(false);
 
   // In emulation mode with physical board connected vs standalone
   const isPhysicalLinked = selectedMode === 'emulation' && isSenseHatConnected;
   const isPartial = isPhysicalLinked && hardwareLinkStatus === 'partial';
-  const isEmulationDisconnected = selectedMode === 'emulation' && !isSenseHatConnected;
 
-  // Animate and highlight keypad button when an event arrives (physical hardware or interactive)
+  // Animate and highlight keypad button when an event arrives
   useEffect(() => {
     if (lastJoystick?.direction) {
-      setActiveHighlight(lastJoystick.direction);
+      const d = (lastJoystick.direction === 'centre' || lastJoystick.direction === 'enter' ? 'middle' : lastJoystick.direction) as JoystickDirection;
+      setActiveHighlight(d);
+      setActiveActionState(lastJoystick.action);
       const timer = setTimeout(() => {
-        setActiveHighlight(null);
-      }, 700);
+        if (!activeDirectionRef.current) {
+          setActiveHighlight(null);
+          setActiveActionState(null);
+        }
+      }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [lastJoystick?.direction, lastJoystick?.timestamp]);
+  }, [lastJoystick?.direction, lastJoystick?.action, lastJoystick?.timestamp]);
 
-  const handleKeypadPress = (direction: JoystickDirection) => {
-    setActiveHighlight(direction);
-    onTriggerJoystick(direction);
+  // Press & Hold and Release Handlers
+  const handlePointerDown = (direction: JoystickDirection) => {
+    const normDir = (direction === 'centre' || direction === 'enter' ? 'middle' : direction) as JoystickDirection;
+    activeDirectionRef.current = normDir;
+    isHoldingRef.current = false;
+    setActiveHighlight(normDir);
+    setActiveActionState('press');
+
+    // Trigger immediate press event
+    onTriggerJoystick(normDir, 'press');
+
+    // Start 350ms hold timer
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
+
+    holdTimerRef.current = setTimeout(() => {
+      if (activeDirectionRef.current === normDir) {
+        isHoldingRef.current = true;
+        setActiveActionState('hold');
+        onTriggerJoystick(normDir, 'hold');
+
+        // Repeated hold ticks while pointer continues to be pressed
+        holdIntervalRef.current = setInterval(() => {
+          if (activeDirectionRef.current === normDir) {
+            onTriggerJoystick(normDir, 'hold');
+          }
+        }, 300);
+      }
+    }, 350);
   };
 
+  const handlePointerUp = (direction?: JoystickDirection) => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holdIntervalRef.current) {
+      clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+    }
+
+    const targetDir = direction || activeDirectionRef.current;
+    if (targetDir) {
+      const normDir = (targetDir === 'centre' || targetDir === 'enter' ? 'middle' : targetDir) as JoystickDirection;
+      activeDirectionRef.current = null;
+      isHoldingRef.current = false;
+      setActiveHighlight(normDir);
+      setActiveActionState('release');
+
+      // Trigger release event
+      onTriggerJoystick(normDir, 'release');
+
+      // Keep visual feedback visible for clear user perception
+      setTimeout(() => {
+        if (!activeDirectionRef.current) {
+          setActiveHighlight(null);
+          setActiveActionState(null);
+        }
+      }, 1000);
+    }
+  };
+
+  // Global window listeners for pointer release and keyboard controls
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      if (activeDirectionRef.current) {
+        handlePointerUp(activeDirectionRef.current);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't capture when typing in code editor, textarea, or input
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      let dir: JoystickDirection | null = null;
+      if (e.key === 'ArrowUp') dir = 'up';
+      else if (e.key === 'ArrowDown') dir = 'down';
+      else if (e.key === 'ArrowLeft') dir = 'left';
+      else if (e.key === 'ArrowRight') dir = 'right';
+      else if (e.key === 'Enter' || e.key === ' ' || e.key === 'm' || e.key === 'M') dir = 'middle';
+
+      if (dir && !e.repeat && activeDirectionRef.current !== dir) {
+        e.preventDefault();
+        handlePointerDown(dir);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      let dir: JoystickDirection | null = null;
+      if (e.key === 'ArrowUp') dir = 'up';
+      else if (e.key === 'ArrowDown') dir = 'down';
+      else if (e.key === 'ArrowLeft') dir = 'left';
+      else if (e.key === 'ArrowRight') dir = 'right';
+      else if (e.key === 'Enter' || e.key === ' ' || e.key === 'm' || e.key === 'M') dir = 'middle';
+
+      if (dir && activeDirectionRef.current === dir) {
+        e.preventDefault();
+        handlePointerUp(dir);
+      }
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   const handlePixelClick = (x: number, y: number) => {
-    // Both Mode 1 and Mode 2 support interactive pixel clicking, immediately updating UI and physical Sense HAT
     onSetPixel(x, y, selectedColor);
   };
 
   const loadPresetPattern = (type: 'raspberry' | 'smiley' | 'rainbow') => {
-    const O: RgbColor = [0, 0, 0];
-    const R: RgbColor = [255, 0, 0];
-    const G: RgbColor = [34, 197, 94];
-    const Y: RgbColor = [250, 204, 21];
-    const B: RgbColor = [59, 130, 246];
-    const W: RgbColor = [255, 255, 255];
-
-    let pattern: RgbColor[] = [];
     if (type === 'raspberry') {
-      pattern = [
-        O, G, O, G, G, O, G, O,
-        O, G, G, G, G, G, G, O,
-        O, R, R, R, R, R, R, O,
-        R, R, W, R, R, W, R, R,
-        R, R, R, R, R, R, R, R,
-        O, R, R, R, R, R, R, O,
-        O, O, R, R, R, R, O, O,
-        O, O, O, R, R, O, O, O,
-      ];
+      const p: RgbColor[] = Array(64).fill([0, 0, 0]);
+      const red: RgbColor = [220, 20, 60];
+      const green: RgbColor = [34, 139, 34];
+      [2, 3, 4, 5].forEach((i) => (p[i] = green));
+      [10, 11, 12, 13].forEach((i) => (p[i] = green));
+      [18, 19, 20, 21].forEach((i) => (p[i] = red));
+      [25, 26, 27, 28, 29, 30].forEach((i) => (p[i] = red));
+      [33, 34, 35, 36, 37, 38].forEach((i) => (p[i] = red));
+      [42, 43, 44, 45].forEach((i) => (p[i] = red));
+      [51, 52].forEach((i) => (p[i] = red));
+      onSetMatrixPattern(p);
     } else if (type === 'smiley') {
-      pattern = [
-        O, O, Y, Y, Y, Y, O, O,
-        O, Y, Y, Y, Y, Y, Y, O,
-        Y, Y, B, Y, Y, B, Y, Y,
-        Y, Y, Y, Y, Y, Y, Y, Y,
-        Y, R, Y, Y, Y, Y, R, Y,
-        Y, Y, R, R, R, R, Y, Y,
-        O, Y, Y, Y, Y, Y, Y, O,
-        O, O, Y, Y, Y, Y, O, O,
-      ];
+      const p: RgbColor[] = Array(64).fill([0, 0, 0]);
+      const y: RgbColor = [255, 215, 0];
+      const b: RgbColor = [0, 0, 0];
+      for (let i = 0; i < 64; i++) p[i] = y;
+      [0, 1, 6, 7, 8, 15, 48, 55, 56, 57, 62, 63].forEach((i) => (p[i] = b));
+      p[18] = b;
+      p[21] = b;
+      [41, 46, 50, 51, 52, 53].forEach((i) => (p[i] = b));
+      onSetMatrixPattern(p);
     } else if (type === 'rainbow') {
-      pattern = Array(64).fill(O).map((_, idx) => {
-        const row = Math.floor(idx / 8);
-        const col = idx % 8;
-        const hue = ((row + col) * 45) % 360;
-        return hslToRgb(hue, 100, 50);
-      });
+      const p: RgbColor[] = [];
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+          const hue = ((x + y) / 14) * 360;
+          p.push(hslToRgb(hue, 100, 50));
+        }
+      }
+      onSetMatrixPattern(p);
     }
-    onSetMatrixPattern(pattern);
   };
 
-  // Authoritative matrix state from digital twin
-  const displayMatrix = matrix;
-
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 shadow-xs flex flex-col gap-3 text-slate-800 min-w-0">
+    <div className="bg-white border border-slate-200/90 rounded-xl p-3 sm:p-5 shadow-xs flex flex-col gap-3.5 text-slate-800 min-w-0">
       {/* Panel Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-slate-200/80 gap-2">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-sm sm:text-base font-bold text-slate-900">
-              Sense HAT Twin
-            </h2>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-1.5">
+              <span>Raspberry Pi Sense HAT</span>
+              <span className="text-xs font-normal text-slate-500 font-mono">(8×8 RGB + 5-Way Stick)</span>
+            </h3>
             {isPhysicalLinked ? (
               isPartial ? (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
-                  <span>● LIVE HW: LEDS ACTIVE</span>
+                  <span>LED Matrix Active (/dev/fb1)</span>
                 </span>
               ) : (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                  <span>● LIVE HW LINK</span>
+                  <span>Physical Hardware Linked</span>
                 </span>
               )
-            ) : selectedMode === 'emulation' ? (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
-                <span>● EMULATOR ACTIVE</span>
+            ) : isEmulationDisconnected ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-rose-100 text-rose-800 border border-rose-300">
+                Standby (Unlinked)
               </span>
             ) : (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-sky-100 text-sky-800 border border-sky-300">
-                ● SIMULATED
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                Digital Twin Mode
               </span>
             )}
           </div>
-          <span className="text-[11px] text-slate-500">
-            8×8 RGB Matrix · 9-DOF Telemetry · 5-Way Joystick
+          <span className="text-xs text-slate-500">
+            Interactive 8×8 RGB LED matrix, 5-way joystick (press/hold/release), and calibrated telemetry
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {onOpenDiagnostics && selectedMode === 'emulation' && (
-            <button
-              onClick={onOpenDiagnostics}
-              className="px-2 py-0.5 text-xs font-mono rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
-              title="Inspect hardware buses and error report"
-            >
-              <span>Diagnostics</span>
-            </button>
-          )}
-
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowInjectModal(!showInjectModal)}
-            className="px-2 py-0.5 text-xs font-mono rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
-            title="Inject test sensor values"
+            className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Inject test environmental sensor readings"
           >
-            <Sliders className="w-3 h-3 text-amber-600" />
-            <span>Test Values</span>
+            <Sliders className="w-3.5 h-3.5 text-slate-600" />
+            <span>Test Sensors</span>
           </button>
         </div>
       </div>
 
       {/* Partial Hardware Connection Banner */}
       {isPartial && (
-        <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs font-mono text-amber-950 flex items-start justify-between gap-2.5">
+        <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-lg text-xs text-amber-950 flex items-start justify-between gap-2.5">
           <div className="flex items-start gap-2 min-w-0">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <strong className="font-bold text-amber-900 block">
-                Physical 8×8 RGB LED Matrix is Active & Working:
+              <strong className="font-semibold text-amber-900 block">
+                Physical 8×8 RGB LED Matrix is Active &amp; Working:
               </strong>
               <span>
-                Your LED matrix is directly linked to your Raspberry Pi (/dev/fb1). Environmental sensors are in standby mode. Click below to inspect I2C sensor diagnostics.
+                Your LED matrix is directly linked to your Raspberry Pi (/dev/fb1). Environmental sensors are in standby mode. Click Diagnostics for I2C bus commands.
               </span>
             </div>
           </div>
           {onOpenDiagnostics && (
             <button
               onClick={onOpenDiagnostics}
-              className="px-2.5 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-[11px] shrink-0 transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-md bg-amber-200 hover:bg-amber-300 text-amber-950 font-semibold text-xs shrink-0 transition-colors cursor-pointer"
             >
-              View Diagnostics
+              Diagnostics
             </button>
           )}
         </div>
       )}
 
-      {/* Prominent warning when in Emulation mode and NOT connected */}
-      {isEmulationDisconnected && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs font-mono text-rose-800 flex items-start justify-between gap-2.5">
-          <div className="flex items-start gap-2.5 min-w-0">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <strong>Sense HAT is NOT CONNECTED:</strong> Running in Emulation Mode without active Raspberry Pi Sense HAT link.
-              Click "Connect Hardware" to probe buses, or view diagnostics to see why the board is unlinked.
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {onOpenDiagnostics && (
-              <button
-                onClick={onOpenDiagnostics}
-                className="px-2 py-1 rounded bg-rose-200 hover:bg-rose-300 text-rose-950 font-bold text-[11px] transition-colors cursor-pointer"
-              >
-                Diagnostics
-              </button>
-            )}
-            {onConnectHardware && (
-              <button
-                onClick={onConnectHardware}
-                disabled={isProbingHardware}
-                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <Zap className="w-3 h-3 text-amber-300" />
-                <span>Connect</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Sensor Perturbation Drawer (Inject Test Values) */}
+      {/* Sensor Perturbation Drawer */}
       {showInjectModal && (
-        <div className="p-3 bg-slate-50 rounded-lg border border-slate-300 flex flex-col gap-3 text-xs">
-          <div className="flex items-center justify-between font-mono font-bold text-[#840038]">
+        <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-300/80 flex flex-col gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
+          <div className="flex items-center justify-between font-semibold text-[#840038]">
             <span>Teacher Sensor Perturbation (Inject Test Values):</span>
             <button
               onClick={() => setShowInjectModal(false)}
-              className="text-slate-500 hover:text-slate-800"
+              className="text-slate-400 hover:text-slate-800 cursor-pointer"
             >
               ✕
             </button>
@@ -326,7 +399,7 @@ export function SenseHatTwin({
                 });
                 setShowInjectModal(false);
               }}
-              className="px-3 py-1 bg-[#840038] hover:bg-[#6c002e] text-white rounded font-medium transition-colors shadow-sm"
+              className="px-3 py-1.5 bg-[#840038] hover:bg-[#6c002e] text-white rounded-md font-medium transition-colors shadow-2xs cursor-pointer"
             >
               Apply Injected Readings
             </button>
@@ -337,50 +410,44 @@ export function SenseHatTwin({
       {/* Main Grid: 8x8 Matrix + Joystick & Gauges */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Left: 8x8 LED Matrix Canvas */}
-        <div className="xl:col-span-7 flex flex-col items-center justify-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
-          <div className="flex items-center justify-between w-full mb-2 text-xs font-mono text-slate-600 px-1">
-            <span className="font-bold text-[11px]">8×8 RGB MATRIX</span>
-            <span className="text-[#840038] font-semibold text-[11px]">
+        <div className="xl:col-span-7 flex flex-col items-center justify-center p-4 bg-slate-950 border border-slate-800 rounded-xl shadow-inner">
+          <div className="flex items-center justify-between w-full mb-3 text-xs text-slate-400 px-1">
+            <span className="font-semibold text-slate-300">8×8 RGB LED Matrix</span>
+            <span className="text-rose-400 font-mono text-[11px]">
               {hoveredPixel
                 ? `Pixel [${hoveredPixel.x}, ${hoveredPixel.y}]`
                 : isPhysicalLinked
-                ? 'Interactive (Hardware Synced)'
+                ? 'Interactive (Hardware /dev/fb1)'
                 : 'Interactive (Digital Twin)'}
             </span>
           </div>
 
-          {/* Matrix Physical PCB */}
-          <div className="relative p-2.5 bg-slate-900 border-2 border-slate-700 rounded-xl shadow-md">
-            <div className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full border border-slate-600 bg-slate-950" />
-            <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full border border-slate-600 bg-slate-950" />
-            <div className="absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full border border-slate-600 bg-slate-950" />
-            <div className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full border border-slate-600 bg-slate-950" />
-
-            {/* 8x8 Grid */}
-            <div className="grid grid-cols-8 gap-1 p-0.5 bg-black rounded-lg">
-              {displayMatrix.map((color, idx) => {
-                const x = idx % 8;
-                const y = Math.floor(idx / 8);
+          {/* 8x8 Grid Canvas */}
+          <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 shadow-md">
+            <div className="grid grid-cols-8 gap-1.5 sm:gap-2">
+              {Array.from({ length: 64 }).map((_, index) => {
+                const x = index % 8;
+                const y = Math.floor(index / 8);
+                const color = matrix[index] || [0, 0, 0];
                 const isOff = color[0] === 0 && color[1] === 0 && color[2] === 0;
-                const rgbString = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                const glowColor = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.55)`;
+                const rgbStr = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
 
                 return (
                   <button
-                    key={idx}
-                    type="button"
+                    key={index}
                     onClick={() => handlePixelClick(x, y)}
                     onMouseEnter={() => setHoveredPixel({ x, y })}
                     onMouseLeave={() => setHoveredPixel(null)}
-                    title={`Pixel (${x}, ${y}): RGB(${color.join(', ')})${isPhysicalLinked ? ' (Synced with Hardware)' : ''}`}
                     style={{
-                      backgroundColor: isOff ? '#111827' : rgbString,
-                      boxShadow: isOff ? 'none' : `0 0 8px ${glowColor}`,
+                      backgroundColor: isOff ? '#111827' : rgbStr,
+                      boxShadow: isOff
+                        ? 'inset 0 1px 2px rgba(0,0,0,0.6)'
+                        : `0 0 8px ${rgbStr}, inset 0 1px 1px rgba(255,255,255,0.4)`,
                     }}
-                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[3px] border transition-transform flex items-center justify-center cursor-pointer ${
+                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[4px] border transition-transform flex items-center justify-center cursor-pointer ${
                       isOff
-                        ? 'border-slate-800 hover:border-slate-500 hover:scale-105'
-                        : 'border-white/20 hover:scale-110 active:scale-95'
+                        ? 'border-slate-800 hover:border-slate-600 hover:scale-105'
+                        : 'border-white/30 hover:scale-110 active:scale-95'
                     }`}
                   >
                     <span className="sr-only">Pixel {x},{y}</span>
@@ -391,9 +458,9 @@ export function SenseHatTwin({
           </div>
 
           {/* Palette & Controls */}
-          <div className="w-full mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-1">
-              <span className="text-slate-600 font-mono text-[10px]">Color:</span>
+          <div className="w-full mt-3.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 text-xs font-medium">Color:</span>
               <div className="flex items-center gap-1">
                 {PALETTE.map((p) => {
                   const isCurrent =
@@ -408,8 +475,8 @@ export function SenseHatTwin({
                       style={{ backgroundColor: p.hex }}
                       className={`w-4 h-4 rounded-full border transition-all cursor-pointer ${
                         isCurrent
-                          ? 'ring-2 ring-[#840038] ring-offset-1 ring-offset-white scale-110 border-white'
-                          : 'border-slate-300 hover:scale-105'
+                          ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-950 scale-110 border-white'
+                          : 'border-slate-600 hover:scale-105'
                       }`}
                     />
                   );
@@ -420,34 +487,34 @@ export function SenseHatTwin({
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => onClearMatrix()}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 flex items-center gap-1 transition-colors text-[10px] cursor-pointer"
+                className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1 transition-colors text-xs font-medium cursor-pointer shadow-2xs"
                 title="Clear matrix"
               >
-                <RotateCcw className="w-2.5 h-2.5" />
+                <RotateCcw className="w-3 h-3" />
                 <span>Clear</span>
               </button>
 
-              <div className="flex items-center gap-1 text-[10px]">
+              <div className="flex items-center gap-1 text-xs">
                 <button
                   onClick={() => loadPresetPattern('raspberry')}
-                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors cursor-pointer"
-                  title="Pi Pattern"
+                  className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer text-xs font-medium shadow-2xs"
+                  title="Raspberry Pi Logo Preset"
                 >
                   Pi
                 </button>
                 <button
                   onClick={() => loadPresetPattern('smiley')}
-                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors cursor-pointer"
-                  title="Smiley Pattern"
+                  className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer text-xs font-medium shadow-2xs"
+                  title="Smiley Face Preset"
                 >
                   Smile
                 </button>
                 <button
                   onClick={() => loadPresetPattern('rainbow')}
-                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-[#840038] text-slate-700 hover:text-white border border-slate-300 transition-colors cursor-pointer"
-                  title="Rainbow Pattern"
+                  className="px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer text-xs font-medium shadow-2xs"
+                  title="Rainbow Spectrum Preset"
                 >
-                  Color
+                  Rainbow
                 </button>
               </div>
             </div>
@@ -455,170 +522,174 @@ export function SenseHatTwin({
         </div>
 
         {/* Right: 5-Way Joystick & Real-Time Sensors */}
-        <div className="xl:col-span-5 flex flex-col gap-3">
+        <div className="xl:col-span-5 flex flex-col gap-3.5">
           {/* 5-Way Keypad / Joystick Controller */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono font-bold text-slate-800 flex items-center gap-1.5">
+          <div className="p-4 bg-slate-50 border border-slate-200/90 rounded-xl flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Navigation className="w-3.5 h-3.5 text-[#840038]" />
-                <span>
-                  {isPhysicalLinked
-                    ? 'SENSE HAT 5-WAY KEYPAD (HARDWARE)'
-                    : selectedMode === 'emulation'
-                    ? 'SENSE HAT KEYPAD (DISCONNECTED)'
-                    : '5-WAY KEYPAD (VIRTUAL TWIN)'}
-                </span>
+                <span>5-Way Sense HAT Joystick</span>
               </span>
-              {isPhysicalLinked ? (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                  <span>ACTUAL HARDWARE</span>
-                </span>
-              ) : selectedMode === 'emulation' ? (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-rose-100 text-rose-800 border border-rose-300">
-                  UNLINKED
-                </span>
-              ) : (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase bg-sky-100 text-sky-800 border border-sky-300">
-                  SIMULATED
-                </span>
-              )}
+              <span className="text-[10px] text-slate-500 font-medium">
+                Supports Press, Hold &amp; Release
+              </span>
             </div>
-
-            {/* Hardware Key Press Banner in Emulation Mode */}
-            {isPhysicalLinked && (
-              <div className="mb-3 p-2 rounded-lg bg-emerald-50 border border-emerald-300 text-xs font-mono flex items-center justify-between shadow-xs">
-                <div className="flex items-center gap-1.5 text-emerald-900">
-                  <span className={`w-2 h-2 rounded-full ${activeHighlight ? 'bg-emerald-600 animate-ping' : 'bg-emerald-500'}`} />
-                  <span className="font-bold">Key Pressed on Actual Hardware:</span>
-                  <span className="px-2 py-0.5 rounded bg-emerald-200 text-emerald-950 font-bold uppercase shadow-xs">
-                    {lastJoystick ? `${lastJoystick.direction} (${lastJoystick.action})` : 'READY'}
-                  </span>
-                </div>
-                <span className="text-[10px] text-emerald-700 font-semibold hidden sm:flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  <span>Physical Sense HAT</span>
-                </span>
-              </div>
-            )}
-
-            {/* Emulation Mode Disconnected Notice */}
-            {isEmulationDisconnected && (
-              <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
-                <span className="text-amber-950 font-medium">
-                  <strong>Emulation Mode:</strong> Board must be connected to actual hardware.
-                </span>
-                {onConnectHardware && (
-                  <button
-                    onClick={onConnectHardware}
-                    disabled={isProbingHardware}
-                    className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shrink-0 transition-colors shadow-xs cursor-pointer"
-                  >
-                    <Zap className="w-3 h-3 text-amber-300" />
-                    <span>{isProbingHardware ? 'Probing...' : '⚡ Connect Hardware'}</span>
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* 5-Way Joystick Status Banner */}
-            <div className="mb-3 p-2 rounded-lg bg-slate-100 border border-slate-200 text-xs font-mono flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-slate-800">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span className="font-semibold">5-Way Joystick:</span>
-                <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-900 font-bold uppercase">
-                  {lastJoystick ? `${lastJoystick.direction} (${lastJoystick.action})` : 'IDLE'}
-                </span>
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200/90 text-xs flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-slate-700 text-xs">Event:</span>
+                {lastJoystick ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-md font-mono text-xs font-bold uppercase bg-slate-900 text-white shadow-2xs">
+                      {lastJoystick.direction === 'centre' || lastJoystick.direction === 'enter' ? 'MIDDLE' : lastJoystick.direction.toUpperCase()}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-md font-mono text-xs font-bold uppercase shadow-2xs transition-all ${
+                        lastJoystick.action === 'release'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300 ring-1 ring-rose-200'
+                          : lastJoystick.action === 'hold'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300 ring-1 ring-amber-200 animate-pulse'
+                          : 'bg-emerald-100 text-emerald-900 border border-emerald-300 ring-1 ring-emerald-200'
+                      }`}
+                    >
+                      {lastJoystick.action === 'release'
+                        ? 'RELEASED'
+                        : lastJoystick.action === 'hold'
+                        ? 'HELD (HOLD)'
+                        : 'PRESSED'}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-md font-mono text-xs text-slate-400 bg-slate-100">
+                    IDLE
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] text-slate-500 hidden sm:inline">
-                Linux /dev/input/event* &middot; ATtiny88 MCU
+              <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                Middle / Up / Down / Left / Right (Arrow Keys &amp; Enter)
               </span>
             </div>
 
-            <div className="flex items-center justify-center py-2">
-              <div className="grid grid-cols-3 gap-1.5 w-36 h-36 p-1.5 bg-slate-200 border border-slate-300 rounded-xl relative shadow-inner">
+            {/* Interactive D-Pad Controller with Touch & Mouse Hold / Release */}
+            <div className="flex items-center justify-center py-1">
+              <div className="grid grid-cols-3 gap-2 w-44 h-44 p-2.5 bg-slate-200/80 border border-slate-300 rounded-2xl relative shadow-inner">
                 <div />
                 <button
-                  onClick={() => handleKeypadPress('up')}
-                  disabled={isEmulationDisconnected}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    activeHighlight === 'up' || (!activeHighlight && lastJoystick?.direction === 'up')
-                      ? isPhysicalLinked
-                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
-                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
-                      : isEmulationDisconnected
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handlePointerDown('up');
+                  }}
+                  onPointerUp={(e) => {
+                    e.preventDefault();
+                    handlePointerUp('up');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                    activeHighlight === 'up'
+                      ? activeActionState === 'release'
+                        ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
+                        : activeActionState === 'hold'
+                        ? 'bg-amber-600 text-white border-amber-700 scale-95 shadow-inner animate-pulse'
+                        : 'bg-[#840038] text-white border-[#840038] scale-95 shadow-inner'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Keypad UP"
+                  title="Joystick UP (Click, Hold or Release — ArrowUp)"
                 >
                   ▲
                 </button>
                 <div />
 
                 <button
-                  onClick={() => handleKeypadPress('left')}
-                  disabled={isEmulationDisconnected}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    activeHighlight === 'left' || (!activeHighlight && lastJoystick?.direction === 'left')
-                      ? isPhysicalLinked
-                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
-                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
-                      : isEmulationDisconnected
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handlePointerDown('left');
+                  }}
+                  onPointerUp={(e) => {
+                    e.preventDefault();
+                    handlePointerUp('left');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                    activeHighlight === 'left'
+                      ? activeActionState === 'release'
+                        ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
+                        : activeActionState === 'hold'
+                        ? 'bg-amber-600 text-white border-amber-700 scale-95 shadow-inner animate-pulse'
+                        : 'bg-[#840038] text-white border-[#840038] scale-95 shadow-inner'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Keypad LEFT"
+                  title="Joystick LEFT (Click, Hold or Release — ArrowLeft)"
                 >
                   ◀
                 </button>
+
+                {/* MIDDLE BUTTON */}
                 <button
-                  onClick={() => handleKeypadPress('centre')}
-                  disabled={isEmulationDisconnected}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    activeHighlight === 'centre' || (!activeHighlight && lastJoystick?.direction === 'centre')
-                      ? isPhysicalLinked
-                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
-                        : 'bg-amber-500 text-white border-amber-600 shadow-md'
-                      : isEmulationDisconnected
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
-                      : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 active:scale-95'
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handlePointerDown('middle');
+                  }}
+                  onPointerUp={(e) => {
+                    e.preventDefault();
+                    handlePointerUp('middle');
+                  }}
+                  className={`rounded-lg p-1 text-xs font-bold transition-all border cursor-pointer select-none flex flex-col items-center justify-center shadow-xs ${
+                    activeHighlight === 'middle' || activeHighlight === 'centre'
+                      ? activeActionState === 'release'
+                        ? 'bg-rose-600 text-white border-rose-700 scale-95 ring-2 ring-rose-300'
+                        : activeActionState === 'hold'
+                        ? 'bg-amber-600 text-white border-amber-700 scale-95 ring-2 ring-amber-300 animate-pulse'
+                        : 'bg-emerald-600 text-white border-emerald-700 scale-95 ring-2 ring-emerald-300'
+                      : 'bg-amber-100/90 text-amber-950 border-amber-300 hover:bg-amber-200 active:scale-95'
                   }`}
-                  title="Keypad CENTRE PRESS"
+                  title="Joystick MIDDLE PRESS (Click, Hold or Release — Enter / Space)"
                 >
-                  ●
+                  <span className="text-[11px] font-bold">MIDDLE</span>
+                  <span className="text-[9px] opacity-75 font-mono">●</span>
                 </button>
+
                 <button
-                  onClick={() => handleKeypadPress('right')}
-                  disabled={isEmulationDisconnected}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    activeHighlight === 'right' || (!activeHighlight && lastJoystick?.direction === 'right')
-                      ? isPhysicalLinked
-                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
-                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
-                      : isEmulationDisconnected
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handlePointerDown('right');
+                  }}
+                  onPointerUp={(e) => {
+                    e.preventDefault();
+                    handlePointerUp('right');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                    activeHighlight === 'right'
+                      ? activeActionState === 'release'
+                        ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
+                        : activeActionState === 'hold'
+                        ? 'bg-amber-600 text-white border-amber-700 scale-95 shadow-inner animate-pulse'
+                        : 'bg-[#840038] text-white border-[#840038] scale-95 shadow-inner'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Keypad RIGHT"
+                  title="Joystick RIGHT (Click, Hold or Release — ArrowRight)"
                 >
                   ▶
                 </button>
 
                 <div />
                 <button
-                  onClick={() => handleKeypadPress('down')}
-                  disabled={isEmulationDisconnected}
-                  className={`rounded p-1 font-mono text-xs font-bold transition-all border cursor-pointer ${
-                    activeHighlight === 'down' || (!activeHighlight && lastJoystick?.direction === 'down')
-                      ? isPhysicalLinked
-                        ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.7)] scale-105'
-                        : 'bg-[#840038] text-white border-[#840038] shadow-md'
-                      : isEmulationDisconnected
-                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handlePointerDown('down');
+                  }}
+                  onPointerUp={(e) => {
+                    e.preventDefault();
+                    handlePointerUp('down');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                    activeHighlight === 'down'
+                      ? activeActionState === 'release'
+                        ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
+                        : activeActionState === 'hold'
+                        ? 'bg-amber-600 text-white border-amber-700 scale-95 shadow-inner animate-pulse'
+                        : 'bg-[#840038] text-white border-[#840038] scale-95 shadow-inner'
                       : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 active:scale-95'
                   }`}
-                  title="Keypad DOWN"
+                  title="Joystick DOWN (Click, Hold or Release — ArrowDown)"
                 >
                   ▼
                 </button>
@@ -627,70 +698,80 @@ export function SenseHatTwin({
             </div>
           </div>
 
-          {/* Environmental Sensor Telemetry Readouts (shows nothing/dashes if disconnected in emulation) */}
+          {/* Environmental Sensor Telemetry Readouts */}
           <div className="grid grid-cols-3 gap-2.5">
-            {/* Temperature */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-                <span className="flex items-center gap-1 font-mono">
+            {/* Temperature Readout (Ambient Calibrated) */}
+            <div className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-600 text-xs mb-1">
+                <span className="flex items-center gap-1.5 font-medium">
                   <Thermometer className="w-3.5 h-3.5 text-rose-600" />
-                  <span>TEMP</span>
+                  <span>Temp</span>
                 </span>
+                {sensors.rawTemperature && sensors.rawTemperature > 38 && (
+                  <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                    Calibrated
+                  </span>
+                )}
               </div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1 my-0.5">
                 <span className="text-xl font-bold font-mono tabular-nums text-slate-900">
                   {sensors.temperature.toFixed(1)}
                 </span>
                 <span className="text-xs font-mono text-slate-500">°C</span>
               </div>
-              <div className="text-[10px] text-slate-500 font-mono mt-1">
-                {sensors.isSimulated ? (isPartial ? 'Standby (I2C unlinked)' : 'Simulated') : 'HTS221 (HW)'} · {((sensors.temperature * 9) / 5 + 32).toFixed(1)}°F
+              <div className="text-[10px] text-slate-500 font-mono leading-tight">
+                {((sensors.temperature * 9) / 5 + 32).toFixed(1)}°F (Ambient)
+                {sensors.rawTemperature && sensors.rawTemperature > 38 && (
+                  <span className="block text-[9px] text-slate-400 mt-0.5">
+                    Raw SoC: {sensors.rawTemperature.toFixed(1)}°C / {((sensors.rawTemperature * 9) / 5 + 32).toFixed(0)}°F
+                  </span>
+                )}
               </div>
             </div>
 
             {/* Humidity */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-                <span className="flex items-center gap-1 font-mono">
+            <div className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-600 text-xs mb-1">
+                <span className="flex items-center gap-1.5 font-medium">
                   <Wind className="w-3.5 h-3.5 text-cyan-600" />
-                  <span>HUMIDITY</span>
+                  <span>Humidity</span>
                 </span>
               </div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1 my-0.5">
                 <span className="text-xl font-bold font-mono tabular-nums text-slate-900">
                   {sensors.humidity.toFixed(1)}
                 </span>
-                <span className="text-xs font-mono text-slate-500">% rH</span>
+                <span className="text-xs font-mono text-slate-500">%</span>
               </div>
-              <div className="text-[10px] text-slate-500 font-mono mt-1">
-                {sensors.isSimulated ? (isPartial ? 'Standby (I2C unlinked)' : 'Simulated') : 'HTS221 (HW)'}
+              <div className="text-[10px] text-slate-500 font-mono">
+                {sensors.isSimulated ? 'Simulated' : 'HTS221'}
               </div>
             </div>
 
             {/* Pressure */}
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-                <span className="flex items-center gap-1 font-mono">
+            <div className="p-3 bg-white border border-slate-200/90 rounded-xl shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-600 text-xs mb-1">
+                <span className="flex items-center gap-1.5 font-medium">
                   <Gauge className="w-3.5 h-3.5 text-amber-600" />
-                  <span>PRESSURE</span>
+                  <span>Pressure</span>
                 </span>
               </div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1 my-0.5">
                 <span className="text-lg font-bold font-mono tabular-nums text-slate-900">
                   {sensors.pressure.toFixed(1)}
                 </span>
                 <span className="text-xs font-mono text-slate-500">hPa</span>
               </div>
-              <div className="text-[10px] text-slate-500 font-mono mt-1">
-                {sensors.isSimulated ? (isPartial ? 'Standby (I2C unlinked)' : 'Simulated') : 'LPS25H (HW)'}
+              <div className="text-[10px] text-slate-500 font-mono">
+                {sensors.isSimulated ? 'Simulated' : 'LPS25H'}
               </div>
             </div>
           </div>
 
           {/* IMU Motion Telemetry */}
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700">
+          <div className="p-3 bg-white border border-slate-200/90 rounded-xl text-xs font-mono text-slate-700 shadow-2xs">
             <div className="flex items-center justify-between mb-2 text-slate-600">
-              <span className="flex items-center gap-1.5 font-bold">
+              <span className="flex items-center gap-1.5 font-semibold">
                 <Activity className="w-3.5 h-3.5 text-[#840038]" />
                 <span>9-DOF IMU ({sensors.isSimulated ? 'Simulated' : 'LSM9DS1 HW'})</span>
               </span>
@@ -700,21 +781,21 @@ export function SenseHatTwin({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 text-[11px]">
               <div>
-                <span className="text-[11px] text-slate-500 block mb-0.5">
+                <span className="text-slate-500 block mb-0.5">
                   Accelerometer (g):
                 </span>
-                <div className="text-slate-800 font-bold">
+                <div className="text-slate-900 font-bold">
                   {`X: ${sensors.accelerometer.x.toFixed(2)} Y: ${sensors.accelerometer.y.toFixed(2)} Z: ${sensors.accelerometer.z.toFixed(2)}`}
                 </div>
               </div>
 
               <div>
-                <span className="text-[11px] text-slate-500 block mb-0.5">
+                <span className="text-slate-500 block mb-0.5">
                   Gyroscope (°/s):
                 </span>
-                <div className="text-slate-800 font-bold">
+                <div className="text-slate-900 font-bold">
                   {`X: ${sensors.gyroscope.x.toFixed(1)} Y: ${sensors.gyroscope.y.toFixed(1)} Z: ${sensors.gyroscope.z.toFixed(1)}`}
                 </div>
               </div>
