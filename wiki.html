@@ -416,9 +416,42 @@ int main(void) {
       <section id="architecture" class="wiki-section">
         <h2>D. Emulator Architecture &amp; Features</h2>
 
-        <h3 id="arch-fb">1. Sense HAT 8&times;8 LED Matrix &amp; /dev/fb1</h3>
+        <h3 id="arch-codebase">1. Internal Codebase Structure &amp; Data Flow</h3>
         <p>
-          The Sense HAT LED matrix is controlled by an Atmel ATtiny88 microcontroller communicating via I2C with the Raspberry Pi's Broadcom SoC. In Linux, the <code>rpi-sense-fb</code> kernel driver creates a framebuffer node at <code>/dev/fb1</code> with 64 pixels formatted as 16-bit RGB565 words (5 bits Red, 6 bits Green, 5 bits Blue):
+          The Pi-Digit digital twin operates across three architectural layers: the physical Linux kernel space, a persistent Python 3 hardware daemon, a TypeScript Node.js/Express IPC server, and a high-performance React web twin:
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Repository Directory Map &amp; Responsibilities</span>
+          </div>
+          <pre><code>pi-digit/
+├── scripts/
+│   ├── hardware_daemon.py       # Authoritative physical hardware polling &amp; sync service
+│   ├── hardware_diagnose.py     # Hardware bus and register diagnostic utility
+│   └── hardware_probe.py        # Hardware capability inspector
+├── src/
+│   ├── pi_emulator.py           # Core Python emulator wrapper with fallback and hardware bridge
+│   ├── sense_hat.py             # Official drop-in sense_hat import bridge
+│   ├── py_twin.py               # Unified Python digital twin SDK (SenseHat, GPIO, PWM, LCD)
+│   ├── pi_twin.h                # C99 hardware library header
+│   ├── components/
+│   │   ├── SenseHatTwin.tsx     # 8x8 RGB LED matrix, 5-way joystick (press/hold/release), sensors
+│   │   ├── GpioHeaderTwin.tsx   # 40-pin GPIO interactive header &amp; PWM oscilloscope
+│   │   ├── LcdDisplayTwin.tsx   # External I2C HD44780 alphanumeric 16x2 character display
+│   │   ├── CodeStudio.tsx       # Dual-theme code editor, compiler runner, Pi file persistence
+│   │   ├── CameraViewerModal.tsx# Pop-out real-time camera stream with Sobel edge detection
+│   │   └── HardwareDiagnosticModal.tsx # Dense monospace hardware bus status table
+│   └── data/
+│       └── curriculumExamples.ts# Separated curriculum (Tic-Tac-Toe, Matrix, LCD, C, Device Driver)
+├── logs/                        # Hardware and student program runtime execution logs
+├── tests/                       # Automated component verification test scripts
+├── server.ts                    # Full-stack Express server, WebSocket hub, and compiler runner
+└── wiki.html                    # Technical architecture &amp; reference documentation</code></pre>
+        </div>
+
+        <h3 id="arch-fb">2. Sense HAT 8&times;8 LED Matrix &amp; /dev/fb1</h3>
+        <p>
+          The Sense HAT LED matrix is driven by an Atmel ATtiny88 microcontroller communicating via I2C with the Raspberry Pi's Broadcom SoC. In Linux, the <code>rpi-sense-fb</code> kernel driver creates a framebuffer node at <code>/dev/fb1</code> with 64 pixels formatted as 16-bit RGB565 words (5 bits Red, 6 bits Green, 5 bits Blue):
         </p>
         <div class="code-box">
           <div class="code-box-header">
@@ -428,51 +461,63 @@ int main(void) {
 Resolution     : 8 x 8 pixels (64 total)
 Color Format   : RGB565 (2 bytes per pixel, 128 bytes total frame)
 Bit Allocation : R[15:11], G[10:5], B[4:0]
-Gamma Table    : 32-level nonlinear intensity curve</code></pre>
+Gamma Table    : 32-level nonlinear intensity curve
+Memory Access  : Direct binary stream seek(y * 8 + x) * 2; write(rgb565)</code></pre>
         </div>
 
-        <h3 id="arch-i2c">2. I2C Sensor Bus Architecture</h3>
+        <h3 id="arch-i2c">3. I2C Sensor Bus Architecture &amp; Temperature Calibration</h3>
         <p>
-          The Sense HAT multiplexes three primary sensor chips on I2C Bus 1:
+          The Sense HAT multiplexes three primary sensor chips on I2C Bus 1 (<code>/dev/i2c-1</code>):
         </p>
         <ul>
-          <li><strong>HTS221 (0x5F):</strong> Capacitive digital relative humidity and temperature sensor. Outputs 16-bit raw registers converted using factory calibration constants stored in internal flash.</li>
+          <li><strong>HTS221 (0x5F):</strong> Capacitive digital relative humidity and temperature sensor. Raw temperature output reflects the warm Raspberry Pi 4 CPU directly beneath the HAT (~50&ndash;56&deg;C / ~132&deg;F). The daemon applies continuous CPU compensation (<code>T_ambient = T_raw - (T_cpu / 2.0)</code> or <code>T_raw - 25.5&deg;C</code>) to display realistic ambient room temperature (~21&ndash;25&deg;C).</li>
           <li><strong>LPS25H (0x5C):</strong> Piezoresistive absolute pressure sensor operating from 260 to 1260 hPa. Also provides secondary internal temperature readings.</li>
           <li><strong>LSM9DS1 (0x6A &amp; 0x1C):</strong> 3D accelerometer, 3D gyroscope, and 3D magnetometer producing 9 degrees of freedom inertial telemetry.</li>
         </ul>
 
-        <h3 id="arch-gpio">3. 40-Pin GPIO Expansion &amp; /dev/gpiomem</h3>
+        <h3 id="arch-joystick">4. 5-Way Joystick &amp; Linux evdev Subsystem</h3>
         <p>
-          The 40-pin header provides access to 28 user-controllable GPIO pins, two 5V power rails, two 3.3V power rails, and eight ground pins:
+          The 5-way navigation switch on the Sense HAT is exposed in the Linux kernel as an evdev input event device (typically <code>/dev/input/event*</code> under the device name <em>Raspberry Pi Sense HAT Joystick</em>):
         </p>
         <ul>
-          <li>Pins 3 &amp; 5: <strong>I2C-1 (SDA &amp; SCL)</strong> &mdash; Reserved for Sense HAT and LCD communication.</li>
-          <li>Pins 7, 11, 12, 13, 15, 16, 18, 22: <strong>General Purpose GPIO</strong> &mdash; Available for external breadboard sensors, LEDs, and push buttons.</li>
-          <li>Pins 19, 21, 23, 24, 26: <strong>SPI-0</strong> &mdash; High-speed peripheral bus.</li>
+          <li><strong>Keycodes:</strong> <code>KEY_UP (103)</code>, <code>KEY_DOWN (108)</code>, <code>KEY_LEFT (105)</code>, <code>KEY_RIGHT (106)</code>, and <code>KEY_ENTER (28) / KEY_OK (352)</code> (Middle Click).</li>
+          <li><strong>Action Events:</strong> Value <code>1</code> (Press / Pressed), Value <code>2</code> (Hold / Held), Value <code>0</code> (Release / Released).</li>
+          <li>Both the physical hardware daemon and the Web UI digital twin support the complete press-hold-release lifecycle with visual indicator badges and event queues so no quick clicks or holds are dropped.</li>
         </ul>
 
-        <h3 id="arch-lcd">4. 16&times;2 HD44780 Alphanumeric LCD</h3>
+        <h3 id="arch-lcd">5. 16&times;2 HD44780 Alphanumeric LCD (Hardware Distinction Note)</h3>
+        <div class="callout callout-warning">
+          <div class="callout-icon">&excl;</div>
+          <div>
+            <strong>Hardware Architecture Notice:</strong> The physical Raspberry Pi Sense HAT contains the 8&times;8 RGB LED Matrix, but <em>does not have an onboard LCD screen</em>. The LCD in this platform emulates an external industry-standard HD44780 character LCD display interfaced via a PCF8574 I2C expander on the I2C-1 bus (address <code>0x27</code> or <code>0x3F</code>). This illustrates how external embedded alphanumeric displays operate in robotics, test benches, and industrial instrumentation alongside the Sense HAT.
+          </div>
+        </div>
+
+        <h3 id="arch-camera">6. Real-Time Camera Pipeline &amp; Edge Detection</h3>
         <p>
-          The emulator includes a character LCD driver mapped to standard HD44780 controller commands. When communicating over I2C, it uses a PCF8574 8-bit I/O expander at address <code>0x27</code>:
+          The digital twin supports Raspberry Pi Camera Module 2/3 (via CSI-2 / libcamera) and USB UVC webcams (via V4L2 <code>/dev/video0</code>). Frames are streamed to the emulator in a dedicated pop-out window featuring client-side real-time 3&times;3 Sobel convolution edge detection:
         </p>
         <div class="code-box">
           <div class="code-box-header">
-            <span>HD44780 I2C Command Protocol</span>
+            <span>Sobel Edge Detection Convolution Kernel</span>
           </div>
-          <pre><code>I2C Address : 0x27 (or 0x3F)
-Data Format : 4-bit nibble mode via PCF8574
-Pin Map     : P0=RS, P1=RW, P2=EN, P3=Backlight, P4=D4, P5=D5, P6=D6, P7=D7
-Lines       : 2 lines x 16 characters (5x8 dot matrix font)</code></pre>
+          <pre><code>Horizontal Kernel (Gx):           Vertical Kernel (Gy):
+[ -1  0  +1 ]                     [ -1  -2  -1 ]
+[ -2  0  +2 ]                     [  0   0   0 ]
+[ -1  0  +1 ]                     [ +1  +2  +1 ]
+
+Gradient Magnitude: |G| = sqrt(Gx^2 + Gy^2)
+Real-time controls: Adjustable edge threshold, grayscale gradient, and inversion filter.</code></pre>
         </div>
 
-        <h3 id="arch-ipc">5. Daemon IPC &amp; WebSockets</h3>
+        <h3 id="arch-ipc">7. Daemon IPC &amp; WebSockets</h3>
         <p>
           The system architecture separates hardware polling from frontend presentation:
         </p>
         <ol>
-          <li>A persistent Python hardware daemon (<code>scripts/hardware_daemon.py</code>) samples <code>/dev/fb1</code> and I2C every 250ms, writing a structured state snapshot to <code>/tmp/pi_sense_hardware.json</code>.</li>
+          <li>A persistent Python hardware daemon (<code>scripts/hardware_daemon.py</code>) samples <code>/dev/fb1</code>, evdev, and I2C every 60ms, writing a structured state snapshot to <code>/tmp/pi_sense_hardware.json</code>.</li>
           <li>The Node.js server (<code>server.ts</code>) monitors this file and emits delta updates over a WebSocket stream (<code>ws://localhost:3000/ws</code>).</li>
-          <li>The React frontend updates the UI smoothly at 60 FPS, maintaining minimal CPU load on the Raspberry Pi.</li>
+          <li>The React frontend updates the UI smoothly at 60 FPS, maintaining minimal CPU load on the Raspberry Pi host.</li>
         </ol>
       </section>
 

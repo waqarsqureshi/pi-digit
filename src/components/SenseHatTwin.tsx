@@ -84,11 +84,13 @@ export function SenseHatTwin({
   // In emulation mode with physical board connected vs standalone
   const isPhysicalLinked = selectedMode === 'emulation' && isSenseHatConnected;
   const isPartial = isPhysicalLinked && hardwareLinkStatus === 'partial';
+  const isEmulationDisconnected = selectedMode === 'emulation' && !isSenseHatConnected;
 
   // Animate and highlight keypad button when an event arrives
   useEffect(() => {
     if (lastJoystick?.direction) {
-      const d = (lastJoystick.direction === 'centre' || lastJoystick.direction === 'enter' ? 'middle' : lastJoystick.direction) as JoystickDirection;
+      const raw = String(lastJoystick.direction).toLowerCase();
+      const d = (raw === 'centre' || raw === 'center' || raw === 'enter' ? 'middle' : raw) as JoystickDirection;
       setActiveHighlight(d);
       setActiveActionState(lastJoystick.action);
       const timer = setTimeout(() => {
@@ -103,7 +105,8 @@ export function SenseHatTwin({
 
   // Press & Hold and Release Handlers
   const handlePointerDown = (direction: JoystickDirection) => {
-    const normDir = (direction === 'centre' || direction === 'enter' ? 'middle' : direction) as JoystickDirection;
+    const raw = String(direction).toLowerCase();
+    const normDir = (raw === 'centre' || raw === 'center' || raw === 'enter' ? 'middle' : raw) as JoystickDirection;
     activeDirectionRef.current = normDir;
     isHoldingRef.current = false;
     setActiveHighlight(normDir);
@@ -144,7 +147,8 @@ export function SenseHatTwin({
 
     const targetDir = direction || activeDirectionRef.current;
     if (targetDir) {
-      const normDir = (targetDir === 'centre' || targetDir === 'enter' ? 'middle' : targetDir) as JoystickDirection;
+      const raw = String(targetDir).toLowerCase();
+      const normDir = (raw === 'centre' || raw === 'center' || raw === 'enter' ? 'middle' : raw) as JoystickDirection;
       activeDirectionRef.current = null;
       isHoldingRef.current = false;
       setActiveHighlight(normDir);
@@ -542,7 +546,7 @@ export function SenseHatTwin({
                 {lastJoystick ? (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="px-2 py-0.5 rounded-md font-mono text-xs font-bold uppercase bg-slate-900 text-white shadow-2xs">
-                      {lastJoystick.direction === 'centre' || lastJoystick.direction === 'enter' ? 'MIDDLE' : lastJoystick.direction.toUpperCase()}
+                      {String(lastJoystick.direction).toLowerCase() === 'centre' || String(lastJoystick.direction).toLowerCase() === 'enter' || String(lastJoystick.direction).toLowerCase() === 'middle' ? 'MIDDLE' : lastJoystick.direction.toUpperCase()}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-md font-mono text-xs font-bold uppercase shadow-2xs transition-all ${
@@ -584,7 +588,13 @@ export function SenseHatTwin({
                     e.preventDefault();
                     handlePointerUp('up');
                   }}
-                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                  onPointerLeave={() => {
+                    if (activeDirectionRef.current === 'up') handlePointerUp('up');
+                  }}
+                  onPointerCancel={() => {
+                    if (activeDirectionRef.current === 'up') handlePointerUp('up');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none touch-none flex items-center justify-center shadow-xs ${
                     activeHighlight === 'up'
                       ? activeActionState === 'release'
                         ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
@@ -608,7 +618,13 @@ export function SenseHatTwin({
                     e.preventDefault();
                     handlePointerUp('left');
                   }}
-                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                  onPointerLeave={() => {
+                    if (activeDirectionRef.current === 'left') handlePointerUp('left');
+                  }}
+                  onPointerCancel={() => {
+                    if (activeDirectionRef.current === 'left') handlePointerUp('left');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none touch-none flex items-center justify-center shadow-xs ${
                     activeHighlight === 'left'
                       ? activeActionState === 'release'
                         ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
@@ -632,7 +648,13 @@ export function SenseHatTwin({
                     e.preventDefault();
                     handlePointerUp('middle');
                   }}
-                  className={`rounded-lg p-1 text-xs font-bold transition-all border cursor-pointer select-none flex flex-col items-center justify-center shadow-xs ${
+                  onPointerLeave={() => {
+                    if (activeDirectionRef.current === 'middle') handlePointerUp('middle');
+                  }}
+                  onPointerCancel={() => {
+                    if (activeDirectionRef.current === 'middle') handlePointerUp('middle');
+                  }}
+                  className={`rounded-lg p-1 text-xs font-bold transition-all border cursor-pointer select-none touch-none flex flex-col items-center justify-center shadow-xs ${
                     activeHighlight === 'middle' || activeHighlight === 'centre'
                       ? activeActionState === 'release'
                         ? 'bg-rose-600 text-white border-rose-700 scale-95 ring-2 ring-rose-300'
@@ -641,10 +663,18 @@ export function SenseHatTwin({
                         : 'bg-emerald-600 text-white border-emerald-700 scale-95 ring-2 ring-emerald-300'
                       : 'bg-amber-100/90 text-amber-950 border-amber-300 hover:bg-amber-200 active:scale-95'
                   }`}
-                  title="Joystick MIDDLE PRESS (Click, Hold or Release — Enter / Space)"
+                  title="Joystick MIDDLE PRESS (Click, Hold or Release — Enter / Space / M)"
                 >
-                  <span className="text-[11px] font-bold">MIDDLE</span>
-                  <span className="text-[9px] opacity-75 font-mono">●</span>
+                  <span className="text-[11px] font-bold">
+                    {activeHighlight === 'middle' && activeActionState === 'hold'
+                      ? 'HOLD'
+                      : activeHighlight === 'middle' && activeActionState === 'release'
+                      ? 'RELEASE'
+                      : 'MIDDLE'}
+                  </span>
+                  <span className="text-[9px] opacity-75 font-mono">
+                    {activeHighlight === 'middle' ? '● ACT' : '● OK'}
+                  </span>
                 </button>
 
                 <button
@@ -656,7 +686,13 @@ export function SenseHatTwin({
                     e.preventDefault();
                     handlePointerUp('right');
                   }}
-                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                  onPointerLeave={() => {
+                    if (activeDirectionRef.current === 'right') handlePointerUp('right');
+                  }}
+                  onPointerCancel={() => {
+                    if (activeDirectionRef.current === 'right') handlePointerUp('right');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none touch-none flex items-center justify-center shadow-xs ${
                     activeHighlight === 'right'
                       ? activeActionState === 'release'
                         ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
@@ -680,7 +716,13 @@ export function SenseHatTwin({
                     e.preventDefault();
                     handlePointerUp('down');
                   }}
-                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none flex items-center justify-center shadow-xs ${
+                  onPointerLeave={() => {
+                    if (activeDirectionRef.current === 'down') handlePointerUp('down');
+                  }}
+                  onPointerCancel={() => {
+                    if (activeDirectionRef.current === 'down') handlePointerUp('down');
+                  }}
+                  className={`rounded-lg p-1 text-sm font-bold transition-all border cursor-pointer select-none touch-none flex items-center justify-center shadow-xs ${
                     activeHighlight === 'down'
                       ? activeActionState === 'release'
                         ? 'bg-rose-600 text-white border-rose-700 scale-95 shadow-inner'
@@ -705,11 +747,11 @@ export function SenseHatTwin({
               <div className="flex items-center justify-between text-slate-600 text-xs mb-1">
                 <span className="flex items-center gap-1.5 font-medium">
                   <Thermometer className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Temp</span>
+                  <span>Ambient Temp</span>
                 </span>
                 {sensors.rawTemperature && sensors.rawTemperature > 38 && (
-                  <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                    Calibrated
+                  <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200" title="Sense HAT sits directly over the BCM2711 SoC on Raspberry Pi 4. Uncalibrated hardware heats to ~55°C (~132°F); the system calibrates this to realistic ambient laboratory temperature.">
+                    SoC Calibrated
                   </span>
                 )}
               </div>
@@ -722,8 +764,8 @@ export function SenseHatTwin({
               <div className="text-[10px] text-slate-500 font-mono leading-tight">
                 {((sensors.temperature * 9) / 5 + 32).toFixed(1)}°F (Ambient)
                 {sensors.rawTemperature && sensors.rawTemperature > 38 && (
-                  <span className="block text-[9px] text-slate-400 mt-0.5">
-                    Raw SoC: {sensors.rawTemperature.toFixed(1)}°C / {((sensors.rawTemperature * 9) / 5 + 32).toFixed(0)}°F
+                  <span className="block text-[9px] text-amber-700/80 mt-0.5" title="Sense HAT raw sensor sits directly above the warm BCM2711 SoC processor on Raspberry Pi 4. The raw sensor is heated to ~55°C (~132°F); our software calibrates this to true ambient laboratory room temperature.">
+                    Uncalibrated SoC: {sensors.rawTemperature.toFixed(1)}°C / {((sensors.rawTemperature * 9) / 5 + 32).toFixed(0)}°F
                   </span>
                 )}
               </div>

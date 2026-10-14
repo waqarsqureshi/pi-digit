@@ -168,7 +168,8 @@ class SenseStick:
 
     def __init__(self, hat):
         self._hat = hat
-        self._last_event_time = 0
+        # Only capture events occurring right as or after the program begins
+        self._last_event_time = int(time.time() * 1000) - 250
 
     def get_events(self):
         collected = []
@@ -179,7 +180,7 @@ class SenseStick:
                 if events:
                     for ev in events:
                         d_str = str(ev.direction).lower()
-                        if d_str in ('centre', 'center', 'enter', 'middle'):
+                        if d_str in ('centre', 'center', 'enter', 'middle', 'ok', 'select'):
                             d_str = 'middle'
                         act_str = str(ev.action).lower()
                         if act_str in ('press', 'pressed'): act_norm = 'pressed'
@@ -210,7 +211,7 @@ class SenseStick:
                             if ts > self._last_event_time:
                                 self._last_event_time = ts
                                 raw_dir = ev_item.get('direction', 'middle')
-                                if raw_dir in ('centre', 'center', 'enter'):
+                                if raw_dir in ('centre', 'center', 'enter', 'ok', 'select'):
                                     raw_dir = 'middle'
                                 raw_act = ev_item.get('action', 'press')
                                 if raw_act in ('press', 'pressed'): act_norm = 'pressed'
@@ -226,7 +227,7 @@ class SenseStick:
                     if last_ev and last_ev.get('timestamp', 0) > self._last_event_time:
                         self._last_event_time = last_ev['timestamp']
                         raw_dir = last_ev.get('direction', 'middle')
-                        if raw_dir in ('centre', 'center', 'enter'):
+                        if raw_dir in ('centre', 'center', 'enter', 'ok', 'select'):
                             raw_dir = 'middle'
                         raw_act = last_ev.get('action', 'press')
                         if raw_act in ('press', 'pressed'): act_norm = 'pressed'
@@ -240,12 +241,14 @@ class SenseStick:
         return []
 
     def wait_for_event(self, emptybuffer=False):
+        if emptybuffer:
+            self.get_events()
         start = time.time()
-        while time.time() - start < 10.0:
+        while time.time() - start < 30.0:
             events = self.get_events()
             if events:
                 return events[-1]
-            time.sleep(0.04)
+            time.sleep(0.02)
         return None
 
 

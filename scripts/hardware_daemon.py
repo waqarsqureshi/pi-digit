@@ -146,7 +146,7 @@ def apply_hardware_pwm(channel, duty, freq, active):
     except Exception as e:
         print(f"[Pi Daemon] Error applying hardware PWM: {e}", file=sys.stderr)
 
-def process_ui_commands(sense, fb_path=None):
+def process_ui_commands(sense, fb_path=None, recent_joystick_events=None):
     """Processes commands sent from the Web UI / Emulator to the physical hardware."""
     if not os.path.exists(CMD_FILE):
         return
@@ -212,18 +212,38 @@ def process_ui_commands(sense, fb_path=None):
                 active = bool(cmd.get("active", True))
                 apply_hardware_pwm(channel, duty, freq, active)
             elif action == "joystick":
-                direction = cmd.get("direction", "centre")
+                direction = cmd.get("direction", "middle")
+                if direction in ("centre", "center", "enter", "ok", "select"):
+                    direction = "middle"
                 joy_action = cmd.get("action_type", "press")
+                if joy_action in ("pressed", "press"):
+                    joy_action = "press"
+                elif joy_action in ("released", "release"):
+                    joy_action = "release"
+                elif joy_action in ("held", "hold"):
+                    joy_action = "hold"
+
+                ev_payload = {
+                    "direction": direction,
+                    "action": joy_action,
+                    "timestamp": int(time.time() * 1000),
+                    "source": "Web UI Keypad (Injected to Hardware)"
+                }
+                if recent_joystick_events is not None:
+                    recent_joystick_events.append(ev_payload)
+                    if len(recent_joystick_events) > 30:
+                        recent_joystick_events.pop(0)
+
                 if os.path.exists(SENSE_FILE):
                     try:
                         with open(SENSE_FILE, "r") as f:
                             cur_data = json.load(f)
-                        cur_data["lastJoystick"] = {
-                            "direction": direction,
-                            "action": joy_action,
-                            "timestamp": int(time.time() * 1000),
-                            "source": "Web UI Keypad (Injected to Hardware)"
-                        }
+                        cur_data["lastJoystick"] = ev_payload
+                        if "joystickEvents" not in cur_data or not isinstance(cur_data["joystickEvents"], list):
+                            cur_data["joystickEvents"] = []
+                        cur_data["joystickEvents"].append(ev_payload)
+                        if len(cur_data["joystickEvents"]) > 30:
+                            cur_data["joystickEvents"] = cur_data["joystickEvents"][-30:]
                         temp_file = SENSE_FILE + ".tmp"
                         with open(temp_file, "w") as f:
                             json.dump(cur_data, f)
@@ -297,10 +317,22 @@ def main():
     persisted_last_joystick = None
     recent_joystick_events = []
 
+    # Preserve any pre-existing joystick history from SENSE_FILE
+    if os.path.exists(SENSE_FILE):
+        try:
+            with open(SENSE_FILE, "r") as f:
+                prev_init = json.load(f)
+                if isinstance(prev_init.get("joystickEvents"), list):
+                    recent_joystick_events.extend(prev_init["joystickEvents"][-20:])
+                if prev_init.get("lastJoystick"):
+                    persisted_last_joystick = prev_init["lastJoystick"]
+        except Exception:
+            pass
+
     while True:
         try:
             # 1. UI-to-Hardware: execute queued UI actions on hardware
-            process_ui_commands(sense, fb_path)
+            process_ui_commands(sense, fb_path, recent_joystick_events)
 
             # Check direct evdev joystick if available (captures press, hold/repeat, release)
             if joy_fd is not None:
@@ -323,12 +355,17 @@ def main():
                             # EV_KEY = 1
                             if ev_type == 1:
                                 key_map = {
-                                    103: "up",
-                                    108: "down",
-                                    105: "left",
-                                    106: "right",
+                                    103: "up",      # KEY_UP
+                                    108: "down",    # KEY_DOWN
+                                    105: "left",    # KEY_LEFT
+                                    106: "right",   # KEY_RIGHT
                                     28: "middle",   # KEY_ENTER
+                                    96: "middle",   # KEY_KPENTER
+                                    272: "middle",  # BTN_LEFT
+                                    292: "middle",  # BTN_SELECT
+                                    304: "middle",  # BTN_SOUTH
                                     352: "middle",  # KEY_OK
+                                    353: "middle",  # KEY_SELECT
                                 }
                                 if ev_code in key_map:
                                     d = key_map[ev_code]
@@ -349,7 +386,7 @@ def main():
                                     }
                                     persisted_last_joystick = ev_payload
                                     recent_joystick_events.append(ev_payload)
-                                    if len(recent_joystick_events) > 25:
+                                    if len(recent_joystick_events) > 30:
                                         recent_joystick_events.pop(0)
                         except (BlockingIOError, InterruptedError):
                             break
@@ -437,10 +474,11 @@ def main():
                 except Exception:
                     pass
 
-                if persisted_last_joystick:
-                    data["lastJoystick"] = persisted_last_joystick
                 if recent_joystick_events:
+                    data["lastJoystick"] = recent_joystick_events[-1]
                     data["joystickEvents"] = recent_joystick_events[-20:]
+                elif persisted_last_joystick:
+                    data["lastJoystick"] = persisted_last_joystick
 
                 # Atomic write to /tmp/pi_sense_hardware.json
                 temp_file = SENSE_FILE + ".tmp"

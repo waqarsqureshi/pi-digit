@@ -533,33 +533,62 @@ setInterval(() => {
 // High-Responsiveness Physical Joystick & Keypad Polling Loop (50ms interval)
 let lastObservedJoyTs = 0;
 setInterval(() => {
-  if (systemMode !== 'emulation') return;
   try {
     if (fs.existsSync('/tmp/pi_sense_hardware.json')) {
       const raw = fs.readFileSync('/tmp/pi_sense_hardware.json', 'utf8');
       const hwData = JSON.parse(raw);
-      if (hwData && hwData.lastJoystick && hwData.lastJoystick.timestamp > lastObservedJoyTs) {
-        lastObservedJoyTs = hwData.lastJoystick.timestamp;
-        let d = String(hwData.lastJoystick.direction || 'middle').toLowerCase();
-        if (d === 'centre' || d === 'center' || d === 'enter' || d === 'ok') d = 'middle';
-        let act = String(hwData.lastJoystick.action || 'press').toLowerCase();
-        if (act === 'pressed') act = 'press';
-        else if (act === 'released') act = 'release';
-        else if (act === 'held') act = 'hold';
+      if (hwData) {
+        // 1. Process recent event batch if present to guarantee press -> hold -> release ordering
+        if (Array.isArray(hwData.joystickEvents) && hwData.joystickEvents.length > 0) {
+          for (const ev of hwData.joystickEvents) {
+            const evTs = Number(ev.timestamp || 0);
+            if (evTs > lastObservedJoyTs) {
+              lastObservedJoyTs = evTs;
+              let d = String(ev.direction || 'middle').toLowerCase();
+              if (d === 'centre' || d === 'center' || d === 'enter' || d === 'ok') d = 'middle';
+              let act = String(ev.action || 'press').toLowerCase();
+              if (act === 'pressed') act = 'press';
+              else if (act === 'released') act = 'release';
+              else if (act === 'held') act = 'hold';
 
-        lastJoystickEvent = {
-          direction: d as JoystickEvent['direction'],
-          action: act as JoystickEvent['action'],
-          timestamp: hwData.lastJoystick.timestamp,
-          source: 'hardware',
-        };
-        broadcast('joystick.event', lastJoystickEvent);
-        addTimelineTrace(
-          'hardware',
-          'Sense HAT Physical Keypad Event',
-          `Key: ${lastJoystickEvent.direction.toUpperCase()} (${lastJoystickEvent.action.toUpperCase()}) on Physical Sense HAT`,
-          'success'
-        );
+              lastJoystickEvent = {
+                direction: d as JoystickEvent['direction'],
+                action: act as JoystickEvent['action'],
+                timestamp: evTs,
+                source: ev.source || 'hardware',
+              };
+              broadcast('joystick.event', lastJoystickEvent);
+              addTimelineTrace(
+                'hardware',
+                'Sense HAT Keypad Event',
+                `Key: ${lastJoystickEvent.direction.toUpperCase()} (${lastJoystickEvent.action.toUpperCase()}) [Source: ${lastJoystickEvent.source}]`,
+                'success'
+              );
+            }
+          }
+        } else if (hwData.lastJoystick && hwData.lastJoystick.timestamp > lastObservedJoyTs) {
+          lastObservedJoyTs = hwData.lastJoystick.timestamp;
+          let d = String(hwData.lastJoystick.direction || 'middle').toLowerCase();
+          if (d === 'centre' || d === 'center' || d === 'enter' || d === 'ok') d = 'middle';
+          let act = String(hwData.lastJoystick.action || 'press').toLowerCase();
+          if (act === 'pressed') act = 'press';
+          else if (act === 'released') act = 'release';
+          else if (act === 'held') act = 'hold';
+
+          lastJoystickEvent = {
+            direction: d as JoystickEvent['direction'],
+            action: act as JoystickEvent['action'],
+            timestamp: hwData.lastJoystick.timestamp,
+            source: hwData.lastJoystick.source || 'hardware',
+          };
+          broadcast('joystick.event', lastJoystickEvent);
+          addTimelineTrace(
+            'hardware',
+            'Sense HAT Keypad Event',
+            `Key: ${lastJoystickEvent.direction.toUpperCase()} (${lastJoystickEvent.action.toUpperCase()})`,
+            'success'
+          );
+        }
       }
     }
   } catch (e) {}
@@ -816,14 +845,14 @@ function clearMatrix(r = 0, g = 0, b = 0) {
 
 function triggerJoystick(direction: JoystickEvent['direction'], action: JoystickEvent['action'] = 'press') {
   const isEmulatingOnHw = systemMode === 'emulation' && isSenseHatConnected;
-  let normDir = String(direction).toLowerCase() as JoystickEvent['direction'];
-  if (normDir === 'centre' || normDir === 'center' || normDir === 'enter' || normDir === 'ok') {
-    normDir = 'middle';
-  }
-  let normAct = String(action).toLowerCase() as JoystickEvent['action'];
-  if (normAct === 'pressed') normAct = 'press';
-  else if (normAct === 'released') normAct = 'release';
-  else if (normAct === 'held') normAct = 'hold';
+  const rawDir = String(direction).toLowerCase();
+  const normDir = (rawDir === 'centre' || rawDir === 'center' || rawDir === 'enter' || rawDir === 'ok' ? 'middle' : rawDir) as JoystickEvent['direction'];
+
+  const rawAct = String(action).toLowerCase();
+  let normAct: JoystickEvent['action'] = 'press';
+  if (rawAct === 'pressed' || rawAct === 'press') normAct = 'press';
+  else if (rawAct === 'released' || rawAct === 'release') normAct = 'release';
+  else if (rawAct === 'held' || rawAct === 'hold') normAct = 'hold';
 
   lastJoystickEvent = {
     direction: normDir,
