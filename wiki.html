@@ -96,6 +96,8 @@
             <li><a href="#arch-gpio">40-Pin Header &amp; /dev/gpiomem</a></li>
             <li><a href="#arch-lcd">16x2 HD44780 Character LCD</a></li>
             <li><a href="#arch-ipc">Daemon IPC &amp; WebSockets</a></li>
+            <li><a href="#arch-examples">Curriculum Examples (Python &amp; C)</a></li>
+            <li><a href="#arch-testing">Automated Component Test Suite</a></li>
           </ul>
         </li>
         <li class="toc-item">
@@ -425,28 +427,52 @@ int main(void) {
             <span>Repository Directory Map &amp; Responsibilities</span>
           </div>
           <pre><code>pi-digit/
-├── scripts/
-│   ├── hardware_daemon.py       # Authoritative physical hardware polling &amp; sync service
-│   ├── hardware_diagnose.py     # Hardware bus and register diagnostic utility
-│   └── hardware_probe.py        # Hardware capability inspector
-├── src/
-│   ├── pi_emulator.py           # Core Python emulator wrapper with fallback and hardware bridge
-│   ├── sense_hat.py             # Official drop-in sense_hat import bridge
-│   ├── py_twin.py               # Unified Python digital twin SDK (SenseHat, GPIO, PWM, LCD)
-│   ├── pi_twin.h                # C99 hardware library header
-│   ├── components/
-│   │   ├── SenseHatTwin.tsx     # 8x8 RGB LED matrix, 5-way joystick (press/hold/release), sensors
-│   │   ├── GpioHeaderTwin.tsx   # 40-pin GPIO interactive header &amp; PWM oscilloscope
-│   │   ├── LcdDisplayTwin.tsx   # External I2C HD44780 alphanumeric 16x2 character display
-│   │   ├── CodeStudio.tsx       # Dual-theme code editor, compiler runner, Pi file persistence
-│   │   ├── CameraViewerModal.tsx# Pop-out real-time camera stream with Sobel edge detection
-│   │   └── HardwareDiagnosticModal.tsx # Dense monospace hardware bus status table
-│   └── data/
-│       └── curriculumExamples.ts# Separated curriculum (Tic-Tac-Toe, Matrix, LCD, C, Device Driver)
-├── logs/                        # Hardware and student program runtime execution logs
-├── tests/                       # Automated component verification test scripts
+├── examples/
+│   ├── python/                  # Python 3 Curriculum Examples
+│   │   ├── 01_hello.py          # Hello World foundation
+│   │   ├── 02_moving_name.py    # Scrolling name marquee
+│   │   ├── 02_red_pixel.py      # Discrete LED pixel addressing
+│   │   ├── 03_color_cycle.py    # Color transitions
+│   │   ├── 04_display_image.py  # 8x8 bitmap graphics
+│   │   ├── 05_temp_poll.py      # Ambient calibrated temperature polling
+│   │   ├── 06_read_humidity.py  # HTS221 humidity
+│   │   ├── 07_read_pressure.py  # LPS25H pressure
+│   │   ├── 08_imu_accel.py      # LSM9DS1 9-DOF IMU accelerometer
+│   │   ├── 09_joystick_events.py# 5-way joystick event listener
+│   │   ├── 10_pwm_waveform.py   # PWM signal generation
+│   │   ├── 11_joystick_move_pixel.py # Interactive pixel navigation with joystick
+│   │   ├── 12_tictactoe.py      # Interactive Tic-Tac-Toe game with AI opponent
+│   │   └── 12_lcd_display.py    # 16x2 I2C alphanumeric LCD
+│   ├── c/                       # Embedded C Examples & Device Driver
+│   │   ├── 01_hello.c           # C Hello World runtime test
+│   │   ├── 02_sense_pixel.c     # Pixel color addressing in C
+│   │   ├── 03_matrix_pattern.c  # Checkerboard matrix rendering loop
+│   │   ├── 04_sensor_read.c     # Environmental telemetry readout in C
+│   │   ├── 05_gpio_blink.c      # GPIO 17 output pin toggling
+│   │   ├── 06_gpio_input.c      # GPIO 27 digital input polling
+│   │   ├── 07_lcd_output.c      # 16x2 I2C character LCD print
+│   │   ├── 08_combined.c        # Unified Sense HAT + GPIO + LCD capstone
+│   │   ├── 09_joystick_pixel.c  # C joystick-driven pixel navigation
+│   │   ├── 10_device_driver.c   # Linux character device driver (/dev/sense_hat)
+│   │   └── Makefile             # GCC compilation build script
+│   └── scripts/                 # Standalone Hardware Diagnostics & Tools
+│       ├── hardware_daemon.py   # Background hardware sync service
+│       ├── hardware_diagnose.py # Comprehensive hardware self-test suite
+│       ├── hardware_probe.py    # Live I2C bus device probe
+│       ├── install-pi.sh        # Automated Pi installer script
+│       └── sensor_logger.py     # Telemetry logging utility
+├── test-codes/                  # Component verification tests
+│   ├── run_all_tests.py         # Master automated verification runner
+│   ├── test_sensors.py          # Ambient temperature & IMU test
+│   ├── test_joystick.py         # 5-way joystick state machine test
+│   ├── test_led_matrix.py       # 8x8 RGB LED matrix buffer test
+│   ├── test_pwm.py              # Hardware PWM0 test
+│   ├── test_lcd.py              # 16x2 Character LCD test
+│   └── test_diagnostics.py      # Full platform self-test suite
+├── scripts/                     # System daemon service (hardware_daemon.py, pi-digit.service)
+├── src/                         # React frontend, digital twin hooks, and core emulator libraries
 ├── server.ts                    # Full-stack Express server, WebSocket hub, and compiler runner
-└── wiki.html                    # Technical architecture &amp; reference documentation</code></pre>
+└── wiki.html                    # Technical architecture & reference documentation</code></pre>
         </div>
 
         <h3 id="arch-fb">2. Sense HAT 8&times;8 LED Matrix &amp; /dev/fb1</h3>
@@ -519,6 +545,39 @@ Real-time controls: Adjustable edge threshold, grayscale gradient, and inversion
           <li>The Node.js server (<code>server.ts</code>) monitors this file and emits delta updates over a WebSocket stream (<code>ws://localhost:3000/ws</code>).</li>
           <li>The React frontend updates the UI smoothly at 60 FPS, maintaining minimal CPU load on the Raspberry Pi host.</li>
         </ol>
+
+        <h3 id="arch-examples">8. Modular Curriculum Examples (Python &amp; C)</h3>
+        <p>
+          All student examples are organized into <code>examples/python/</code> and <code>examples/c/</code>, with utility scripts stored in <code>examples/scripts/</code>:
+        </p>
+        <ul>
+          <li><strong>Joystick RGB Pixel Navigation (<code>examples/python/11_joystick_move_pixel.py</code> &amp; <code>examples/c/09_joystick_pixel.c</code>):</strong>
+            Allows students to control an illuminated RGB LED pixel on the 8&times;8 matrix with Up, Down, Left, and Right joystick inputs, clamping bounds at the edges and cycling color palettes with the Middle button.</li>
+          <li><strong>Sense HAT Tic-Tac-Toe Game with AI (<code>examples/python/12_tictactoe.py</code>):</strong>
+            Full interactive 3&times;3 Tic-Tac-Toe rendered on the 8&times;8 LED matrix. Players navigate cells using the 5-way joystick and press Middle to place an X (Cyan). A computer AI responds with an O (Amber). Features full win-checking, tie detection, LCD scoreboard updates, and animated victory patterns.</li>
+          <li><strong>Linux Character Device Driver in C (<code>examples/c/10_device_driver.c</code>):</strong>
+            Production-grade educational Linux kernel character device driver (<code>/dev/sense_hat_led</code>) implementing <code>file_operations</code> (<code>open</code>, <code>write</code>, <code>read</code>, <code>ioctl</code>, <code>release</code>) with kernel-space memory transitions (<code>copy_to_user</code>, <code>copy_from_user</code>), alongside a standalone userspace test harness.</li>
+        </ul>
+
+        <h3 id="arch-testing">9. Automated Component Verification Suite</h3>
+        <p>
+          Every hardware and emulation subsystem can be individually verified using the test suite in <code>test-codes/</code>:
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Terminal: Execute Master Test Runner</span>
+            <button class="btn-copy">Copy</button>
+          </div>
+          <pre><code># Run all component tests with timing and aggregated summary:
+python3 test-codes/run_all_tests.py
+
+# Or verify individual subsystems:
+python3 test-codes/test_sensors.py     # Ambient calibration &amp; IMU verification
+python3 test-codes/test_joystick.py    # 5-way joystick state machine &amp; middle click
+python3 test-codes/test_led_matrix.py  # 8x8 RGB LED matrix frame buffer
+python3 test-codes/test_pwm.py         # Hardware PWM0 on GPIO 18
+python3 test-codes/test_lcd.py         # 16x2 I2C Character LCD viewport</code></pre>
+        </div>
       </section>
 
       <!-- SECTION E: INSTALLATION, UPDATES, AND UNINSTALLATION -->

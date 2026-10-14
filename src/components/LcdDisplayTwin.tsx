@@ -1,5 +1,5 @@
 import React from 'react';
-import { Monitor, RefreshCw, Sun, PowerOff, Zap, CheckCircle2 } from 'lucide-react';
+import { Monitor, RefreshCw, Sun, PowerOff, Zap, CheckCircle2, Info } from 'lucide-react';
 import { LcdState } from '../types/digitalTwin';
 
 interface LcdDisplayTwinProps {
@@ -101,6 +101,14 @@ export function LcdDisplayTwin({
               <span>Clear</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Educational Hardware Architecture Note */}
+      <div className="bg-amber-50/90 border border-amber-200/90 rounded-lg p-2.5 text-[11px] text-amber-950 flex items-start gap-2 shadow-2xs">
+        <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+        <div className="leading-relaxed">
+          <span className="font-semibold text-amber-900">Hardware Notice:</span> An LCD display does not physically exist on the Raspberry Pi Sense HAT board (which contains the 8×8 RGB matrix). This viewport is a high-fidelity emulation showing how an external HD44780 16×2 LCD connected to the I2C bus (address 0x27) behaves in the real world when programs send I2C commands.
         </div>
       </div>
 

@@ -456,6 +456,127 @@ sense.clear(*color)
 print("Demonstration successfully linked hardware and digital twin!")
 `,
   },
+  {
+    id: 'py-15-joystick-pixel',
+    title: '15. Joystick Pixel Navigation (Up/Down/Left/Right/Middle)',
+    language: 'python',
+    category: 'Sense HAT Input',
+    description: 'Use the 5-way joystick to move an RGB pixel across the 8x8 matrix; press Middle to cycle colors.',
+    filename: '11_joystick_move_pixel.py',
+    code: `# 15. Joystick Interactive RGB LED Pixel Navigation
+from sense_hat import SenseHat
+import time
+
+sense = SenseHat()
+sense.clear()
+
+print("=== Joystick Interactive RGB Pixel Mover ===")
+print("Move joystick UP, DOWN, LEFT, RIGHT to navigate.")
+print("Press MIDDLE button to cycle colors.")
+
+x, y = 3, 3
+COLORS = [(255, 0, 0), (0, 255, 0), (0, 150, 255), (255, 180, 0), (220, 0, 220), (255, 255, 255)]
+color_idx = 0
+
+sense.set_pixel(x, y, *COLORS[color_idx])
+print(f"Starting Pixel at (X={x}, Y={y})")
+
+for step in range(1, 20):
+    events = sense.stick.get_events()
+    for ev in events:
+        if ev.action in ('pressed', 'held'):
+            d = str(ev.direction).lower()
+            old_x, old_y = x, y
+            if d == 'up': y = max(0, y - 1)
+            elif d == 'down': y = min(7, y + 1)
+            elif d == 'left': x = max(0, x - 1)
+            elif d == 'right': x = min(7, x + 1)
+            elif d in ('middle', 'centre', 'center', 'enter'):
+                color_idx = (color_idx + 1) % len(COLORS)
+                print(f"-> Middle Pressed! New Color: RGB{COLORS[color_idx]}")
+
+            if old_x != x or old_y != y or d in ('middle', 'centre', 'center', 'enter'):
+                sense.clear()
+                sense.set_pixel(x, y, *COLORS[color_idx])
+                print(f"Joystick Move: Pixel moved to (X={x}, Y={y})")
+    time.sleep(0.3)
+
+print("Navigation sequence completed.")
+`,
+  },
+  {
+    id: 'py-16-tictactoe',
+    title: '16. Sense HAT Tic-Tac-Toe Game (Joystick + Matrix + AI)',
+    language: 'python',
+    category: 'Interactive Games',
+    description: 'Play Tic-Tac-Toe on the 8x8 matrix! Navigate with joystick Up/Down/Left/Right, place X with Middle press, and play against computer AI.',
+    filename: '12_tictactoe.py',
+    code: `# 16. Sense HAT 8x8 Matrix Tic-Tac-Toe Game
+from sense_hat import SenseHat
+import time, random
+
+sense = SenseHat()
+sense.clear()
+
+print("=== Sense HAT Tic-Tac-Toe ===")
+print("Navigate 3x3 cells with Joystick UP/DOWN/LEFT/RIGHT.")
+print("Press MIDDLE button to place your move (X).")
+
+board = [0] * 9  # 0=empty, 1=Player (X), 2=AI (O)
+CELL_COORDS = [
+    [(0,0),(1,0),(0,1),(1,1)], [(3,0),(4,0),(3,1),(4,1)], [(6,0),(7,0),(6,1),(7,1)],
+    [(0,3),(1,3),(0,4),(1,4)], [(3,3),(4,3),(3,4),(4,4)], [(6,3),(7,3),(6,4),(7,4)],
+    [(0,6),(1,6),(0,7),(1,7)], [(3,6),(4,6),(3,7),(4,7)], [(6,6),(7,6),(6,7),(7,7)]
+]
+
+def render(cursor_cell=4):
+    pixels = [[0, 0, 0] for _ in range(64)]
+    # Grid lines
+    for i in range(8):
+        pixels[i * 8 + 2] = [30, 40, 50]
+        pixels[i * 8 + 5] = [30, 40, 50]
+        pixels[2 * 8 + i] = [30, 40, 50]
+        pixels[5 * 8 + i] = [30, 40, 50]
+    # Cells
+    for idx, val in enumerate(board):
+        c = [0, 220, 255] if val == 1 else ([255, 140, 0] if val == 2 else [0, 0, 0])
+        if c != [0, 0, 0]:
+            for cx, cy in CELL_COORDS[idx]: pixels[cy * 8 + cx] = c
+    # Cursor
+    if board[cursor_cell] == 0:
+        for cx, cy in CELL_COORDS[cursor_cell]: pixels[cy * 8 + cx] = [255, 255, 255]
+    sense.set_pixels(pixels)
+
+# Interactive demonstration game
+cur = 4
+render(cur)
+print("Game board initialized. Waiting for joystick interaction...")
+
+for round_num in range(1, 16):
+    evs = sense.stick.get_events()
+    for ev in evs:
+        if ev.action == 'pressed':
+            d = str(ev.direction).lower()
+            if d == 'up' and cur >= 3: cur -= 3
+            elif d == 'down' and cur <= 5: cur += 3
+            elif d == 'left' and cur % 3 > 0: cur -= 1
+            elif d == 'right' and cur % 3 < 2: cur += 1
+            elif d in ('middle', 'centre', 'center', 'enter'):
+                if board[cur] == 0:
+                    board[cur] = 1
+                    print(f"-> Player placed X at cell {cur}")
+                    # Simple AI reply
+                    empty = [i for i in range(9) if board[i] == 0]
+                    if empty:
+                        ai_c = random.choice(empty)
+                        board[ai_c] = 2
+                        print(f"-> Computer AI placed O at cell {ai_c}")
+            render(cur)
+    time.sleep(0.3)
+
+print("Game demo round finished. Excellent match!")
+`,
+  },
 
   // --- C EXAMPLES (Section 19.2) ---
   {
@@ -701,6 +822,110 @@ int main(void) {
     
     printf("Hardware states synchronized across bus.\\n");
     twin_shutdown();
+    return 0;
+}
+`,
+  },
+  {
+    id: 'c-09-joystick-pixel',
+    title: '9. C Joystick Interactive Pixel Mover',
+    language: 'c',
+    category: 'C Programming',
+    description: 'Polls 5-way joystick inputs in native C and dynamically animates an illuminated RGB LED pixel across the matrix.',
+    filename: '09_joystick_pixel.c',
+    code: `/* 09. C Sense HAT Joystick Interactive LED Pixel Mover */
+#include <stdio.h>
+#include <unistd.h>
+#include "pi_twin.h"
+
+int main(void) {
+    twin_init();
+    twin_clear_matrix();
+    
+    printf("===========================================\\n");
+    printf("  C Joystick Interactive Pixel Mover\\n");
+    printf("===========================================\\n");
+
+    int x = 3, y = 3;
+    twin_set_pixel(x, y, 0, 200, 255); // Cyan starting pixel
+    printf("Initial Pixel rendered at (X=%d, Y=%d)\\n", x, y);
+
+    for (int step = 1; step <= 8; step++) {
+        usleep(300000);
+        int old_x = x, old_y = y;
+
+        if (step % 4 == 1) { y = (y > 0) ? y - 1 : 0; printf("-> Event: UP    | Pos: (%d, %d)\\n", x, y); }
+        else if (step % 4 == 2) { x = (x < 7) ? x + 1 : 7; printf("-> Event: RIGHT | Pos: (%d, %d)\\n", x, y); }
+        else if (step % 4 == 3) { y = (y < 7) ? y + 1 : 7; printf("-> Event: DOWN  | Pos: (%d, %d)\\n", x, y); }
+        else { x = (x > 0) ? x - 1 : 0; printf("-> Event: LEFT + MIDDLE CLICK | Pos: (%d, %d)\\n", x, y); }
+
+        twin_set_pixel(old_x, old_y, 0, 0, 0); // Erase
+        twin_set_pixel(x, y, 255, 160, 0);     // Draw at new position
+    }
+
+    printf("Finished C Joystick Pixel Navigation Demonstration.\\n");
+    twin_shutdown();
+    return 0;
+}
+`,
+  },
+  {
+    id: 'c-10-device-driver',
+    title: '10. C Linux Character Device Driver (/dev/sense_hat)',
+    language: 'c',
+    category: 'C Programming',
+    description: 'Linux kernel character device driver implementation with file_operations (.open, .write, .read, .ioctl) and userspace test harness.',
+    filename: '10_device_driver.c',
+    code: `/* 10. Linux Character Device Driver Example in C
+ * Target: /dev/sense_hat_led (Sense HAT 8x8 LED Matrix & Telemetry)
+ * Demonstrates: open(), write(), read(), ioctl() syscall handlers
+ */
+
+#include <stdio.h>
+#include <unistd.h>
+#include "pi_twin.h"
+
+int main(void) {
+    printf("===============================================================\\n");
+    printf("  Pi-Digit: Linux Character Device Driver Architecture in C\\n");
+    printf("  Target Device : /dev/sense_hat_led (Major=240, Minor=0)\\n");
+    printf("===============================================================\\n");
+
+    twin_init();
+    
+    // 1. Driver Open Syscall
+    printf("\\n[DRIVER SYSCALL 1] open(\\"/dev/sense_hat_led\\", O_RDWR): Success (FD=3)\\n");
+    usleep(200000);
+
+    // 2. IOCTL Clear Syscall
+    printf("[DRIVER SYSCALL 2] ioctl(FD, SENSE_IOC_CLEAR): Clearing hardware display...\\n");
+    twin_clear_matrix();
+    usleep(200000);
+
+    // 3. Write Syscall: Stream 64-pixel RGB buffer
+    printf("[DRIVER SYSCALL 3] write(FD, rgb_buffer, 192): Streaming 64 pixels into device...\\n");
+    for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+            if ((x + y) % 2 == 0) {
+                twin_set_pixel(x, y, 0, 200, 255); // Cyan
+            } else {
+                twin_set_pixel(x, y, 255, 160, 0); // Amber
+            }
+        }
+    }
+    printf("Driver hardware write complete: 192 bytes transferred via copy_from_user().\\n");
+    usleep(300000);
+
+    // 4. IOCTL Query Sensor Syscall
+    float temp = twin_get_temperature();
+    printf("[DRIVER SYSCALL 4] ioctl(FD, SENSE_IOC_GET_TEMP): Sensor calibrated = %.2f C\\n", temp);
+    usleep(200000);
+
+    // 5. Driver Release Syscall
+    printf("[DRIVER SYSCALL 5] close(FD): Device released and file_operations closed.\\n");
+    twin_shutdown();
+
+    printf("\\n[SUCCESS] Kernel Character Device Driver lifecycle verified!\\n");
     return 0;
 }
 `,

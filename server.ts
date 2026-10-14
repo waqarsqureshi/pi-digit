@@ -1441,14 +1441,21 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
     const parts = trimmed.split(' ');
     const script = parts[1] || '01_hello.py';
     let execCmd = trimmed;
-    // Auto-resolve script in src or example-codes if not found in root
+    // Auto-resolve script in examples/python, examples/scripts, src, or example-codes if not found in root
     if (parts[1] && !fs.existsSync(path.join(process.cwd(), parts[1]))) {
-      const srcPath = path.join(process.cwd(), 'src', parts[1]);
-      const examplePath = path.join(process.cwd(), 'example-codes', parts[1]);
-      if (fs.existsSync(srcPath)) {
-        execCmd = `${parts[0]} ${path.join('src', parts[1])}${parts.length > 2 ? ' ' + parts.slice(2).join(' ') : ''}`;
-      } else if (fs.existsSync(examplePath)) {
-        execCmd = `${parts[0]} ${path.join('example-codes', parts[1])}${parts.length > 2 ? ' ' + parts.slice(2).join(' ') : ''}`;
+      const candidates = [
+        path.join('examples', 'python', parts[1]),
+        path.join('examples', 'scripts', parts[1]),
+        path.join('examples', 'c', parts[1]),
+        path.join('examples', parts[1]),
+        path.join('src', parts[1]),
+        path.join('example-codes', parts[1]),
+      ];
+      for (const rel of candidates) {
+        if (fs.existsSync(path.join(process.cwd(), rel))) {
+          execCmd = `${parts[0]} ${rel}${parts.length > 2 ? ' ' + parts.slice(2).join(' ') : ''}`;
+          break;
+        }
       }
     }
     syncFilesToTmp();

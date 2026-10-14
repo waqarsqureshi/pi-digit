@@ -595,14 +595,14 @@ npm start`}
               <span className="text-white">ssh pi@raspberrypi.local</span><br />
               <span className="text-slate-400"># Enter password (default: raspberry). You are now inside the Raspberry Pi:</span><br />
               <span className="text-emerald-400">pi@raspberrypi:~$ </span>
-              <span className="text-cyan-300">python3 example-codes/10_pwm_waveform.py</span>
+              <span className="text-cyan-300">python3 examples/python/10_pwm_waveform.py</span>
             </div>
 
             <h3 className="text-base font-bold text-slate-800 font-sans mt-2">
               2.3 How Headless SSH Drives the Graphical Digital Twin
             </h3>
             <p className="text-xs text-slate-700 leading-relaxed">
-              When you run <code className="bg-slate-100 border px-1 rounded font-mono">python3 example-codes/10_pwm_waveform.py</code> over SSH in your terminal:
+              When you run <code className="bg-slate-100 border px-1 rounded font-mono">python3 examples/python/10_pwm_waveform.py</code> over SSH in your terminal:
             </p>
             <ol className="text-xs text-slate-700 list-decimal list-inside space-y-1 pl-2">
               <li>The Python script executes on the Raspberry Pi CPU using <code className="font-mono">RPi.GPIO</code> / <code className="font-mono">pi_twin</code>.</li>
@@ -693,14 +693,16 @@ npm start
                   Run the diagnostic suite in <code className="text-amber-800">test-codes/</code> to verify all sensors, matrix, and PWM:
                 </p>
                 <pre className="p-3 bg-slate-900 text-cyan-300 rounded-lg overflow-x-auto text-[11px]">
-{`# 1. Probe I2C bus:
+{`# 1. Run automated master component test suite:
+python3 test-codes/run_all_tests.py
+
+# 2. Probe I2C bus:
 i2cdetect -y 1
 
-# 2. Run automated self-test diagnostics:
-python3 test-codes/test_diagnostics.py
-
-# 3. Stream live accelerometer and motion telemetry:
-python3 test-codes/test_sensors.py`}
+# 3. Run individual diagnostic self-tests:
+python3 test-codes/test_joystick.py
+python3 test-codes/test_sensors.py
+python3 test-codes/test_led_matrix.py`}
                 </pre>
               </div>
             </div>

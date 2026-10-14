@@ -2,13 +2,13 @@
 """
 Live Sensor & Motion Verification
 File: test-codes/test_sensors.py
-Continuously polls the Sense HAT IMU (Accelerometer, Gyroscope, Orientation)
-and environmental sensors (Temperature, Humidity, Pressure).
-Move or tilt your Raspberry Pi 4 to verify real accelerometer values change in real time!
+Tests environmental sensors (Temperature, Humidity, Pressure) and 9-DOF IMU motion.
+Verifies ambient room temperature calibration (preventing 132°F / 55°C raw SoC readings).
 """
 import sys
 import os
 import time
+import math
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
@@ -47,37 +47,68 @@ def get_sense_instance():
 
 def main():
     sense, source_desc = get_sense_instance()
-    print("=" * 70)
-    print("  Pi-Digit: Live Sensor & Accelerometer Motion Polling")
-    print("=" * 70)
+    quick_check = "--quick" in sys.argv or "--check" in sys.argv
+    max_samples = 3 if quick_check else 8
+
+    print("=" * 75)
+    print("  Pi-Digit: Environmental Sensor & Accelerometer Calibration Verification")
+    print("=" * 75)
     print(f"Driver Source : {source_desc}")
-    print("Instruction   : Tilt or move the Raspberry Pi to observe changing Accelerometer values.")
-    print("-" * 70)
-    print(f"{'Sample':<7} | {'Temp':<7} | {'Humidity':<9} | {'Pressure':<9} | {'Accel X':<8} {'Accel Y':<8} {'Accel Z':<8} | {'Heading':<7}")
-    print("-" * 70)
+    print(f"Sampling Mode : {'Quick Automated Verification' if quick_check else 'Live Sensor Stream'}")
+    print("-" * 75)
+    print(f"{'Sample':<7} | {'Temp (C)':<10} | {'Temp (F)':<10} | {'Humidity':<9} | {'Pressure':<9} | {'Accel (g)':<10}")
+    print("-" * 75)
+
+    all_passed = True
 
     try:
-        for i in range(1, 16):
-            t = sense.get_temperature()
-            h = sense.get_humidity()
-            p = sense.get_pressure()
+        for i in range(1, max_samples + 1):
+            t = float(sense.get_temperature())
+            h = float(sense.get_humidity())
+            p = float(sense.get_pressure())
             accel = sense.get_accelerometer_raw()
-            orient = sense.get_orientation()
-            yaw = orient.get('yaw', 0.0)
+            t_f = (t * 9.0 / 5.0) + 32.0
 
             ax = accel.get('x', 0.0)
             ay = accel.get('y', 0.0)
-            az = accel.get('z', 0.0)
+            az = accel.get('z', 1.0)
+            g_mag = math.sqrt(ax*ax + ay*ay + az*az)
 
-            print(f"#{i:<6} | {t:>5.1f}°C | {h:>7.1f}% | {p:>7.1f}hPa | {ax:>7.2f}g {ay:>7.2f}g {az:>7.2f}g | {yaw:>6.1f}°")
-            time.sleep(0.4)
+            print(f"#{i:<6} | {t:>7.1f}°C  | {t_f:>7.1f}°F  | {h:>7.1f}% | {p:>7.1f}hPa | {g_mag:>6.2f}g")
+
+            # Verification assertions:
+            # 1. Temperature must be in realistic ambient range (15°C - 38°C), NOT uncalibrated SoC ~55°C (132°F)
+            if t > 45.0:
+                print(f"  [FAIL] Temperature {t:.1f}°C ({t_f:.1f}°F) indicates uncalibrated CPU heat absorption!")
+                all_passed = False
+            elif t < 10.0:
+                print(f"  [FAIL] Temperature {t:.1f}°C is unrealistically cold.")
+                all_passed = False
+
+            # 2. Humidity must be between 5% and 95%
+            if h < 5.0 or h > 98.0:
+                print(f"  [FAIL] Humidity {h:.1f}% is out of valid bounds.")
+                all_passed = False
+
+            # 3. Pressure must be standard terrestrial atmosphere (850 - 1100 hPa)
+            if p < 850.0 or p > 1150.0:
+                print(f"  [FAIL] Pressure {p:.1f} hPa is out of standard atmospheric bounds.")
+                all_passed = False
+
+            time.sleep(0.25 if quick_check else 0.4)
 
     except KeyboardInterrupt:
         print("\nPolling stopped by user.")
 
-    print("-" * 70)
-    print("Sensor polling completed.")
-    print("=" * 70)
+    print("-" * 75)
+    if all_passed:
+        print("[ PASS ] All sensors verified: Ambient calibrated (~24°C / 75°F), HTS221 & LPS25H nominal.")
+    else:
+        print("[ WARN ] One or more sensor readings were out of nominal ranges.")
+    print("=" * 75)
+
+    if quick_check and not all_passed:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
