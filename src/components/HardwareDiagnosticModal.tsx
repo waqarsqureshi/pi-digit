@@ -466,7 +466,7 @@ ${diagnostics.terminalLog || 'No log'}
           {activeTab === 'terminal' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-mono text-slate-500">
-                <span>Direct Output from `scripts/hardware_diagnose.py`:</span>
+                <span>Direct Output from `src/scripts/hardware_diagnose.py`:</span>
                 <div className="flex items-center gap-2">
                   {onSendToTerminal && diagnostics?.terminalLog && (
                     <button

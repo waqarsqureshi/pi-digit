@@ -50,6 +50,11 @@ TEST_SUITE = [
         "script": "test_diagnostics.py",
         "args": [],
     },
+    {
+        "name": "Examples & Directory Structure Verification",
+        "script": "test_examples_and_structure.py",
+        "args": [],
+    },
 ]
 
 def main():

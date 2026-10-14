@@ -427,7 +427,7 @@ int main(void) {
             <span>Repository Directory Map &amp; Responsibilities</span>
           </div>
           <pre><code>pi-digit/
-├── examples/
+├── examples/                    # Educational curriculum & sample code
 │   ├── python/                  # Python 3 Curriculum Examples
 │   │   ├── 01_hello.py          # Hello World foundation
 │   │   ├── 02_moving_name.py    # Scrolling name marquee
@@ -455,24 +455,38 @@ int main(void) {
 │   │   ├── 09_joystick_pixel.c  # C joystick-driven pixel navigation
 │   │   ├── 10_device_driver.c   # Linux character device driver (/dev/sense_hat)
 │   │   └── Makefile             # GCC compilation build script
-│   └── scripts/                 # Standalone Hardware Diagnostics & Tools
-│       ├── hardware_daemon.py   # Background hardware sync service
-│       ├── hardware_diagnose.py # Comprehensive hardware self-test suite
-│       ├── hardware_probe.py    # Live I2C bus device probe
-│       ├── install-pi.sh        # Automated Pi installer script
-│       └── sensor_logger.py     # Telemetry logging utility
-├── test-codes/                  # Component verification tests
+│   ├── scripts/                 # Standalone sample utility scripts
+│   │   ├── sensor_logger.py     # Telemetry logging utility
+│   │   └── README.md            # Utility script guide
+│   └── README.md                # Guide to running examples
+├── src/                         # Application source code & system daemon
+│   ├── components/              # React digital twin UI components
+│   ├── hooks/                   # WebSocket state synchronization hooks
+│   ├── scripts/                 # Hardware daemon & system service scripts
+│   │   ├── hardware_daemon.py   # High-performance 60ms hardware sync service
+│   │   ├── hardware_diagnose.py # Comprehensive hardware self-test diagnostic tool
+│   │   ├── hardware_probe.py    # Interactive I2C bus scanner and register prober
+│   │   ├── install-pi.sh        # Turnkey Raspberry Pi OS installer script
+│   │   └── pi-digit.service     # Systemd unit definition for auto-boot
+│   ├── pi_emulator.py           # Core Sense HAT & GPIO emulation engine
+│   ├── pi_twin.py               # Unified Python digital twin API
+│   ├── pi_twin.h                # C header bindings for Sense HAT & GPIO
+│   └── App.tsx                  # Main React application shell
+├── test-codes/                  # Automated hardware verification test suite
 │   ├── run_all_tests.py         # Master automated verification runner
 │   ├── test_sensors.py          # Ambient temperature & IMU test
 │   ├── test_joystick.py         # 5-way joystick state machine test
 │   ├── test_led_matrix.py       # 8x8 RGB LED matrix buffer test
 │   ├── test_pwm.py              # Hardware PWM0 test
 │   ├── test_lcd.py              # 16x2 Character LCD test
-│   └── test_diagnostics.py      # Full platform self-test suite
-├── scripts/                     # System daemon service (hardware_daemon.py, pi-digit.service)
-├── src/                         # React frontend, digital twin hooks, and core emulator libraries
+│   ├── test_diagnostics.py      # Full platform self-test suite
+│   ├── test_examples_and_structure.py # Examples compilation & directory integrity test
+│   └── README.md                # Test suite documentation
 ├── server.ts                    # Full-stack Express server, WebSocket hub, and compiler runner
-└── wiki.html                    # Technical architecture & reference documentation</code></pre>
+├── index.html                   # Modern web entry point
+├── wiki.html                    # Technical architecture & reference documentation
+├── package.json                 # Project dependencies & npm run scripts
+└── tsconfig.json                # TypeScript configuration</code></pre>
         </div>
 
         <h3 id="arch-fb">2. Sense HAT 8&times;8 LED Matrix &amp; /dev/fb1</h3>
@@ -541,7 +555,7 @@ Real-time controls: Adjustable edge threshold, grayscale gradient, and inversion
           The system architecture separates hardware polling from frontend presentation:
         </p>
         <ol>
-          <li>A persistent Python hardware daemon (<code>scripts/hardware_daemon.py</code>) samples <code>/dev/fb1</code>, evdev, and I2C every 60ms, writing a structured state snapshot to <code>/tmp/pi_sense_hardware.json</code>.</li>
+          <li>A persistent Python hardware daemon (<code>src/scripts/hardware_daemon.py</code>) samples <code>/dev/fb1</code>, evdev, and I2C every 60ms, writing a structured state snapshot to <code>/tmp/pi_sense_hardware.json</code>.</li>
           <li>The Node.js server (<code>server.ts</code>) monitors this file and emits delta updates over a WebSocket stream (<code>ws://localhost:3000/ws</code>).</li>
           <li>The React frontend updates the UI smoothly at 60 FPS, maintaining minimal CPU load on the Raspberry Pi host.</li>
         </ol>
@@ -571,12 +585,14 @@ Real-time controls: Adjustable edge threshold, grayscale gradient, and inversion
           <pre><code># Run all component tests with timing and aggregated summary:
 python3 test-codes/run_all_tests.py
 
-# Or verify individual subsystems:
+# Or verify individual subsystems & examples:
 python3 test-codes/test_sensors.py     # Ambient calibration &amp; IMU verification
 python3 test-codes/test_joystick.py    # 5-way joystick state machine &amp; middle click
 python3 test-codes/test_led_matrix.py  # 8x8 RGB LED matrix frame buffer
 python3 test-codes/test_pwm.py         # Hardware PWM0 on GPIO 18
-python3 test-codes/test_lcd.py         # 16x2 I2C Character LCD viewport</code></pre>
+python3 test-codes/test_lcd.py         # 16x2 I2C Character LCD viewport
+python3 test-codes/test_examples_and_structure.py # Examples compilation &amp; structure test
+python3 src/scripts/hardware_diagnose.py # Comprehensive hardware self-test</code></pre>
         </div>
       </section>
 

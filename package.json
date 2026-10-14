@@ -9,7 +9,7 @@
     "start": "tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "diag": "python3 scripts/hardware_diagnose.py",
+    "diag": "python3 src/scripts/hardware_diagnose.py",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

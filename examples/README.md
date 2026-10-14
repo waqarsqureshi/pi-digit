@@ -1,6 +1,6 @@
 # Pi-Digit Educational Code Examples & Scripts
 
-Welcome to the Pi-Digit physical computing and embedded systems laboratory curriculum! All examples are organized into dedicated subfolders for clean modularity:
+Welcome to the Pi-Digit physical computing and embedded systems laboratory curriculum! All example code is organized into dedicated subfolders for clean modularity:
 
 ## Directory Structure
 
@@ -35,28 +35,31 @@ examples/
 │   ├── 10_device_driver.c   # Linux character device driver (/dev/sense_hat)
 │   └── Makefile             # GCC compilation build script
 │
-└── scripts/                 # Standalone Hardware Diagnostics & Tools
-    ├── hardware_daemon.py   # Background hardware sync service
-    ├── hardware_diagnose.py # Comprehensive hardware self-test suite
-    ├── hardware_probe.py    # Live I2C bus device probe
-    ├── install-pi.sh        # Automated Pi installer script
-    └── sensor_logger.py     # Telemetry logging utility
+└── scripts/                 # Standalone Example Scripts & Utilities
+    ├── sensor_logger.py     # Continuous telemetry logging utility
+    └── README.md            # Utility script guide
 ```
+
+> **System Services & Hardware Daemons:**
+> System-level hardware sync, automated diagnosis, and installer tools are centralized under [`src/scripts/`](../src/scripts/) (`hardware_daemon.py`, `hardware_diagnose.py`, `hardware_probe.py`, `install-pi.sh`).
 
 ## Running Examples
 
-### In Web Studio:
+### In the Web Studio:
 Click **"Load Example"** in the top toolbar to load any Python or C example directly into the code editor, then click **"Run on Pi"** to execute.
 
 ### In Terminal over SSH:
 ```bash
-# Run Python example:
+# Run Python examples:
+python3 examples/python/01_hello.py
 python3 examples/python/11_joystick_move_pixel.py
 python3 examples/python/12_tictactoe.py
 
-# Build and run C example:
+# Run example utility script:
+python3 examples/scripts/sensor_logger.py
+
+# Build and run C examples on Raspberry Pi:
 cd examples/c && make
 ./01_hello
 ./09_joystick_pixel
-./10_device_driver
 ```

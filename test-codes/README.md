@@ -34,3 +34,10 @@ This directory contains standalone and automated hardware verification tests for
 7. **`test_diagnostics.py`**
    - Hardware detection, Linux kernel driver bindings, I2C bus device scans (`0x46`, `0x5C`, `0x6A`, `0x27`), and system mode triage.
    - Run: `python3 test-codes/test_diagnostics.py`
+
+8. **`test_examples_and_structure.py`**
+   - Validates directory hierarchy integrity (`examples/python/`, `examples/c/`, `examples/scripts/`, `src/scripts/`).
+   - Ensures no legacy duplicate folders remain.
+   - Compiles and verifies syntax of all Python examples and C code entrypoints.
+   - Tests Tic-Tac-Toe AI heuristic logic and joystick pixel movement event handlers.
+   - Run: `python3 test-codes/test_examples_and_structure.py`

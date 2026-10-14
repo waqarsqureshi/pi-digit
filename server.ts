@@ -104,7 +104,9 @@ try {
 
 function runHardwareDiagnostics(): Promise<HardwareDiagnosticReport> {
   return new Promise((resolve) => {
-    const diagScript = path.join(__dirname, 'scripts', 'hardware_diagnose.py');
+    const diagScript = fs.existsSync(path.join(__dirname, 'src', 'scripts', 'hardware_diagnose.py'))
+      ? path.join(__dirname, 'src', 'scripts', 'hardware_diagnose.py')
+      : path.join(__dirname, 'scripts', 'hardware_diagnose.py');
     if (!fs.existsSync(diagScript)) {
       const fbExists = fs.existsSync('/dev/fb1') || fs.existsSync('/dev/fb0');
       const fallbackReport: HardwareDiagnosticReport = {
@@ -198,7 +200,9 @@ let hwDaemonFailed = false;
 
 function startHardwareDaemon() {
   if (hwDaemonProc || hwDaemonFailed) return;
-  const daemonPath = path.join(__dirname, 'scripts', 'hardware_daemon.py');
+  const daemonPath = fs.existsSync(path.join(__dirname, 'src', 'scripts', 'hardware_daemon.py'))
+    ? path.join(__dirname, 'src', 'scripts', 'hardware_daemon.py')
+    : path.join(__dirname, 'scripts', 'hardware_daemon.py');
   if (!fs.existsSync(daemonPath)) return;
 
   try {
@@ -1294,7 +1298,7 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
   }
 
   // Built-in Raspberry Pi special commands
-  if (trimmed === 'diagnose' || trimmed === 'diag' || trimmed === 'hw-test' || trimmed === 'hw-diag' || trimmed === 'python3 scripts/hardware_diagnose.py') {
+  if (trimmed === 'diagnose' || trimmed === 'diag' || trimmed === 'hw-test' || trimmed === 'hw-diag' || trimmed === 'python3 src/scripts/hardware_diagnose.py' || trimmed === 'python3 scripts/hardware_diagnose.py') {
     const report = await runHardwareDiagnostics();
     return res.json({ output: report.terminalLog });
   }
@@ -1448,8 +1452,9 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
         path.join('examples', 'scripts', parts[1]),
         path.join('examples', 'c', parts[1]),
         path.join('examples', parts[1]),
+        path.join('src', 'scripts', parts[1]),
         path.join('src', parts[1]),
-        path.join('example-codes', parts[1]),
+        path.join('scripts', parts[1]),
       ];
       for (const rel of candidates) {
         if (fs.existsSync(path.join(process.cwd(), rel))) {
