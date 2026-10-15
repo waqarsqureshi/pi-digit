@@ -1909,7 +1909,7 @@ app.get('/api/camera/stream', (_req: Request, res: Response) => {
   startCameraDaemon();
 
   res.writeHead(200, {
-    'Content-Type': 'multipart/x-mixed-replace; boundary=--myframe',
+    'Content-Type': 'multipart/x-mixed-replace; boundary=myframe',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Connection': 'close',
     'Pragma': 'no-cache',

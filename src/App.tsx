@@ -113,8 +113,12 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
 
   const handleLoadCameraVisionCode = () => {
     setActiveView('workspace');
-    const visionCode = `#!/usr/bin/env python3\n"""\nExample 13: Raspberry Pi Camera Module & Morphological Edge Detection\nFile: examples/python/13_camera_vision.py\n"""\nimport sys, os, time, math\nfrom pi_twin import SenseHat\n\nprint("============================================================")\nprint("  Raspberry Pi Camera Module & Computer Vision Check")\nprint("============================================================")\n\nhas_v4l2 = os.path.exists('/dev/video0')\nhas_libcam = os.path.exists('/usr/bin/libcamera-hello') or os.path.exists('/usr/bin/rpicam-hello')\n\nif has_v4l2:\n    print("[ PASS ] Physical V4L2 Camera node found: /dev/video0")\nelif has_libcam:\n    print("[ PASS ] Raspberry Pi libcamera subsystem active (CSI-2 bus)")\nelse:\n    print("[ INFO ] Digital Twin Simulated Camera Pipeline Active")\n\nsense = SenseHat()\nsense.clear()\nprint("\\nComputing 3x3 Sobel Morphological Gradients (|G| = sqrt(Gx^2 + Gy^2))...")\nprint("Illuminating edge contours in Neon Cyan on the Sense HAT 8x8 Matrix:\\n")\n\nw, h = 32, 32\nfor step in range(1, 9):\n    cx = int(w / 2 + math.sin(step * 0.7) * 7)\n    cy = int(h / 2 + math.cos(step * 0.7) * 7)\n    matrix_pixels = []\n    edges = 0\n    for my in range(8):\n        for mx in range(8):\n            d = math.sqrt((mx * 4 + 2 - cx)**2 + (my * 4 + 2 - cy)**2)\n            if 3.5 <= d <= 7.5:\n                matrix_pixels.append([0, 255, 200])\n                edges += 1\n            else:\n                matrix_pixels.append([5, 10, 25])\n    sense.set_pixels(matrix_pixels)\n    print(f"Frame #{step:02d}/08 | Detected Edge Pixels: {edges:02d}/64 | Matrix Buffer OK")\n    time.sleep(0.35)\n\nprint("\\n[ PASS ] Camera morphological vision test completed nominal.")\nsense.clear()\n`;
-    runProgram(visionCode, 'python', '13_camera_vision.py', 10000);
+    const camEx = CURRICULUM_EXAMPLES.find(
+      (e) => e.filename === '13_camera_vision.py' || e.id === 'py-13-camera'
+    );
+    if (camEx) {
+      runProgram(camEx.code, 'python', '13_camera_vision.py', 15000);
+    }
   };
 
   return (

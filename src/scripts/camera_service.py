@@ -22,9 +22,23 @@ TEST_FRAME_PATH = '/tmp/pi_camera_test.jpg'
 
 def check_hardware_camera():
     """Detects physical camera devices on Linux / Raspberry Pi."""
-    has_v4l2 = os.path.exists('/dev/video0') or os.path.exists('/dev/video1')
-    has_libcam = os.path.exists('/usr/bin/libcamera-hello') or os.path.exists('/usr/bin/rpicam-hello') or os.path.exists('/usr/bin/libcamera-vid')
-    
+    has_v4l2 = False
+    v4l2_dev = "/dev/video0"
+    for dev in ['/dev/video0', '/dev/video1', '/dev/video10', '/dev/video11', '/dev/video12']:
+        if os.path.exists(dev):
+            has_v4l2 = True
+            v4l2_dev = dev
+            break
+
+    has_libcam = (
+        os.path.exists('/usr/bin/rpicam-still') or
+        os.path.exists('/usr/bin/libcamera-still') or
+        os.path.exists('/usr/bin/rpicam-hello') or
+        os.path.exists('/usr/bin/libcamera-hello') or
+        os.path.exists('/usr/bin/rpicam-vid') or
+        os.path.exists('/usr/bin/libcamera-vid')
+    )
+
     cv2_available = False
     try:
         import cv2
@@ -32,11 +46,23 @@ def check_hardware_camera():
     except ImportError:
         pass
 
+    pil_available = False
+    try:
+        from PIL import Image
+        pil_available = True
+    except ImportError:
+        pass
+
+    is_phys = has_v4l2 or has_libcam
+
     return {
         "has_v4l2": has_v4l2,
+        "v4l2_dev": v4l2_dev,
         "has_libcam": has_libcam,
         "cv2_available": cv2_available,
-        "device": "/dev/video0" if has_v4l2 else ("libcamera CSI-2" if has_libcam else "Digital Twin Synthetic Camera"),
+        "pil_available": pil_available,
+        "is_physical": is_phys,
+        "device": v4l2_dev if has_v4l2 else ("libcamera CSI-2 (Raspberry Pi Camera Module)" if has_libcam else "Digital Twin Synthetic Camera"),
     }
 
 def generate_cv2_synthetic_frame(width=640, height=480, filter_mode="none", frame_idx=0):
@@ -102,75 +128,65 @@ def generate_cv2_synthetic_frame(width=640, height=480, filter_mode="none", fram
     except Exception as e:
         return False
 
-def generate_pure_bmp_frame(width=640, height=480, frame_idx=0, filter_mode="none"):
-    """Creates an uncompressed 24-bit image in pure Python if ffmpeg is unavailable."""
-    row_padding = (4 - (width * 3) % 4) % 4
-    image_size = (width * 3 + row_padding) * height
-    file_size = 54 + image_size
-    
-    header = bytearray(54)
-    header[0:2] = b'BM'
-    header[2:6] = file_size.to_bytes(4, 'little')
-    header[10:14] = (54).to_bytes(4, 'little')
-    header[14:18] = (40).to_bytes(4, 'little')
-    header[18:22] = width.to_bytes(4, 'little')
-    header[22:26] = height.to_bytes(4, 'little')
-    header[26:28] = (1).to_bytes(2, 'little')
-    header[28:30] = (24).to_bytes(2, 'little')
-    header[34:38] = image_size.to_bytes(4, 'little')
-    header[38:42] = (2835).to_bytes(4, 'little')
-    header[42:46] = (2835).to_bytes(4, 'little')
+def capture_libcamera(filter_mode="none"):
+    """Captures a real video frame from Raspberry Pi Camera Module using rpicam-still or libcamera-still."""
+    bin_cmd = "rpicam-still" if os.path.exists("/usr/bin/rpicam-still") else "libcamera-still"
+    out_tmp = '/tmp/pi_cam_frame_tmp.jpg'
+    cmd = [
+        bin_cmd,
+        "-t", "1",
+        "--immediate",
+        "--width", "640",
+        "--height", "480",
+        "-n",
+        "-q", "80",
+        "-o", out_tmp
+    ]
+    try:
+        proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+        if proc.returncode == 0 and os.path.exists(out_tmp) and os.path.getsize(out_tmp) > 500:
+            os.replace(out_tmp, FRAME_PATH)
+            return True
+    except Exception:
+        pass
+    return False
 
-    pixels = bytearray(image_size)
-    idx = 0
-    t = frame_idx * 0.08
-    cx = int(width / 2 + math.sin(t) * 140)
-    cy = int(height / 2 + math.cos(t) * 90)
+def generate_pil_jpeg_frame(width=640, height=480, filter_mode="none", frame_idx=0):
+    """Generates genuine JPEG frames using Pillow if OpenCV is unavailable."""
+    try:
+        from PIL import Image, ImageDraw, ImageFilter
+        img = Image.new('RGB', (width, height), color=(20, 16, 12))
+        draw = ImageDraw.Draw(img)
+        for x in range(0, width, 40):
+            draw.line([(x, 0), (x, height)], fill=(45, 35, 25))
+        for y in range(0, height, 40):
+            draw.line([(0, y), (width, y)], fill=(45, 35, 25))
 
-    for y in range(height):
-        for x in range(width):
-            dist = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-            is_grid = (x % 40 == 0) or (y % 40 == 0)
-            
-            if dist < 65:
-                b, g, r = 210, 20, 255 # Neon Pink
-            elif dist < 75:
-                b, g, r = 255, 230, 0  # Cyan outline
-            elif is_grid:
-                b, g, r = 70, 45, 20
-            else:
-                b, g, r = 24, 14, 8
-                
-            if filter_mode in ("sobel", "edges", "canny"):
-                if 60 <= dist <= 75 or is_grid:
-                    b, g, r = 255, 255, 0 # Bright edge contours
-                else:
-                    b, g, r = 0, 0, 0
-            elif filter_mode == "threshold":
-                val = 255 if dist < 75 else 0
-                b, g, r = val, val, val
-            elif filter_mode == "grayscale":
-                gray = int((r * 299 + g * 587 + b * 114) / 1000)
-                b, g, r = gray, gray, gray
-                
-            pixels[idx] = b
-            pixels[idx + 1] = g
-            pixels[idx + 2] = r
-            idx += 3
-            
-        for _ in range(row_padding):
-            pixels[idx] = 0
-            idx += 1
+        t = frame_idx * 0.08
+        cx = int(width / 2 + math.sin(t) * 160)
+        cy = int(height / 2 + math.cos(t) * 90)
+        draw.ellipse([cx - 65, cy - 65, cx + 65, cy + 65], fill=(255, 60, 200), outline=(255, 230, 0), width=3)
+        draw.ellipse([cx - 85, cy - 85, cx + 85, cy + 85], outline=(0, 255, 128), width=2)
 
-    out_tmp = FRAME_PATH + '.tmp'
-    with open(out_tmp, 'wb') as f:
-        f.write(header + pixels)
-    os.replace(out_tmp, FRAME_PATH)
-    return True
+        time_str = time.strftime("%Y-%m-%d %H:%M:%S")
+        draw.text((20, 30), f"PI-CAM STREAM | FRAME #{frame_idx} | {filter_mode.upper()}", fill=(0, 255, 255))
+        draw.text((20, 60), f"TIME: {time_str} | 640x480 @ 25FPS", fill=(200, 200, 200))
+
+        if filter_mode in ("sobel", "edges", "canny"):
+            img = img.filter(ImageFilter.FIND_EDGES)
+        elif filter_mode == "grayscale":
+            img = img.convert("L").convert("RGB")
+
+        out_tmp = '/tmp/pi_cam_frame_tmp.jpg'
+        img.save(out_tmp, 'JPEG', quality=80)
+        os.replace(out_tmp, FRAME_PATH)
+        return True
+    except Exception:
+        return False
 
 def capture_v4l2_ffmpeg(device="/dev/video0", filter_mode="none"):
     """Captures a real video frame from V4L2 device via ffmpeg."""
-    out_tmp = FRAME_PATH + '.tmp'
+    out_tmp = '/tmp/pi_cam_frame_tmp.jpg'
     vf_list = []
     if filter_mode in ("sobel", "edges"):
         vf_list.append("edgedetect=low=0.1:high=0.4")
@@ -180,9 +196,9 @@ def capture_v4l2_ffmpeg(device="/dev/video0", filter_mode="none"):
         vf_list.append("format=gray")
     elif filter_mode == "threshold":
         vf_list.append("format=gray,eq=contrast=3.0:brightness=0.1")
-        
+
     vf_arg = ["-vf", ",".join(vf_list)] if vf_list else []
-    
+
     cmd = [
         "ffmpeg", "-y", "-loglevel", "error",
         "-f", "v4l2", "-video_size", "640x480", "-i", device,
@@ -204,7 +220,7 @@ def run_service(single_shot=False, filter_mode="none"):
     hw_info = check_hardware_camera()
     cv2_cap = None
     cv2_module = None
-    
+
     # Try initializing OpenCV VideoCapture if cv2 is installed
     if hw_info["cv2_available"]:
         try:
@@ -227,8 +243,14 @@ def run_service(single_shot=False, filter_mode="none"):
         except Exception:
             cv2_cap = None
 
-    is_physical = cv2_cap is not None or hw_info["has_v4l2"]
-    active_backend = "opencv" if cv2_cap is not None else ("v4l2_ffmpeg" if hw_info["has_v4l2"] else ("opencv_synthetic" if hw_info["cv2_available"] else "pure_synthetic"))
+    is_physical = cv2_cap is not None or hw_info["is_physical"]
+    active_backend = (
+        "opencv" if cv2_cap is not None
+        else ("libcamera_csi" if hw_info["has_libcam"]
+        else ("v4l2_ffmpeg" if hw_info["has_v4l2"]
+        else ("opencv_synthetic" if hw_info["cv2_available"]
+        else ("pil_synthetic" if hw_info["pil_available"] else "pure_synthetic"))))
+    )
 
     status = {
         "connected": is_physical,
@@ -304,15 +326,19 @@ def run_service(single_shot=False, filter_mode="none"):
                 print(f"[Camera Service] cv2 frame capture failed: {e}")
                 cv2_cap = None
 
-        # 2. V4L2 device via ffmpeg if no cv2_cap
-        if not written and hw_info["has_v4l2"]:
-            written = capture_v4l2_ffmpeg("/dev/video0", filter_mode)
+        # 2. Raspberry Pi Camera Module via libcamera/rpicam CSI-2 pipeline
+        if not written and hw_info["has_libcam"]:
+            written = capture_libcamera(filter_mode)
 
-        # 3. High-Speed Synthetic Generation (Smooth digital twin simulator)
+        # 3. V4L2 device via ffmpeg if no cv2_cap
+        if not written and hw_info["has_v4l2"]:
+            written = capture_v4l2_ffmpeg(hw_info.get("v4l2_dev", "/dev/video0"), filter_mode)
+
+        # 4. High-Speed Synthetic Generation (Smooth digital twin simulator)
         if not written:
             written = generate_cv2_synthetic_frame(640, 480, filter_mode, frame_count)
             if not written:
-                generate_pure_bmp_frame(640, 480, frame_count, filter_mode)
+                generate_pil_jpeg_frame(640, 480, filter_mode, frame_count)
 
         # In single shot mode (used by pre-boot diagnostic test)
         if single_shot:

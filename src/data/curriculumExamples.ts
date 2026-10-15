@@ -636,14 +636,27 @@ Example 13: Raspberry Pi Camera Module & Morphological Edge Detection
 File: examples/python/13_camera_vision.py
 """
 import sys, os, time, math
-from pi_twin import SenseHat
+
+try:
+    from sense_hat import SenseHat
+except ImportError:
+    try:
+        from pi_twin import SenseHat
+    except ImportError:
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
+        from pi_twin import SenseHat
 
 print("============================================================")
 print("  Raspberry Pi Camera Module & Computer Vision Check")
 print("============================================================")
 
-has_v4l2 = os.path.exists('/dev/video0')
-has_libcam = os.path.exists('/usr/bin/libcamera-hello') or os.path.exists('/usr/bin/rpicam-hello')
+has_v4l2 = os.path.exists('/dev/video0') or os.path.exists('/dev/video1')
+has_libcam = (
+    os.path.exists('/usr/bin/libcamera-hello') or
+    os.path.exists('/usr/bin/rpicam-hello') or
+    os.path.exists('/usr/bin/libcamera-still') or
+    os.path.exists('/usr/bin/rpicam-still')
+)
 
 if has_v4l2:
     print("[ PASS ] Physical V4L2 Camera node found: /dev/video0")
@@ -655,31 +668,71 @@ else:
 sense = SenseHat()
 sense.clear()
 print("\\nComputing 3x3 Sobel Morphological Gradients (|G| = sqrt(Gx^2 + Gy^2))...")
-print("Illuminating edge contours in Neon Cyan on the Sense HAT 8x8 Matrix:\\n")
+print("Illuminating live edge contours on the Sense HAT 8x8 LED Matrix:\\n")
+
+frame_path = '/tmp/pi_cam_frame.jpg'
+use_pil = False
+try:
+    from PIL import Image
+    use_pil = True
+except ImportError:
+    pass
 
 w, h = 32, 32
-for step in range(1, 9):
-    cx = int(w / 2 + math.sin(step * 0.7) * 7)
-    cy = int(h / 2 + math.cos(step * 0.7) * 7)
-    
-    # 8x8 edge downsampling
+
+for step in range(1, 11):
+    gray_frame = [[0 for _ in range(w)] for _ in range(h)]
+    real_captured = False
+
+    if use_pil and os.path.exists(frame_path):
+        try:
+            with Image.open(frame_path) as im:
+                thumb = im.convert('L').resize((w, h))
+                pix = thumb.load()
+                for y in range(h):
+                    for x in range(w):
+                        gray_frame[y][x] = pix[x, y]
+                real_captured = True
+        except Exception:
+            real_captured = False
+
+    if not real_captured:
+        cx = int(w / 2 + math.sin(step * 0.7) * 7)
+        cy = int(h / 2 + math.cos(step * 0.7) * 7)
+        for y in range(h):
+            for x in range(w):
+                d = math.sqrt((x - cx)**2 + (y - cy)**2)
+                gray_frame[y][x] = 255 if d < 6 else 30
+
+    # 3x3 Sobel kernel convolution
+    edge_map = [[0 for _ in range(w)] for _ in range(h)]
+    for y in range(1, h - 1):
+        for x in range(1, w - 1):
+            gx = (-1 * gray_frame[y-1][x-1] + 1 * gray_frame[y-1][x+1]
+                  -2 * gray_frame[y][x-1]   + 2 * gray_frame[y][x+1]
+                  -1 * gray_frame[y+1][x-1] + 1 * gray_frame[y+1][x+1])
+            gy = (-1 * gray_frame[y-1][x-1] - 2 * gray_frame[y-1][x] - 1 * gray_frame[y-1][x+1]
+                  +1 * gray_frame[y+1][x-1] + 2 * gray_frame[y+1][x] + 1 * gray_frame[y+1][x+1])
+            mag = math.sqrt(gx * gx + gy * gy)
+            edge_map[y][x] = 255 if mag > 60 else 0
+
     matrix_pixels = []
     edges = 0
     for my in range(8):
         for mx in range(8):
-            d = math.sqrt((mx * 4 + 2 - cx)**2 + (my * 4 + 2 - cy)**2)
-            if 3.5 <= d <= 7.5:
+            sample = edge_map[my * 4 + 2][mx * 4 + 2]
+            if sample > 0:
                 matrix_pixels.append([0, 255, 200]) # Neon edge
                 edges += 1
             else:
                 matrix_pixels.append([5, 10, 25])
-                
-    sense.set_pixels(matrix_pixels)
-    print(f"Frame #{step:02d}/08 | Detected Edge Pixels: {edges:02d}/64 | Matrix Buffer OK")
-    time.sleep(0.35)
 
-print("\\n[ PASS ] Camera morphological vision test completed nominal.")
-sense.clear()
+    sense.set_pixels(matrix_pixels)
+    source_label = "Live Camera Frame" if real_captured else "Simulated Target"
+    print(f"Frame #{step:02d}/10 [{source_label}] | Detected Edge Pixels: {edges:02d}/64 | Matrix Buffer OK")
+    time.sleep(0.3)
+
+print("\\n[ PASS ] Camera morphological vision routine completed successfully.")
 `,
   },
 

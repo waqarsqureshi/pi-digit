@@ -51,13 +51,48 @@ export function PiCameraTwin({
   const [cameraBackend, setCameraBackend] = useState<string>('Network Stream');
   const [snapshotSuccess, setSnapshotSuccess] = useState<boolean>(false);
   const [streamKey, setStreamKey] = useState<number>(Date.now());
+  const [displayMode, setDisplayMode] = useState<'processed' | 'raw'>('processed');
+  const [hardwareFrameLoaded, setHardwareFrameLoaded] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const imgStreamRef = useRef<HTMLImageElement | null>(null);
+  const hardwareFrameRef = useRef<HTMLImageElement | null>(null);
   const lastFrameTime = useRef<number>(performance.now());
   const frameCount = useRef<number>(0);
   const simAngle = useRef<number>(0);
+
+  // Active reliable hardware frame polling loop (continuous 25 FPS JPEG frames)
+  useEffect(() => {
+    if (!isStreaming || cameraSource !== 'hardware') return;
+
+    let active = true;
+    let timerId: number;
+
+    const pollFrame = () => {
+      if (!active) return;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (!active) return;
+        hardwareFrameRef.current = img;
+        setHardwareFrameLoaded(true);
+        setCameraConnected(true);
+        timerId = window.setTimeout(pollFrame, 40);
+      };
+      img.onerror = () => {
+        if (!active) return;
+        timerId = window.setTimeout(pollFrame, 300);
+      };
+      img.src = `/api/camera/frame?t=${Date.now()}`;
+    };
+
+    pollFrame();
+
+    return () => {
+      active = false;
+      clearTimeout(timerId);
+    };
+  }, [isStreaming, cameraSource, streamKey]);
 
   // Check hardware camera status from backend daemon
   useEffect(() => {
@@ -157,16 +192,26 @@ export function PiCameraTwin({
         const width = canvas.width;
         const height = canvas.height;
 
-        if (cameraSource === 'hardware' && imgStreamRef.current && imgStreamRef.current.complete && imgStreamRef.current.naturalWidth > 0) {
-          ctx.drawImage(imgStreamRef.current, 0, 0, width, height);
-          applyClientMorphology(ctx, width, height, filter, threshold);
+        if (cameraSource === 'hardware') {
+          const hwImg = hardwareFrameRef.current;
+          if (hwImg && hwImg.naturalWidth > 0) {
+            ctx.drawImage(hwImg, 0, 0, width, height);
+            if (displayMode === 'processed') {
+              applyClientMorphology(ctx, width, height, filter, threshold);
+            }
+          } else {
+            renderSimulationFrame(ctx, width, height, simAngle.current, filter, threshold);
+            simAngle.current += 0.04;
+          }
         } else if (cameraSource === 'webcam' && videoRef.current && videoRef.current.readyState >= 2) {
           ctx.save();
           ctx.translate(width, 0);
           ctx.scale(-1, 1);
           ctx.drawImage(videoRef.current, 0, 0, width, height);
           ctx.restore();
-          applyClientMorphology(ctx, width, height, filter, threshold);
+          if (displayMode === 'processed') {
+            applyClientMorphology(ctx, width, height, filter, threshold);
+          }
         } else {
           // Synthetic digital twin camera scene generator
           renderSimulationFrame(ctx, width, height, simAngle.current, filter, threshold);
@@ -188,7 +233,7 @@ export function PiCameraTwin({
       running = false;
       cancelAnimationFrame(animId);
     };
-  }, [isStreaming, cameraSource, filter, threshold, streamToMatrix, onSendMatrixFrame]);
+  }, [isStreaming, cameraSource, filter, threshold, streamToMatrix, onSendMatrixFrame, displayMode]);
 
   // Pure canvas simulated scene
   function renderSimulationFrame(
@@ -461,22 +506,8 @@ export function PiCameraTwin({
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-200">
-      {/* Hidden elements for media capture */}
+      {/* Hidden element for webcam media capture */}
       <video ref={videoRef} className="hidden" playsInline muted autoPlay />
-      <img
-        ref={imgStreamRef}
-        src={`/api/camera/stream?t=${streamKey}`}
-        alt="Camera Stream"
-        crossOrigin="anonymous"
-        className="hidden"
-        onLoad={() => {
-          if (!cameraConnected) setCameraConnected(true);
-        }}
-        onError={() => {
-          // If stream drops, fall back gracefully
-          setTimeout(() => setStreamKey(Date.now()), 2000);
-        }}
-      />
 
       {/* Top Banner Navigation & Hardware Status (Proper Sharp Corners) */}
       <div className="p-4 sm:p-5 rounded-none border border-slate-300 bg-[var(--theme-bg-card)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
@@ -497,7 +528,7 @@ export function PiCameraTwin({
                 }`}
               >
                 {cameraConnected ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                {cameraConnected ? 'Camera Online (Network Stream)' : 'Digital Twin Video Pipeline'}
+                {cameraConnected ? 'Camera Online (Live Pipeline)' : 'Digital Twin Video Pipeline'}
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[var(--theme-text-sub)] mt-1 font-mono">
@@ -542,13 +573,13 @@ export function PiCameraTwin({
             />
 
             {/* Live Video OSD HUD */}
-            <div className="absolute top-3 left-3 flex items-center gap-2">
+            <div className="absolute top-3 left-3 flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-1 text-xs font-mono font-bold rounded-none bg-black/80 text-white border border-white/20 backdrop-blur-md flex items-center gap-1.5">
                 <span className={`w-2.5 h-2.5 rounded-none ${isStreaming ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                 <span>{isStreaming ? 'LIVE' : 'PAUSED'}</span>
               </span>
               <span className="px-2.5 py-1 text-xs font-mono font-bold rounded-none bg-black/80 text-cyan-300 border border-cyan-500/30 backdrop-blur-md">
-                {filter.toUpperCase()}
+                {displayMode === 'processed' ? filter.toUpperCase() : 'RAW FEED'}
               </span>
               <span className="px-2.5 py-1 text-xs font-mono font-bold rounded-none bg-black/80 text-amber-300 border border-amber-500/30 backdrop-blur-md">
                 {fps} FPS
@@ -556,13 +587,36 @@ export function PiCameraTwin({
             </div>
 
             <div className="absolute top-3 right-3 flex items-center gap-2">
+              <div className="flex items-center bg-black/80 border border-white/20 backdrop-blur-md p-0.5 rounded-none">
+                <button
+                  onClick={() => setDisplayMode('processed')}
+                  className={`px-2 py-0.5 text-xs font-mono font-bold transition-all cursor-pointer ${
+                    displayMode === 'processed'
+                      ? 'bg-[var(--theme-accent)] text-[var(--theme-accent-text)]'
+                      : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  CV Shader
+                </button>
+                <button
+                  onClick={() => setDisplayMode('raw')}
+                  className={`px-2 py-0.5 text-xs font-mono font-bold transition-all cursor-pointer ${
+                    displayMode === 'raw'
+                      ? 'bg-[var(--theme-accent)] text-[var(--theme-accent-text)]'
+                      : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  Raw Feed
+                </button>
+              </div>
+
               <button
                 onClick={() => setStreamKey(Date.now())}
-                className="px-2.5 py-1 text-xs font-mono font-bold rounded-none bg-black/80 hover:bg-black text-white border border-white/20 transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-2.5 py-1 text-xs font-mono font-bold rounded-none bg-black/80 hover:bg-black text-white border border-white/20 transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md"
                 title="Refresh network stream"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh Stream</span>
+                <span>Sync</span>
               </button>
             </div>
           </div>
