@@ -1820,6 +1820,39 @@ app.get('/api/hardware/diagnostics', async (_req: Request, res: Response) => {
   res.json({ diagnostics: latestDiagnostics });
 });
 
+// Camera Module Status & Digital Twin Stream Endpoints
+app.get('/api/camera/status', (_req: Request, res: Response) => {
+  const hasV4L2 = fs.existsSync('/dev/video0');
+  let libcameraDetected = false;
+  try {
+    if (fs.existsSync('/usr/bin/libcamera-hello') || fs.existsSync('/usr/bin/rpicam-hello')) {
+      libcameraDetected = true;
+    }
+  } catch {}
+
+  const isConnected = hasV4L2 || libcameraDetected;
+  res.json({
+    connected: isConnected,
+    device: hasV4L2 ? '/dev/video0 (V4L2 CSI-2)' : (libcameraDetected ? 'libcamera CSI-2' : 'Virtual / WebCam Simulator'),
+    driver: hasV4L2 ? 'bcm2835-unicam / v4l2' : (libcameraDetected ? 'libcamera' : 'Digital Twin Camera Stream'),
+    resolution: '640x480 @ 30 FPS',
+    supportedFilters: ['sobel', 'canny', 'dilation', 'erosion', 'threshold', 'matrix_green', 'cyberpunk', 'grayscale', 'invert'],
+    isPhysical: isConnected,
+    timestamp: Date.now(),
+  });
+});
+
+app.post('/api/camera/matrix', (req: Request, res: Response) => {
+  const { pixels } = req.body;
+  if (Array.isArray(pixels) && pixels.length === 64) {
+    matrixPixels = pixels;
+    writePhysicalSenseHatFullMatrix(pixels);
+    broadcast('sensehat.matrix', { matrix: pixels });
+    return res.json({ success: true });
+  }
+  return res.status(400).json({ error: 'Expected 64 RGB pixel array' });
+});
+
 // Hardware Connection Probe & Link Endpoints
 app.post('/api/hardware/probe', async (_req: Request, res: Response) => {
   // In simulation mode, board is not allowed to connect to actual board

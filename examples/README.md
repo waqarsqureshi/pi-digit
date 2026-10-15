@@ -20,7 +20,8 @@ examples/
 │   ├── 10_pwm_waveform.py   # Pulse-width modulation signal generation
 │   ├── 11_joystick_move_pixel.py # Interactive pixel navigation with joystick
 │   ├── 12_tictactoe.py      # Complete Tic-Tac-Toe game (Joystick + AI)
-│   └── 12_lcd_display.py    # 16x2 I2C alphanumeric character LCD
+│   ├── 12_lcd_display.py    # 16x2 I2C alphanumeric character LCD
+│   └── 13_camera_vision.py  # Camera Module & Sobel morphological edge detection
 │
 ├── c/                       # Embedded C Curriculum Examples
 │   ├── 01_hello.c           # C Hello World runtime test
@@ -33,6 +34,7 @@ examples/
 │   ├── 08_combined.c        # Unified Sense HAT + GPIO + LCD capstone
 │   ├── 09_joystick_pixel.c  # C joystick-driven pixel navigation
 │   ├── 10_device_driver.c   # Linux character device driver (/dev/sense_hat)
+│   ├── 11_camera_check.c    # V4L2 (/dev/video0) camera check in C
 │   └── Makefile             # GCC compilation build script
 │
 └── scripts/                 # Standalone Example Scripts & Utilities

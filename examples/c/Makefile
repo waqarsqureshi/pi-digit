@@ -7,7 +7,7 @@ LDFLAGS = -L../../src -lpi_twin
 
 TARGETS = 01_hello 02_sense_pixel 03_matrix_pattern 04_sensor_read \
           05_gpio_blink 06_gpio_input 07_lcd_output 08_combined \
-          09_joystick_pixel 10_device_driver
+          09_joystick_pixel 10_device_driver 11_camera_check
 
 all: $(TARGETS)
 

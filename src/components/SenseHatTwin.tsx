@@ -414,10 +414,13 @@ export function SenseHatTwin({
       {/* Main Grid: 8x8 Matrix + Joystick & Gauges */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Left: 8x8 LED Matrix Canvas */}
-        <div className="xl:col-span-7 flex flex-col items-center justify-center p-4 bg-slate-950 border border-slate-800 rounded-xl shadow-inner">
+        <div
+          style={{ backgroundColor: 'var(--sensehat-bezel-bg)', borderColor: 'var(--sensehat-bezel-border)' }}
+          className="xl:col-span-7 flex flex-col items-center justify-center p-4 border rounded-xl shadow-inner transition-colors duration-200"
+        >
           <div className="flex items-center justify-between w-full mb-3 text-xs text-slate-400 px-1">
-            <span className="font-semibold text-slate-300">8×8 RGB LED Matrix</span>
-            <span className="text-rose-400 font-mono text-[11px]">
+            <span className="font-semibold text-[var(--theme-text-main)] font-mono">8×8 RGB LED Matrix</span>
+            <span className="font-mono text-[11px] text-[var(--theme-accent)]">
               {hoveredPixel
                 ? `Pixel [${hoveredPixel.x}, ${hoveredPixel.y}]`
                 : isPhysicalLinked
@@ -427,7 +430,10 @@ export function SenseHatTwin({
           </div>
 
           {/* 8x8 Grid Canvas */}
-          <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 shadow-md">
+          <div
+            style={{ backgroundColor: 'var(--sensehat-grid-bg)', borderColor: 'var(--theme-border)' }}
+            className="p-3 rounded-lg border shadow-md transition-colors duration-200"
+          >
             <div className="grid grid-cols-8 gap-1.5 sm:gap-2">
               {Array.from({ length: 64 }).map((_, index) => {
                 const x = index % 8;
@@ -443,14 +449,14 @@ export function SenseHatTwin({
                     onMouseEnter={() => setHoveredPixel({ x, y })}
                     onMouseLeave={() => setHoveredPixel(null)}
                     style={{
-                      backgroundColor: isOff ? '#111827' : rgbStr,
+                      backgroundColor: isOff ? 'var(--sensehat-pixel-off)' : rgbStr,
                       boxShadow: isOff
                         ? 'inset 0 1px 2px rgba(0,0,0,0.6)'
-                        : `0 0 8px ${rgbStr}, inset 0 1px 1px rgba(255,255,255,0.4)`,
+                        : `0 0 10px ${rgbStr}, inset 0 1px 1px rgba(255,255,255,0.4)`,
                     }}
                     className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[4px] border transition-transform flex items-center justify-center cursor-pointer ${
                       isOff
-                        ? 'border-slate-800 hover:border-slate-600 hover:scale-105'
+                        ? 'border-white/5 hover:border-[var(--theme-accent)] hover:scale-105'
                         : 'border-white/30 hover:scale-110 active:scale-95'
                     }`}
                   >

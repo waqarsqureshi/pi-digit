@@ -1,19 +1,153 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    --color-brand: #840038;
-    --color-brand-light: #b91845;
-    --color-brand-dark: #5c0027;
+  /* Default: Minimalist Theme (Clean, Crisp, Distraction-Free Slate & Raspberry) */
+  :root,
+  [data-theme="minimalist"] {
+    --theme-name: "minimalist";
+    --theme-bg-app: #09090b;
+    --theme-bg-card: #121215;
+    --theme-bg-subtle: #18181b;
+    --theme-border: #27272a;
+    --theme-border-hover: #3f3f46;
+    --theme-text-main: #f4f4f5;
+    --theme-text-sub: #a1a1aa;
+    --theme-text-muted: #71717a;
+    --theme-accent: #e11d48;
+    --theme-accent-hover: #f43f5e;
+    --theme-accent-text: #ffffff;
+    --theme-glow: 0 0 15px rgba(225, 29, 72, 0.25);
+    
+    /* Terminal Console */
+    --terminal-bg: #0c0c0e;
+    --terminal-text: #e4e4e7;
+    --terminal-border: #27272a;
+    --terminal-cursor: #f43f5e;
+    --terminal-prompt: #38bdf8;
+    
+    /* Sense HAT Subsystem */
+    --sensehat-bezel-bg: #131316;
+    --sensehat-bezel-border: #27272a;
+    --sensehat-grid-bg: #09090b;
+    --sensehat-pixel-off: #1c1c22;
+    --sensehat-accent: #e11d48;
+    
+    /* Joystick Controls */
+    --joystick-bg: #18181b;
+    --joystick-border: #27272a;
+    --joystick-btn-bg: #222227;
+    --joystick-btn-text: #f4f4f5;
+    
+    /* Header Bar */
+    --header-bg: #0e0e11;
+    --header-border: #27272a;
+    --header-text: #ffffff;
+  }
+
+  /* Neon Hacker Theme (Matrix Green Phosphor, High-Voltage Cyber Void) */
+  [data-theme="neon"] {
+    --theme-name: "neon";
+    --theme-bg-app: #030804;
+    --theme-bg-card: #08120a;
+    --theme-bg-subtle: #0d1e10;
+    --theme-border: #14351a;
+    --theme-border-hover: #00ff66;
+    --theme-text-main: #e8fded;
+    --theme-text-sub: #86efac;
+    --theme-text-muted: #22c55e;
+    --theme-accent: #00ff66;
+    --theme-accent-hover: #33ff85;
+    --theme-accent-text: #020b04;
+    --theme-glow: 0 0 20px rgba(0, 255, 102, 0.45);
+    
+    /* Terminal Console */
+    --terminal-bg: #020603;
+    --terminal-text: #00ff66;
+    --terminal-border: #14351a;
+    --terminal-cursor: #00ff66;
+    --terminal-prompt: #00ff66;
+    
+    /* Sense HAT Subsystem */
+    --sensehat-bezel-bg: #061108;
+    --sensehat-bezel-border: #00ff66;
+    --sensehat-grid-bg: #020703;
+    --sensehat-pixel-off: #0b1d0e;
+    --sensehat-accent: #00ff66;
+    
+    /* Joystick Controls */
+    --joystick-bg: #08160a;
+    --joystick-border: #16401d;
+    --joystick-btn-bg: #0e2412;
+    --joystick-btn-text: #00ff66;
+    
+    /* Header Bar */
+    --header-bg: #040c06;
+    --header-border: #14351a;
+    --header-text: #00ff66;
+  }
+
+  /* Cyberpunk Theme (Night City Neon Pink, Laser Cyan & Electric Yellow) */
+  [data-theme="cyberpunk"] {
+    --theme-name: "cyberpunk";
+    --theme-bg-app: #0b0318;
+    --theme-bg-card: #14072b;
+    --theme-bg-subtle: #1f0c3d;
+    --theme-border: #3b1464;
+    --theme-border-hover: #ff007f;
+    --theme-text-main: #fdf2f8;
+    --theme-text-sub: #f472b6;
+    --theme-text-muted: #c084fc;
+    --theme-accent: #ff007f;
+    --theme-accent-hover: #ff3399;
+    --theme-accent-text: #ffffff;
+    --theme-glow: 0 0 22px rgba(255, 0, 127, 0.5);
+    
+    /* Terminal Console */
+    --terminal-bg: #080212;
+    --terminal-text: #00f0ff;
+    --terminal-border: #3b1464;
+    --terminal-cursor: #ff007f;
+    --terminal-prompt: #ffe600;
+    
+    /* Sense HAT Subsystem */
+    --sensehat-bezel-bg: #160731;
+    --sensehat-bezel-border: #ff007f;
+    --sensehat-grid-bg: #070112;
+    --sensehat-pixel-off: #200a40;
+    --sensehat-accent: #00f0ff;
+    
+    /* Joystick Controls */
+    --joystick-bg: #1c0a36;
+    --joystick-border: #4a197d;
+    --joystick-btn-bg: #270f4a;
+    --joystick-btn-text: #ff007f;
+    
+    /* Header Bar */
+    --header-bg: #0f0421;
+    --header-border: #3b1464;
+    --header-text: #fdf2f8;
   }
 
   body {
+    background-color: var(--theme-bg-app);
+    color: var(--theme-text-main);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color: #1e293b;
-    background-color: #f8fafc;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
+}
+
+/* Custom glow helpers */
+.theme-glow {
+  box-shadow: var(--theme-glow);
+}
+
+.theme-border {
+  border-color: var(--theme-border);
+}
+
+.theme-card {
+  background-color: var(--theme-bg-card);
+  border: 1px solid var(--theme-border);
 }

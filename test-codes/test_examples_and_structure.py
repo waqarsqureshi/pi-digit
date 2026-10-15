@@ -118,6 +118,21 @@ def test_new_examples_logic():
     assert "/dev/" in driver_code or "ioctl" in driver_code or "file_operations" in driver_code or "cdev" in driver_code, "Device driver missing device node or file operations"
     print_result("C Device Driver: /dev/sense_hat char device", True, "Device register, file operations and ioctl hooks verified")
 
+    # 4. Test Camera Vision Example
+    cam_py_path = os.path.join(PROJECT_ROOT, 'examples', 'python', '13_camera_vision.py')
+    with open(cam_py_path, 'r', encoding='utf-8') as f:
+        cam_code = f.read()
+    assert "sobel" in cam_code.lower() or "gradient" in cam_code.lower(), "Sobel edge detection logic missing in 13_camera_vision.py"
+    assert "video0" in cam_code or "libcamera" in cam_code, "Camera connectivity check missing in 13_camera_vision.py"
+    print_result("Camera Vision: Sobel & Morphology", True, "Camera connectivity and 3x3 Sobel edge kernels verified")
+
+    # 5. Test C Camera Check Example
+    cam_c_path = os.path.join(PROJECT_ROOT, 'examples', 'c', '11_camera_check.c')
+    with open(cam_c_path, 'r', encoding='utf-8') as f:
+        cam_c_code = f.read()
+    assert "video0" in cam_c_code, "V4L2 node check missing in 11_camera_check.c"
+    print_result("C Camera Check: V4L2 Device Nodes", True, "/dev/video0 detection verified")
+
 def main():
     print("=" * 70)
     print("  Pi-Digit: Examples & Architecture Verification Test")

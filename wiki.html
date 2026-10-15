@@ -569,11 +569,23 @@ Real-time controls: Adjustable edge threshold, grayscale gradient, and inversion
             Allows students to control an illuminated RGB LED pixel on the 8&times;8 matrix with Up, Down, Left, and Right joystick inputs, clamping bounds at the edges and cycling color palettes with the Middle button.</li>
           <li><strong>Sense HAT Tic-Tac-Toe Game with AI (<code>examples/python/12_tictactoe.py</code>):</strong>
             Full interactive 3&times;3 Tic-Tac-Toe rendered on the 8&times;8 LED matrix. Players navigate cells using the 5-way joystick and press Middle to place an X (Cyan). A computer AI responds with an O (Amber). Features full win-checking, tie detection, LCD scoreboard updates, and animated victory patterns.</li>
+          <li><strong>Raspberry Pi Camera &amp; Morphological Vision (<code>examples/python/13_camera_vision.py</code> &amp; <code>examples/c/11_camera_check.c</code>):</strong>
+            Checks physical CSI-2 / V4L2 camera connectivity (<code>/dev/video0</code>) or activates digital twin simulation. Computes 3&times;3 Sobel gradient convolutions ($|G| = \sqrt{G_x^2 + G_y^2}$) and projects live edge contours directly onto the Sense HAT 8&times;8 RGB matrix.</li>
           <li><strong>Linux Character Device Driver in C (<code>examples/c/10_device_driver.c</code>):</strong>
             Production-grade educational Linux kernel character device driver (<code>/dev/sense_hat_led</code>) implementing <code>file_operations</code> (<code>open</code>, <code>write</code>, <code>read</code>, <code>ioctl</code>, <code>release</code>) with kernel-space memory transitions (<code>copy_to_user</code>, <code>copy_from_user</code>), alongside a standalone userspace test harness.</li>
         </ul>
 
-        <h3 id="arch-testing">9. Automated Component Verification Suite</h3>
+        <h3 id="arch-themes">9. Dynamic Theme Selector &amp; CSS Variables System</h3>
+        <p>
+          To make physical computing and robotics exciting for students and teenagers, the interface supports three distinct visual themes defined via CSS variables in <code>src/index.css</code>:
+        </p>
+        <ul>
+          <li><strong>Neon Hacker (<code>data-theme="neon"</code>):</strong> Matrix phosphor green terminal font (<code>#00ff66</code>), high-voltage cyber void, glowing LED bezels, and authentic retro hacker aesthetic.</li>
+          <li><strong>Cyberpunk (<code>data-theme="cyberpunk"</code>):</strong> Night City synthwave aesthetic with laser magenta (<code>#ff007f</code>), electric cyan (<code>#00f0ff</code>), and deep purple backdrops.</li>
+          <li><strong>Minimalist (<code>data-theme="minimalist"</code>):</strong> Dark obsidian slate palette with refined typography, Galway maroon accents (<code>#e11d48</code>), and distraction-free layout.</li>
+        </ul>
+
+        <h3 id="arch-testing">10. Automated Component Verification Suite</h3>
         <p>
           Every hardware and emulation subsystem can be individually verified using the test suite in <code>test-codes/</code>:
         </p>

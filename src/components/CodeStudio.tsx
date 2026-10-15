@@ -578,7 +578,8 @@ export function CodeStudio({
           {activeBottomTab === 'output' && (
             <div
               ref={terminalContainerRef}
-              className="p-3 text-xs font-mono overflow-y-auto flex flex-col gap-1 min-h-[170px] max-h-[220px] select-text bg-[#1e1e1e]"
+              style={{ backgroundColor: 'var(--terminal-bg)', color: 'var(--terminal-text)' }}
+              className="p-3 text-xs font-mono overflow-y-auto flex flex-col gap-1 min-h-[170px] max-h-[220px] select-text transition-colors duration-200"
             >
               {terminalOutputs.length === 0 ? (
                 <div className="text-slate-500 italic text-xs p-1">
@@ -593,7 +594,7 @@ export function CodeStudio({
                         ? 'text-rose-400'
                         : out.stream === 'system'
                         ? 'text-amber-300'
-                        : 'text-slate-200'
+                        : 'text-[var(--terminal-text)]'
                     }`}
                   >
                     {out.text}
@@ -605,7 +606,10 @@ export function CodeStudio({
 
           {/* TAB 2: INTERACTIVE BASH TERMINAL */}
           {activeBottomTab === 'terminal' && (
-            <div className="flex flex-col bg-[#1e1e1e] min-h-[170px] max-h-[240px]">
+            <div
+              style={{ backgroundColor: 'var(--terminal-bg)' }}
+              className="flex flex-col min-h-[170px] max-h-[240px] transition-colors duration-200"
+            >
               {/* Quick Bash Commands Bar */}
               <div className="px-2.5 py-1.5 bg-[#252526] border-b border-[#2d2d2d] flex items-center gap-1.5 overflow-x-auto text-xs shrink-0">
                 <span className="text-slate-400 shrink-0 font-medium text-[11px]">Quick:</span>

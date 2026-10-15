@@ -285,17 +285,22 @@ export function SshTerminal({ onExecCommand }: SshTerminalProps) {
           {/* Terminal Screen Glass */}
           <div
             ref={terminalContainerRef}
-            className="bg-slate-950 rounded-lg border border-slate-800 p-4 font-mono text-xs text-slate-100 min-h-[220px] max-h-[380px] overflow-y-auto flex flex-col gap-1 shadow-inner select-text"
+            style={{
+              backgroundColor: 'var(--terminal-bg)',
+              borderColor: 'var(--terminal-border)',
+              color: 'var(--terminal-text)',
+            }}
+            className="rounded-lg border p-4 font-mono text-xs min-h-[220px] max-h-[380px] overflow-y-auto flex flex-col gap-1 shadow-inner select-text transition-colors duration-200"
           >
             {logs.map((log) => (
               <div
                 key={log.id}
                 className={`whitespace-pre-wrap leading-relaxed ${
                   log.type === 'system'
-                    ? 'text-cyan-400'
+                    ? 'text-[var(--terminal-prompt)]'
                     : log.type === 'cmd'
-                    ? 'text-amber-300 font-bold'
-                    : 'text-slate-200'
+                    ? 'text-[var(--theme-accent)] font-bold'
+                    : 'text-[var(--terminal-text)]'
                 }`}
               >
                 {log.text}
