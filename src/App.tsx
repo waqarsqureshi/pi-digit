@@ -22,11 +22,12 @@ import { DataLoggerView } from './components/DataLoggerView';
 import { HelpAndGuide } from './components/HelpAndGuide';
 import { HardwareDiagnosticModal } from './components/HardwareDiagnosticModal';
 import { PiCameraTwin } from './components/PiCameraTwin';
+import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { CURRICULUM_EXAMPLES } from './data/curriculumExamples';
 
 export default function App() {
   const { theme, setTheme } = useTheme();
-  const [activeView, setActiveView] = useState<'workspace' | 'camera' | 'help'>('workspace');
+  const [activeView, setActiveView] = useState<'canvas' | 'workspace' | 'camera' | 'help'>('canvas');
   const [showSensorGraphs, setShowSensorGraphs] = useState(false);
   const [selectedMode, setSelectedMode] = useState<'simulation' | 'emulation'>('emulation');
   const [copiedMainError, setCopiedMainError] = useState(false);
@@ -143,11 +144,29 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
         onSelectTheme={setTheme}
       />
 
-      {/* Main Content Workspace Canvas */}
-      <main className="flex-1 max-w-[1800px] w-full mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-col gap-4">
-        {/* INTERACTIVE WORKSPACE VIEW */}
-        {activeView === 'workspace' && state && (
-          <div className="flex flex-col gap-4">
+      {/* INTERACTIVE CANVAS WORKSPACE VIEW (MATCHING USER REFERENCE IMAGE) */}
+      {activeView === 'canvas' && state && (
+        <CanvasWorkspace
+          state={state}
+          onSetPixel={setPixel}
+          onClearMatrix={clearMatrix}
+          onSetMatrixPattern={setMatrixPattern}
+          onTriggerJoystick={triggerJoystick}
+          onRunProgram={runProgram}
+          onStopProgram={stopProgram}
+          onConnectHardware={() => connectHardware()}
+          onOpenDiagnostics={() => setIsDiagModalOpen(true)}
+          onOpenHelp={() => setActiveView('help')}
+        />
+      )}
+
+      {/* Main Content for other views */}
+      {activeView !== 'canvas' && (
+        <>
+        <main className="flex-1 max-w-[1800px] w-full mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-col gap-4">
+          {/* INTERACTIVE WORKSPACE VIEW */}
+          {activeView === 'workspace' && state && (
+            <div className="flex flex-col gap-4">
             {/* TEEN-FRIENDLY ACCESSIBLE QUICK ACTION BAR (PROPER HARDWARE CORNERS & BIGGER HITBOXES) */}
             <div className="p-2 sm:p-3 rounded-none border border-[var(--theme-border)] bg-[var(--theme-bg-card)] shadow-xs flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -401,6 +420,8 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
           </div>
         </div>
       </footer>
+      </>
+      )}
 
       {/* Hardware Diagnostics & Error Report Modal */}
       <HardwareDiagnosticModal

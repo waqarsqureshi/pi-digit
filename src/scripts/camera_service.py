@@ -184,6 +184,55 @@ def generate_pil_jpeg_frame(width=640, height=480, filter_mode="none", frame_idx
     except Exception:
         return False
 
+def generate_fallback_synthetic_frame(width=640, height=480, filter_mode="none", frame_idx=0):
+    """Generates synthetic camera frames via ffmpeg or convert when cv2/PIL are unavailable."""
+    out_tmp = '/tmp/pi_cam_frame_tmp.jpg'
+    t = (frame_idx % 120) * 0.05
+    cx = int(width / 2 + math.sin(t) * 130)
+    cy = int(height / 2 + math.cos(t) * 65)
+
+    if os.path.exists('/usr/bin/convert'):
+        try:
+            cmd = [
+                'convert', '-size', f'{width}x{height}', 'xc:#151b28',
+                '-stroke', '#334155', '-strokewidth', '1',
+                '-draw', 'line 0,120 640,120 line 0,240 640,240 line 0,360 640,360 line 160,0 160,480 line 320,0 320,480 line 480,0 480,480',
+                '-fill', '#ec4899', '-stroke', '#f43f5e', '-strokewidth', '2',
+                '-draw', f'circle {cx},{cy} {cx},{cy+35}',
+                '-fill', 'none', '-stroke', '#38bdf8', '-strokewidth', '2',
+                '-draw', f'circle {cx},{cy} {cx},{cy+55}',
+                '-fill', '#ef4444', '-stroke', '#ef4444', '-strokewidth', '2',
+                '-draw', 'line 40,40 80,40 line 40,40 40,80',
+                '-draw', 'line 600,40 560,40 line 600,40 600,80',
+                '-draw', 'line 40,440 80,440 line 40,440 40,400',
+                '-draw', 'line 600,440 560,440 line 600,440 600,400',
+                '-fill', '#38bdf8', '-stroke', 'none',
+                '-pointsize', '14',
+                '-draw', f'text 20,30 "PI-CAM STREAM | FRAME #{frame_idx} | {filter_mode.upper()}"',
+                '-quality', '85', out_tmp
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+            if res.returncode == 0 and os.path.exists(out_tmp) and os.path.getsize(out_tmp) > 500:
+                os.replace(out_tmp, FRAME_PATH)
+                return True
+        except Exception:
+            pass
+
+    if os.path.exists('/usr/bin/ffmpeg'):
+        try:
+            cmd = [
+                'ffmpeg', '-y', '-loglevel', 'error',
+                '-f', 'lavfi', '-i', f'testsrc=size={width}x{height}:rate=25',
+                '-vframes', '1', '-q:v', '3', out_tmp
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+            if res.returncode == 0 and os.path.exists(out_tmp) and os.path.getsize(out_tmp) > 500:
+                os.replace(out_tmp, FRAME_PATH)
+                return True
+        except Exception:
+            pass
+    return False
+
 def capture_v4l2_ffmpeg(device="/dev/video0", filter_mode="none"):
     """Captures a real video frame from V4L2 device via ffmpeg."""
     out_tmp = '/tmp/pi_cam_frame_tmp.jpg'
@@ -338,7 +387,9 @@ def run_service(single_shot=False, filter_mode="none"):
         if not written:
             written = generate_cv2_synthetic_frame(640, 480, filter_mode, frame_count)
             if not written:
-                generate_pil_jpeg_frame(640, 480, filter_mode, frame_count)
+                written = generate_pil_jpeg_frame(640, 480, filter_mode, frame_count)
+            if not written:
+                written = generate_fallback_synthetic_frame(640, 480, filter_mode, frame_count)
 
         # In single shot mode (used by pre-boot diagnostic test)
         if single_shot:
