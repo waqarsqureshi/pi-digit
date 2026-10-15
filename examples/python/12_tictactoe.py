@@ -5,16 +5,28 @@ File: examples/python/12_tictactoe.py
 
 Play interactive Tic-Tac-Toe on the Sense HAT 8x8 RGB LED matrix:
   - 3x3 grid displayed with separator grid lines
-  - Player 1 (X) = Cyan Blue
-  - Computer AI (O) = Amber Gold
+  - Player 1 (X) = Cyan Blue ([0, 220, 255])
+  - Computer AI (O) = Amber Gold ([255, 140, 0])
   - Joystick Up / Down / Left / Right : Move cursor around the 3x3 grid
-  - Joystick Middle Press            : Place mark (X) in selected cell
+  - Joystick Middle Press (or Enter/Space): Place mark (X) in selected cell
   - Automatic AI opponent, win condition detection & animated victory celebration!
+  - Works on physical Sense HAT and Pi-Digit digital twin emulator
 """
 
-from sense_hat import SenseHat
+import sys
+import os
 import time
 import random
+
+# Add project src to path for emulator library support
+SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+
+try:
+    from sense_hat import SenseHat
+except ImportError:
+    from pi_twin import SenseHat
 
 try:
     from pi_twin import LCD
@@ -30,8 +42,8 @@ print("=" * 65)
 print("  Pi-Digit: Sense HAT 8x8 Matrix Tic-Tac-Toe Game")
 print("=" * 65)
 print("Controls:")
-print("  - Use Joystick UP / DOWN / LEFT / RIGHT to move cursor")
-print("  - Press MIDDLE button to place your move (X)")
+print("  - Use Joystick UP / DOWN / LEFT / RIGHT to navigate cells")
+print("  - Press MIDDLE button (or Enter/Space) to place your mark (X)")
 print("  - Computer AI plays O in response")
 print("=" * 65)
 
@@ -46,14 +58,14 @@ if has_lcd:
         pass
 
 # Color palette
-GRID_COLOR = [35, 45, 60]       # Subtle grid divider
+GRID_COLOR = [30, 45, 60]       # Subtle grid divider
 P1_COLOR   = [0, 220, 255]      # Player 1 (X) - Cyan
 P2_COLOR   = [255, 140, 0]      # AI / Player 2 (O) - Amber
 CURSOR_ON  = [255, 255, 255]    # Blinking cursor white
-CURSOR_OFF = [0, 0, 0]
 EMPTY      = [0, 0, 0]
 
-# Board coordinates for the 3x3 cells (each cell is a 2x2 pixel cluster)
+# Board coordinates for the 3x3 cells (each cell is a 2x2 pixel cluster on the 8x8 matrix)
+# Separated by grid lines on columns 2 and 5, rows 2 and 5
 CELL_COORDS = [
     # Row 0
     [(0, 0), (1, 0), (0, 1), (1, 1)],  # cell (0, 0)
@@ -112,13 +124,14 @@ def draw_board(cursor_blink=True):
 
     # Draw cursor on selected cell
     cur_idx = cur_r * 3 + cur_c
-    if cursor_blink and board[cur_idx] == 0:
-        for (cx, cy) in CELL_COORDS[cur_idx]:
-            pixels[cy * 8 + cx] = CURSOR_ON
-    elif cursor_blink and board[cur_idx] != 0:
-        # Slight highlight over existing mark
-        top_left = CELL_COORDS[cur_idx][0]
-        pixels[top_left[1] * 8 + top_left[0]] = CURSOR_ON
+    if cursor_blink:
+        if board[cur_idx] == 0:
+            for (cx, cy) in CELL_COORDS[cur_idx]:
+                pixels[cy * 8 + cx] = CURSOR_ON
+        else:
+            # Highlight existing mark with top-left white indicator
+            top_left = CELL_COORDS[cur_idx][0]
+            pixels[top_left[1] * 8 + top_left[0]] = CURSOR_ON
 
     sense.set_pixels(pixels)
 
@@ -142,7 +155,7 @@ def ai_move():
                 return i
             board[i] = 0
 
-    # 3. Take center if free
+    # 3. Take center cell if free
     if board[4] == 0:
         board[4] = 2
         return 4
@@ -156,7 +169,7 @@ def ai_move():
     return None
 
 def celebrate_win(winner, winning_line):
-    color = [0, 255, 80] if winner == 1 else [255, 60, 60]
+    color = [0, 255, 120] if winner == 1 else [255, 60, 60]
     win_text = "YOU WIN! (X)" if winner == 1 else "AI WINS! (O)"
     print(f"\n*** GAME OVER: {win_text} ***")
     
@@ -170,25 +183,27 @@ def celebrate_win(winner, winning_line):
             pass
 
     # Flash winning line on matrix
-    for _ in range(5):
-        # Draw board with highlight
-        pixels = [EMPTY for _ in range(64)]
-        for idx in winning_line:
-            for (cx, cy) in CELL_COORDS[idx]:
-                pixels[cy * 8 + cx] = color
-        sense.set_pixels(pixels)
-        time.sleep(0.2)
-        sense.clear()
-        time.sleep(0.15)
+    if winning_line:
+        for _ in range(4):
+            pixels = [EMPTY for _ in range(64)]
+            for idx in winning_line:
+                for (cx, cy) in CELL_COORDS[idx]:
+                    pixels[cy * 8 + cx] = color
+            sense.set_pixels(pixels)
+            time.sleep(0.2)
+            sense.clear()
+            time.sleep(0.15)
         
     sense.show_message("WIN!" if winner == 1 else "AI!", text_colour=color, scroll_speed=0.06)
 
 def main():
     global cur_r, cur_c
-    print("\nGame started! Move cursor and press Middle button.")
+    print("\nGame started! Use Joystick to move, Middle/Enter to mark cell.")
     blink_state = True
     last_blink_time = time.time()
     game_over = False
+
+    draw_board(True)
 
     while not game_over:
         # Blink cursor every 250ms
@@ -198,36 +213,37 @@ def main():
             last_blink_time = now
             draw_board(blink_state)
 
-        # Poll joystick events
+        # Poll joystick events from physical Sense HAT or web digital twin
         events = sense.stick.get_events()
         for ev in events:
-            if ev.action == 'pressed':
+            act = str(ev.action).lower()
+            if act in ('pressed', 'press'):
                 d = str(ev.direction).lower()
                 
-                if d == 'up':
+                if d in ('up', 'u'):
                     cur_r = max(0, cur_r - 1)
-                    print(f"Cursor: ({cur_r}, {cur_c})")
+                    print(f"Cursor -> Row {cur_r}, Col {cur_c}")
                     draw_board(True)
-                elif d == 'down':
+                elif d in ('down', 'd'):
                     cur_r = min(2, cur_r + 1)
-                    print(f"Cursor: ({cur_r}, {cur_c})")
+                    print(f"Cursor -> Row {cur_r}, Col {cur_c}")
                     draw_board(True)
-                elif d == 'left':
+                elif d in ('left', 'l'):
                     cur_c = max(0, cur_c - 1)
-                    print(f"Cursor: ({cur_r}, {cur_c})")
+                    print(f"Cursor -> Row {cur_r}, Col {cur_c}")
                     draw_board(True)
-                elif d == 'right':
+                elif d in ('right', 'r'):
                     cur_c = min(2, cur_c + 1)
-                    print(f"Cursor: ({cur_r}, {cur_c})")
+                    print(f"Cursor -> Row {cur_r}, Col {cur_c}")
                     draw_board(True)
-                elif d in ('middle', 'centre', 'center', 'enter'):
+                elif d in ('middle', 'centre', 'center', 'enter', 'select', 'ok', 'space'):
                     target_idx = cur_r * 3 + cur_c
                     if board[target_idx] == 0:
-                        board[target_idx] = 1 # Player X
+                        board[target_idx] = 1 # Player X mark
                         print(f"-> Player 1 placed X at Row {cur_r}, Col {cur_c}")
                         draw_board(False)
 
-                        # Check for player win
+                        # Check if player won
                         w, line = check_winner(board)
                         if w == 1:
                             celebrate_win(1, line)
@@ -242,7 +258,7 @@ def main():
                             game_over = True
                             break
 
-                        # AI turn
+                        # Computer AI Turn
                         time.sleep(0.3)
                         ai_choice = ai_move()
                         if ai_choice is not None:
@@ -250,7 +266,7 @@ def main():
                             print(f"-> Computer AI placed O at Row {ai_r}, Col {ai_c}")
                             draw_board(True)
 
-                        # Check for AI win
+                        # Check if AI won
                         w, line = check_winner(board)
                         if w == 2:
                             celebrate_win(2, line)

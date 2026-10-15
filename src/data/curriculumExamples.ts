@@ -518,63 +518,109 @@ import time, random
 sense = SenseHat()
 sense.clear()
 
-print("=== Sense HAT Tic-Tac-Toe ===")
-print("Navigate 3x3 cells with Joystick UP/DOWN/LEFT/RIGHT.")
-print("Press MIDDLE button to place your move (X).")
+print("=== Sense HAT Tic-Tac-Toe Game ===")
+print("Use Joystick UP/DOWN/LEFT/RIGHT to move cursor.")
+print("Press MIDDLE button (or Enter/Space) to place mark (X).")
+print("Computer AI plays O. First to 3 in a row wins!")
 
-board = [0] * 9  # 0=empty, 1=Player (X), 2=AI (O)
+GRID_COLOR = [30, 45, 60]
+P1_COLOR   = [0, 220, 255]
+P2_COLOR   = [255, 140, 0]
+CURSOR_ON  = [255, 255, 255]
+
 CELL_COORDS = [
     [(0,0),(1,0),(0,1),(1,1)], [(3,0),(4,0),(3,1),(4,1)], [(6,0),(7,0),(6,1),(7,1)],
     [(0,3),(1,3),(0,4),(1,4)], [(3,3),(4,3),(3,4),(4,4)], [(6,3),(7,3),(6,4),(7,4)],
     [(0,6),(1,6),(0,7),(1,7)], [(3,6),(4,6),(3,7),(4,7)], [(6,6),(7,6),(6,7),(7,7)]
 ]
 
-def render(cursor_cell=4):
+board = [0] * 9  # 0=empty, 1=Player (X), 2=AI (O)
+cur_r, cur_c = 1, 1
+
+def check_win(b):
+    lines = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+    for p in (1, 2):
+        for line in lines:
+            if b[line[0]] == p and b[line[1]] == p and b[line[2]] == p:
+                return p, line
+    if all(x != 0 for x in b): return 3, None
+    return 0, None
+
+def render(blink=True):
     pixels = [[0, 0, 0] for _ in range(64)]
-    # Grid lines
     for i in range(8):
-        pixels[i * 8 + 2] = [30, 40, 50]
-        pixels[i * 8 + 5] = [30, 40, 50]
-        pixels[2 * 8 + i] = [30, 40, 50]
-        pixels[5 * 8 + i] = [30, 40, 50]
-    # Cells
+        pixels[i * 8 + 2] = GRID_COLOR
+        pixels[i * 8 + 5] = GRID_COLOR
+        pixels[2 * 8 + i] = GRID_COLOR
+        pixels[5 * 8 + i] = GRID_COLOR
     for idx, val in enumerate(board):
-        c = [0, 220, 255] if val == 1 else ([255, 140, 0] if val == 2 else [0, 0, 0])
-        if c != [0, 0, 0]:
+        c = P1_COLOR if val == 1 else (P2_COLOR if val == 2 else None)
+        if c:
             for cx, cy in CELL_COORDS[idx]: pixels[cy * 8 + cx] = c
-    # Cursor
-    if board[cursor_cell] == 0:
-        for cx, cy in CELL_COORDS[cursor_cell]: pixels[cy * 8 + cx] = [255, 255, 255]
+    c_idx = cur_r * 3 + cur_c
+    if blink and board[c_idx] == 0:
+        for cx, cy in CELL_COORDS[c_idx]: pixels[cy * 8 + cx] = CURSOR_ON
     sense.set_pixels(pixels)
 
-# Interactive demonstration game
-cur = 4
-render(cur)
-print("Game board initialized. Waiting for joystick interaction...")
+render(True)
+last_blink = time.time()
+blink_state = True
+game_over = False
 
-for round_num in range(1, 16):
-    evs = sense.stick.get_events()
-    for ev in evs:
-        if ev.action == 'pressed':
+while not game_over:
+    now = time.time()
+    if now - last_blink > 0.25:
+        blink_state = not blink_state
+        last_blink = now
+        render(blink_state)
+
+    for ev in sense.stick.get_events():
+        if str(ev.action).lower() in ('pressed', 'press'):
             d = str(ev.direction).lower()
-            if d == 'up' and cur >= 3: cur -= 3
-            elif d == 'down' and cur <= 5: cur += 3
-            elif d == 'left' and cur % 3 > 0: cur -= 1
-            elif d == 'right' and cur % 3 < 2: cur += 1
-            elif d in ('middle', 'centre', 'center', 'enter'):
-                if board[cur] == 0:
-                    board[cur] = 1
-                    print(f"-> Player placed X at cell {cur}")
-                    # Simple AI reply
+            if d in ('up', 'u'): cur_r = max(0, cur_r - 1)
+            elif d in ('down', 'd'): cur_r = min(2, cur_r + 1)
+            elif d in ('left', 'l'): cur_c = max(0, cur_c - 1)
+            elif d in ('right', 'r'): cur_c = min(2, cur_c + 1)
+            elif d in ('middle', 'centre', 'center', 'enter', 'select', 'ok', 'space'):
+                idx = cur_r * 3 + cur_c
+                if board[idx] == 0:
+                    board[idx] = 1
+                    print(f"-> Player marked X at cell ({cur_r}, {cur_c})")
+                    render(False)
+                    w, line = check_win(board)
+                    if w == 1:
+                        print("*** YOU WIN! Congratulations! ***")
+                        sense.show_message("WIN!", text_colour=[0, 255, 120])
+                        game_over = True
+                        break
+                    elif w == 3:
+                        print("*** GAME DRAW / TIE ***")
+                        sense.show_message("TIE!")
+                        game_over = True
+                        break
+                    # AI Move
+                    time.sleep(0.3)
                     empty = [i for i in range(9) if board[i] == 0]
                     if empty:
-                        ai_c = random.choice(empty)
-                        board[ai_c] = 2
-                        print(f"-> Computer AI placed O at cell {ai_c}")
-            render(cur)
-    time.sleep(0.3)
+                        ai_choice = random.choice(empty)
+                        board[ai_choice] = 2
+                        print(f"-> Computer AI marked O at cell {ai_choice}")
+                        render(True)
+                        w, line = check_win(board)
+                        if w == 2:
+                            print("*** AI WINS! Better luck next time! ***")
+                            sense.show_message("AI WINS!", text_colour=[255, 60, 60])
+                            game_over = True
+                            break
+                        elif w == 3:
+                            sense.show_message("TIE!")
+                            game_over = True
+                            break
+            render(True)
+    time.sleep(0.04)
 
-print("Game demo round finished. Excellent match!")
+print("Tic-Tac-Toe game finished nominal.")
+sense.clear()
 `,
   },
   {

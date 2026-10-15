@@ -216,30 +216,68 @@ def run_diagnostics():
     except Exception as ex:
         ex_type = type(ex).__name__
         ex_msg = str(ex)
-        sense_err_detail = f"{ex_type}: {ex_msg}"
-        log(f"  ✗ Native sense_hat initialization failed: {sense_err_detail}")
+        if is_pi:
+            log(f"  ✗ Native sense_hat initialization failed: {sense_err_detail}")
+        else:
+            log("  ○ Native physical sense_hat: Standby (Digital Twin Container Environment)")
     finally:
         sys.path = orig_path
 
     if not sense_lib_ok:
-        report["sensors"]["ok"] = False
-        report["sensors"]["message"] = "Environmental & IMU Sensors Standby"
-        report["sensors"]["error"] = sense_err_detail or "python3-sense-hat library failed to read I2C sensors"
-        report["sensors"]["detail"] = (
-            f"The 8x8 LED matrix may be working via /dev/fb1, but sensor reading encountered: {sense_err_detail}."
-        )
-        if "No module named" in sense_err_detail:
-            report["recommendations"].append(
-                "Install system Sense HAT package: sudo apt update && sudo apt install -y python3-sense-hat python3-smbus"
+        # Check if Digital Twin emulator sense_hat is available
+        twin_sense_ok = False
+        t, h, p = 24.6, 48.2, 1013.2
+        try:
+            for p_cand in [os.path.join(os.path.dirname(__file__), '..'), os.path.join(os.path.dirname(__file__), '..', 'src'), '/app/applet/src']:
+                if os.path.exists(p_cand) and p_cand not in sys.path:
+                    sys.path.insert(0, p_cand)
+            import sense_hat
+            if hasattr(sense_hat, 'SenseHat'):
+                s_twin = sense_hat.SenseHat()
+                t = s_twin.get_temperature()
+                h = s_twin.get_humidity()
+                p = s_twin.get_pressure()
+                twin_sense_ok = True
+        except Exception:
+            pass
+
+        if not is_pi and twin_sense_ok:
+            report["sensors"]["ok"] = True
+            report["sensors"]["message"] = "Digital Twin Sensors Online (HTS221 / LPS25H / LSM9DS1 Emulation)"
+            report["sensors"]["detail"] = f"Virtual Environmental & IMU Sensors calibrated: Temp={t:.1f}°C, Hum={h:.1f}%, Press={p:.1f}hPa"
+            report["sensors"]["error"] = ""
+            log(f"  ✓ Sensors: DIGITAL TWIN SENSOR READINGS ACTIVE (Temp={t:.1f}°C, Hum={h:.1f}%, Press={p:.1f}hPa)")
+        elif is_pi and twin_sense_ok:
+            report["sensors"]["ok"] = False
+            report["sensors"]["message"] = "Physical Sensors Standby (Digital Twin Fallback Active)"
+            report["sensors"]["error"] = sense_err_detail or "Physical Sense HAT unlinked"
+            report["sensors"]["detail"] = (
+                f"Physical sensor reading unlinked ({sense_err_detail}). Digital twin emulation active."
             )
-        elif "Remote I/O error" in sense_err_detail or "121" in sense_err_detail:
-            report["recommendations"].append(
-                "I2C Remote I/O Error: Ensure Sense HAT header pins are firmly seated without loose connections."
+            log(f"  ○ Sensors: Standby ({sense_err_detail}) · Digital Twin Active")
+            if "No module named" in sense_err_detail:
+                report["recommendations"].append(
+                    "Install system Sense HAT package on Pi: sudo apt update && sudo apt install -y python3-sense-hat python3-smbus"
+                )
+        else:
+            report["sensors"]["ok"] = False
+            report["sensors"]["message"] = "Environmental & IMU Sensors Standby"
+            report["sensors"]["error"] = sense_err_detail or "python3-sense-hat library failed to read I2C sensors"
+            report["sensors"]["detail"] = (
+                f"The 8x8 LED matrix may be working via /dev/fb1, but sensor reading encountered: {sense_err_detail}."
             )
-        elif "Permission denied" in sense_err_detail:
-            report["recommendations"].append(
-                f"Grant permissions to user: sudo usermod -a -G i2c,input,video {report['system']['user']}"
-            )
+            if "No module named" in sense_err_detail:
+                report["recommendations"].append(
+                    "Install system Sense HAT package: sudo apt update && sudo apt install -y python3-sense-hat python3-smbus"
+                )
+            elif "Remote I/O error" in sense_err_detail or "121" in sense_err_detail:
+                report["recommendations"].append(
+                    "I2C Remote I/O Error: Ensure Sense HAT header pins are firmly seated without loose connections."
+                )
+            elif "Permission denied" in sense_err_detail:
+                report["recommendations"].append(
+                    f"Grant permissions to user: sudo usermod -a -G i2c,input,video {report['system']['user']}"
+                )
 
     log("-" * 64)
 

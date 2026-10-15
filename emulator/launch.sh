@@ -9,6 +9,9 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$ROOT_DIR"
 
+echo "[Pi-Twin Boot] Running Pre-Flight Hardware, Camera & Component Verification Tests..."
+python3 test-codes/run_all_tests.py
+
 echo "[Pi-Twin] Starting Digital Twin Emulator Daemon on port 3000..."
 
 # Start background server

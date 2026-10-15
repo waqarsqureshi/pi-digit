@@ -1,4 +1,4 @@
-export type ThemeId = 'neon' | 'cyberpunk' | 'minimalist';
+export type ThemeId = 'neon' | 'cyberpunk' | 'lite' | 'light' | 'minimalist';
 
 export interface ThemeOption {
   id: ThemeId;
@@ -28,6 +28,15 @@ export const THEME_OPTIONS: ThemeOption[] = [
     primaryColor: '#ff007f',
     bgColor: '#0b0318',
     accentColor: '#00f0ff',
+  },
+  {
+    id: 'lite',
+    name: 'Lite',
+    tagline: 'Clean High-Contrast Classroom',
+    emoji: '☀️',
+    primaryColor: '#0284c7',
+    bgColor: '#f8fafc',
+    accentColor: '#0369a1',
   },
   {
     id: 'minimalist',

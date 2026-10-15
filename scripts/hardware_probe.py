@@ -140,11 +140,30 @@ def inspect_hardware():
     }
 
     if not sense_lib_ok:
+        # Check if Digital Twin library is present
+        try:
+            for p_cand in [os.path.join(os.path.dirname(__file__), '..'), os.path.join(os.path.dirname(__file__), '..', 'src'), '/app/applet/src']:
+                if os.path.exists(p_cand) and p_cand not in sys.path:
+                    sys.path.insert(0, p_cand)
+            import sense_hat
+            if hasattr(sense_hat, 'SenseHat'):
+                results["python_libraries"]["sense_hat"] = {
+                    "installed": True,
+                    "error": None,
+                    "status": "virtual_twin",
+                    "mode": "Digital Twin Emulation"
+                }
+        except Exception:
+            pass
+
+    if not results["python_libraries"]["sense_hat"]["installed"]:
         if sense_lib_error and "No module named" in sense_lib_error:
             results["errors"].append("python3-sense-hat package is not installed on the system.")
             results["recommendations"].append("Install official library: 'sudo apt install -y python3-sense-hat'")
         else:
             results["warnings"].append(f"SenseHat python driver failed to initialize: {sense_lib_error or 'Module not loaded'}")
+    elif results["python_libraries"]["sense_hat"].get("mode") == "Digital Twin Emulation":
+        results["warnings"].append("Sense HAT operating in Digital Twin virtual mode (Physical Raspberry Pi hardware unlinked).")
 
     # 5. Joystick Hardware Detection
     joy_dev = None
@@ -214,8 +233,11 @@ def print_cli_report(data):
 
     # Python Library
     py = data["python_libraries"]["sense_hat"]
-    py_color = GREEN if py["installed"] else RED
-    print(f"python3-sense:  {py_color}{'LOADED & READY' if py['installed'] else 'FAILED: ' + str(py['error'])}{RESET}")
+    if py.get("mode") == "Digital Twin Emulation":
+        print(f"python3-sense:  {CYAN}DIGITAL TWIN (Active){RESET}")
+    else:
+        py_color = GREEN if py["installed"] else RED
+        print(f"python3-sense:  {py_color}{'LOADED & READY' if py['installed'] else 'FAILED: ' + str(py['error'])}{RESET}")
 
     # Joystick
     joy = data["joystick"]

@@ -88,52 +88,52 @@ export function HeaderRibbon({
         </div>
 
         {/* Zone 2: Workspace Navigation & Sample Toggles */}
-        <nav className="flex items-center gap-1 sm:gap-1.5 text-xs font-medium">
+        <nav className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
           <button
             onClick={() => setActiveView('workspace')}
-            className={`transition-all flex items-center gap-1.5 py-1.5 px-3 rounded-lg cursor-pointer font-mono ${
+            className={`transition-all flex items-center gap-2 py-2 px-3.5 rounded-none cursor-pointer font-mono font-bold ${
               activeView === 'workspace'
-                ? 'text-white bg-white/20 font-bold shadow-2xs border border-white/20'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? 'text-white bg-white/25 border border-white/40 shadow-xs'
+                : 'text-white/80 hover:text-white hover:bg-white/10'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-4 h-4" />
             <span>Workspace</span>
           </button>
 
           {/* Dedicated Camera & Morphological Vision View */}
           <button
             onClick={() => setActiveView('camera')}
-            className={`transition-all flex items-center gap-1.5 py-1.5 px-3 rounded-lg cursor-pointer font-mono ${
+            className={`transition-all flex items-center gap-2 py-2 px-3.5 rounded-none cursor-pointer font-mono font-bold ${
               activeView === 'camera'
-                ? 'text-white bg-[var(--theme-accent)]/30 border border-[var(--theme-accent)] font-bold shadow-2xs text-[var(--theme-accent)]'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? 'text-white bg-[var(--theme-accent)]/30 border border-[var(--theme-accent)] shadow-xs'
+                : 'text-white/80 hover:text-white hover:bg-white/10'
             }`}
             title="Open Pi Camera Module & Morphological Computer Vision View"
           >
-            <Camera className="w-3.5 h-3.5 text-amber-300" />
+            <Camera className="w-4 h-4 text-amber-300" />
             <span>Pi Camera</span>
-            <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-400 text-slate-950 uppercase hidden sm:inline">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-none font-bold bg-amber-400 text-slate-950 uppercase hidden sm:inline">
               CV
             </span>
           </button>
 
           <button
             onClick={onToggleSensorGraphs}
-            className={`transition-all flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg cursor-pointer font-mono ${
+            className={`transition-all flex items-center gap-2 py-2 px-3 rounded-none cursor-pointer font-mono font-bold ${
               showSensorGraphs
-                ? 'text-white bg-white/20 font-bold shadow-2xs border border-white/20'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? 'text-white bg-white/25 border border-white/40 shadow-xs'
+                : 'text-white/80 hover:text-white hover:bg-white/10'
             }`}
             title="Toggle Sensor Graphs"
           >
-            <LineChart className="w-3.5 h-3.5" />
+            <LineChart className="w-4 h-4" />
             <span className="hidden sm:inline">Graphs</span>
             <span
-              className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase transition-colors ${
+              className={`text-[10px] px-1.5 py-0.5 rounded-none font-bold uppercase transition-colors ${
                 showSensorGraphs
                   ? 'bg-emerald-400 text-emerald-950'
-                  : 'bg-white/10 text-slate-300'
+                  : 'bg-white/20 text-slate-200'
               }`}
             >
               {showSensorGraphs ? 'ON' : 'OFF'}
@@ -142,29 +142,29 @@ export function HeaderRibbon({
 
           <button
             onClick={() => setActiveView('help')}
-            className={`transition-all flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg cursor-pointer font-mono ${
+            className={`transition-all flex items-center gap-2 py-2 px-3 rounded-none cursor-pointer font-mono font-bold ${
               activeView === 'help'
-                ? 'text-white bg-white/20 font-bold shadow-2xs border border-white/20'
-                : 'text-white/70 hover:text-white hover:bg-white/10'
+                ? 'text-white bg-white/25 border border-white/40 shadow-xs'
+                : 'text-white/80 hover:text-white hover:bg-white/10'
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5" />
+            <BookOpen className="w-4 h-4" />
             <span>Guide</span>
           </button>
         </nav>
 
         {/* Zone 3: Theme Selector & Hardware Link Status */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* THEME SELECTOR PILL: Neon Hacker, Cyberpunk, Minimalist */}
+          {/* THEME SELECTOR: Neon Hacker, Cyberpunk, Lite, Minimalist */}
           <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme} />
 
           {/* LAN IP Address Indicator */}
           <button
             onClick={handleCopyIp}
-            className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium border transition-all cursor-pointer ${
+            className={`hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-none text-xs sm:text-sm font-mono font-bold border transition-all cursor-pointer ${
               state?.network?.isOnline
-                ? 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border-emerald-500/30'
-                : 'bg-white/10 hover:bg-white/15 text-white/80 border-white/15'
+                ? 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border-emerald-500/40'
+                : 'bg-white/10 hover:bg-white/15 text-white/90 border-white/20'
             }`}
             title={
               state?.network?.isOnline
@@ -173,7 +173,7 @@ export function HeaderRibbon({
             }
           >
             <Wifi
-              className={`w-3 h-3 ${state?.network?.isOnline ? 'text-emerald-400' : 'text-slate-300'}`}
+              className={`w-3.5 h-3.5 ${state?.network?.isOnline ? 'text-emerald-400' : 'text-slate-300'}`}
             />
             <span>
               {state?.network?.isOnline
@@ -181,37 +181,37 @@ export function HeaderRibbon({
                 : '127.0.0.1:3000'}
             </span>
             {copiedIp ? (
-              <Check className="w-3 h-3 text-emerald-400" />
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
-              <Copy className="w-3 h-3 text-white/50" />
+              <Copy className="w-3.5 h-3.5 text-white/60" />
             )}
           </button>
 
           {/* Connection Status Badge */}
           <div
-            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition-colors ${
+            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-none text-xs sm:text-sm font-mono font-bold border transition-colors ${
               isPhysicalConnected
                 ? isPartial
                   ? 'bg-amber-950/40 text-amber-300 border-amber-500/40'
                   : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40'
-                : 'bg-white/10 text-white/80 border-white/15'
+                : 'bg-white/10 text-white/90 border-white/20'
             }`}
           >
             {isPhysicalConnected ? (
               isPartial ? (
                 <>
-                  <AlertTriangle className="w-3 h-3 text-amber-400" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                   <span>Partial Pi</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Pi 4 Linked</span>
                 </>
               )
             ) : (
               <>
-                <span className="w-2 h-2 rounded-full bg-sky-400" />
+                <span className="w-2.5 h-2.5 rounded-none bg-sky-400" />
                 <span>Sim Twin</span>
               </>
             )}

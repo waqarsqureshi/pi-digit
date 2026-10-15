@@ -256,6 +256,57 @@ function startHardwareDaemon() {
   }
 }
 
+// Background Python Camera Service & Video Frame Daemon Supervisor
+let cameraDaemonProc: ChildProcess | null = null;
+
+function startCameraDaemon() {
+  if (cameraDaemonProc) return;
+  const scriptPath = fs.existsSync(path.join(__dirname, 'src', 'scripts', 'camera_service.py'))
+    ? path.join(__dirname, 'src', 'scripts', 'camera_service.py')
+    : path.join(__dirname, 'scripts', 'camera_service.py');
+  if (!fs.existsSync(scriptPath)) return;
+
+  try {
+    cameraDaemonProc = spawn('python3', ['-u', scriptPath], {
+      cwd: __dirname,
+      env: {
+        ...process.env,
+        PYTHONPATH: [
+          path.join(__dirname, 'src'),
+          path.join(__dirname, 'src', 'py_twin'),
+          __dirname,
+        ].join(path.delimiter),
+        PYTHONUNBUFFERED: '1',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    cameraDaemonProc.stdout?.on('data', (d) => {
+      console.log(`[CamDaemon] ${d.toString().trim()}`);
+    });
+
+    cameraDaemonProc.stderr?.on('data', (d) => {
+      const msg = d.toString().trim();
+      if (!msg.includes('WARN')) {
+        console.log(`[CamDaemon Info] ${msg}`);
+      }
+    });
+
+    cameraDaemonProc.on('exit', () => {
+      cameraDaemonProc = null;
+      // Auto-restart camera daemon to maintain video frames
+      setTimeout(startCameraDaemon, 2500);
+    });
+
+    cameraDaemonProc.on('error', (err) => {
+      console.log(`[CamDaemon Error] ${err.message}`);
+      cameraDaemonProc = null;
+    });
+  } catch (err) {
+    console.log('[CamDaemon Error] Spawn failed:', err);
+  }
+}
+
 // Emulated Peripherals Rack (Wire-Free Physical Computing)
 let emulatedPeripherals: EmulatedPeripheral[] = [
   { id: 'p-led-17', pin: 11, bcm: 17, type: 'led', name: 'Indicator LED 1', color: 'red', state: 0 },
@@ -1820,7 +1871,7 @@ app.get('/api/hardware/diagnostics', async (_req: Request, res: Response) => {
   res.json({ diagnostics: latestDiagnostics });
 });
 
-// Camera Module Status & Digital Twin Stream Endpoints
+// Camera Module Status, Frame Capture, & Live Network MJPEG Stream Endpoints
 app.get('/api/camera/status', (_req: Request, res: Response) => {
   const hasV4L2 = fs.existsSync('/dev/video0');
   let libcameraDetected = false;
@@ -1830,16 +1881,95 @@ app.get('/api/camera/status', (_req: Request, res: Response) => {
     }
   } catch {}
 
-  const isConnected = hasV4L2 || libcameraDetected;
+  let daemonStatus: any = {};
+  if (fs.existsSync('/tmp/pi_camera_status.json')) {
+    try {
+      daemonStatus = JSON.parse(fs.readFileSync('/tmp/pi_camera_status.json', 'utf8'));
+    } catch {}
+  }
+
+  const isConnected = hasV4L2 || libcameraDetected || Boolean(daemonStatus.connected);
   res.json({
     connected: isConnected,
-    device: hasV4L2 ? '/dev/video0 (V4L2 CSI-2)' : (libcameraDetected ? 'libcamera CSI-2' : 'Virtual / WebCam Simulator'),
+    device: daemonStatus.device || (hasV4L2 ? '/dev/video0 (V4L2 CSI-2)' : (libcameraDetected ? 'libcamera CSI-2' : 'Virtual / WebCam Simulator')),
+    backend: daemonStatus.backend || (hasV4L2 ? 'v4l2' : 'synthetic'),
     driver: hasV4L2 ? 'bcm2835-unicam / v4l2' : (libcameraDetected ? 'libcamera' : 'Digital Twin Camera Stream'),
-    resolution: '640x480 @ 30 FPS',
-    supportedFilters: ['sobel', 'canny', 'dilation', 'erosion', 'threshold', 'matrix_green', 'cyberpunk', 'grayscale', 'invert'],
+    resolution: daemonStatus.resolution || '640x480 @ 30 FPS',
+    fps: daemonStatus.fps || (isConnected ? 30 : 25),
+    filter: daemonStatus.filter || 'none',
+    hasFrame: fs.existsSync('/tmp/pi_cam_frame.jpg'),
+    supportedFilters: ['none', 'sobel', 'canny', 'dilation', 'erosion', 'threshold', 'matrix_green', 'cyberpunk', 'grayscale', 'invert'],
     isPhysical: isConnected,
     timestamp: Date.now(),
   });
+});
+
+// Real-Time High-Speed MJPEG Video Stream over Network
+app.get('/api/camera/stream', (_req: Request, res: Response) => {
+  startCameraDaemon();
+
+  res.writeHead(200, {
+    'Content-Type': 'multipart/x-mixed-replace; boundary=--myframe',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Connection': 'close',
+    'Pragma': 'no-cache',
+    'Access-Control-Allow-Origin': '*',
+  });
+
+  const framePath = '/tmp/pi_cam_frame.jpg';
+  let isClosed = false;
+
+  res.on('close', () => {
+    isClosed = true;
+    if (streamInterval) clearInterval(streamInterval);
+  });
+
+  const sendFrame = () => {
+    if (isClosed) return;
+    try {
+      if (fs.existsSync(framePath)) {
+        const frameData = fs.readFileSync(framePath);
+        if (frameData && frameData.length > 50) {
+          res.write(`--myframe\r\nContent-Type: image/jpeg\r\nContent-Length: ${frameData.length}\r\n\r\n`);
+          res.write(frameData);
+          res.write('\r\n');
+        }
+      }
+    } catch (e) {
+      // Ignore read collision during atomic replace
+    }
+  };
+
+  // Push frames at ~25 FPS
+  const streamInterval = setInterval(sendFrame, 40);
+  sendFrame();
+});
+
+// Single Frame Snapshot endpoint
+app.get('/api/camera/frame', (_req: Request, res: Response) => {
+  startCameraDaemon();
+  const framePath = '/tmp/pi_cam_frame.jpg';
+  if (fs.existsSync(framePath)) {
+    try {
+      const data = fs.readFileSync(framePath);
+      res.writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': data.length,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      });
+      return res.end(data);
+    } catch (e) {}
+  }
+  return res.status(503).json({ error: 'Camera frame not ready' });
+});
+
+// Set live camera morphological filter (written to daemon command IPC)
+app.post('/api/camera/filter', (req: Request, res: Response) => {
+  const { filter = 'none' } = req.body;
+  try {
+    fs.writeFileSync('/tmp/pi_cam_command.json', JSON.stringify({ filter, timestamp: Date.now() }));
+  } catch (e) {}
+  res.json({ success: true, filter });
 });
 
 app.post('/api/camera/matrix', (req: Request, res: Response) => {
@@ -2042,6 +2172,59 @@ app.post('/api/reset', (_req: Request, res: Response) => {
   res.json({ success: true, message: 'Hardware state reset' });
 });
 
+function runStartupVerificationTests(): Promise<void> {
+  return new Promise((resolve) => {
+    const testRunner = path.join(__dirname, 'test-codes', 'run_all_tests.py');
+    if (!fs.existsSync(testRunner)) {
+      resolve();
+      return;
+    }
+    console.log('\n======================================================================');
+    console.log('  [Pi-Twin Boot] Running Pre-Flight Hardware & Camera Tests...');
+    console.log('======================================================================');
+    let settled = false;
+    const safeResolve = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    const timer = setTimeout(() => {
+      console.log('[Pi-Twin Boot] Pre-flight test timeout reached (10s), continuing emulator boot...');
+      safeResolve();
+    }, 10000);
+
+    const proc = spawn('python3', [testRunner], {
+      cwd: __dirname,
+      env: {
+        ...process.env,
+        PYTHONPATH: [path.join(__dirname, 'src'), path.join(__dirname, 'src', 'py_twin'), __dirname].join(path.delimiter),
+        PYTHONUNBUFFERED: '1',
+      },
+    });
+    proc.stdout?.on('data', (d) => {
+      process.stdout.write(d.toString());
+    });
+    proc.stderr?.on('data', (d) => {
+      const msg = d.toString();
+      if (!msg.includes('WARN')) {
+        process.stderr.write(`[Test Notice] ${msg}`);
+      }
+    });
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      console.log(`[Pi-Twin Boot] Pre-flight verification completed (Exit code: ${code ?? 0}).`);
+      console.log('======================================================================\n');
+      safeResolve();
+    });
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      console.log(`[Pi-Twin Boot] Pre-flight runner skipped: ${err.message}`);
+      safeResolve();
+    });
+  });
+}
+
 // --- Boot Server and Mount Vite Middleware ---
 async function start() {
   const PORT = Number(process.env.PORT) || 3000;
@@ -2105,23 +2288,10 @@ async function start() {
     });
   }
 
-  startHardwareDaemon();
-
-  // Run initial hardware probe and print terminal notice
-  runHardwareDiagnostics().then((diag) => {
-    console.log('------------------------------------------------------------');
-    console.log('[Pi-Twin Boot Hardware Status]');
-    console.log(`  Target Host   : ${diag.piModel}`);
-    console.log(`  LED Framebuffer : ${diag.ledMatrix.ok ? 'FOUND (' + (diag.ledMatrix.path || '/dev/fb1') + ')' : 'Standby / Virtual'}`);
-    console.log(`  Sensors Bus   : ${diag.sensors.ok ? 'ONLINE (HTS221/LPS25H)' : 'Standby (' + (diag.sensors.error || 'Simulated') + ')'}`);
-    console.log(`  Link Level    : ${hardwareStatusLevel.toUpperCase()}`);
-    console.log('------------------------------------------------------------');
-  });
-
-  server.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', async () => {
     const net = getLocalNetworkInfo(PORT);
     console.log('\n======================================================================');
-    console.log('  [Pi-Local Digital Twin] Daemon Active & Listening');
+    console.log(`  [Pi-Local Digital Twin] Daemon Active & Listening on Port ${PORT}`);
     console.log('======================================================================');
     console.log(`  ➜ Project Directory (pwd) : ${process.cwd()}`);
     console.log(`  ➜ Hardware Emulator (Pi)  : ${net.localUrl}/emulator/`);
@@ -2136,6 +2306,24 @@ async function start() {
     console.log(`  ➜ Main Website & Guides   : http://localhost:${PORT}/`);
     console.log(`  ➜ Documentation & Wiki    : http://localhost:${PORT}/wiki`);
     console.log('======================================================================\n');
+
+    // 1. Run pre-flight hardware and camera verification tests before starting emulator
+    await runStartupVerificationTests();
+
+    // 2. Launch background hardware & camera frame supervisor daemons
+    startHardwareDaemon();
+    startCameraDaemon();
+
+    // 3. Run initial hardware probe and print terminal notice
+    runHardwareDiagnostics().then((diag) => {
+      console.log('------------------------------------------------------------');
+      console.log('[Pi-Twin Boot Hardware Status]');
+      console.log(`  Target Host   : ${diag.piModel}`);
+      console.log(`  LED Framebuffer : ${diag.ledMatrix.ok ? 'FOUND (' + (diag.ledMatrix.path || '/dev/fb1') + ')' : 'Standby / Virtual'}`);
+      console.log(`  Sensors Bus   : ${diag.sensors.ok ? 'ONLINE (HTS221/LPS25H)' : 'Standby (' + (diag.sensors.error || 'Simulated') + ')'}`);
+      console.log(`  Link Level    : ${hardwareStatusLevel.toUpperCase()}`);
+      console.log('------------------------------------------------------------');
+    });
   });
 }
 

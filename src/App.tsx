@@ -22,6 +22,7 @@ import { DataLoggerView } from './components/DataLoggerView';
 import { HelpAndGuide } from './components/HelpAndGuide';
 import { HardwareDiagnosticModal } from './components/HardwareDiagnosticModal';
 import { PiCameraTwin } from './components/PiCameraTwin';
+import { CURRICULUM_EXAMPLES } from './data/curriculumExamples';
 
 export default function App() {
   const { theme, setTheme } = useTheme();
@@ -96,8 +97,13 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
   // Fun Teen-Friendly Quick Launch Actions
   const handleLaunchTicTacToe = () => {
     setActiveView('workspace');
-    const tttCode = `# Example 12: Interactive Tic-Tac-Toe Game\nfrom pi_twin import SenseHat\nimport time, random\nsense = SenseHat()\nsense.clear()\nprint("=== Tic-Tac-Toe Game Launched! ===")\nprint("Use the 5-way joystick to move and press Middle to place X.")\nsense.show_message("PLAY", scroll_speed=0.08, text_colour=[0, 255, 200])\n`;
-    runProgram(tttCode, 'python', '12_tictactoe.py', 15000);
+    const tttEx = CURRICULUM_EXAMPLES.find(
+      (e) => e.filename === '12_tictactoe.py' || e.id === 'py-16-tictactoe'
+    );
+    const code = tttEx
+      ? tttEx.code
+      : `# 12. Sense HAT Tic-Tac-Toe Game\nfrom sense_hat import SenseHat\nimport time\nsense = SenseHat()\nsense.clear()\nsense.show_message("PLAY")\n`;
+    runProgram(code, 'python', '12_tictactoe.py', 180000);
   };
 
   const handleLaunchRainbowWave = () => {
@@ -138,38 +144,38 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
         {/* INTERACTIVE WORKSPACE VIEW */}
         {activeView === 'workspace' && state && (
           <div className="flex flex-col gap-4">
-            {/* TEEN-FRIENDLY QUICK ACTION BAR */}
-            <div className="p-2 sm:p-2.5 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-card)] shadow-xs flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono font-bold text-[var(--theme-text-muted)] uppercase tracking-wider flex items-center gap-1.5 px-2">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            {/* TEEN-FRIENDLY ACCESSIBLE QUICK ACTION BAR (PROPER HARDWARE CORNERS & BIGGER HITBOXES) */}
+            <div className="p-2 sm:p-3 rounded-none border border-[var(--theme-border)] bg-[var(--theme-bg-card)] shadow-xs flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-xs sm:text-sm font-mono font-bold text-[var(--theme-text-muted)] uppercase tracking-wider flex items-center gap-1.5 px-1">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
                   <span>Quick Lab:</span>
                 </span>
 
                 <button
                   onClick={handleLaunchTicTacToe}
-                  className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/10 transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-2 active:scale-95"
                   title="Play Tic-Tac-Toe on the 8x8 LED Matrix"
                 >
-                  <Gamepad2 className="w-3.5 h-3.5 text-pink-400" />
-                  <span>Tic-Tac-Toe</span>
+                  <Gamepad2 className="w-4 h-4 text-pink-400" />
+                  <span>Tic-Tac-Toe (Play)</span>
                 </button>
 
                 <button
                   onClick={handleLaunchRainbowWave}
-                  className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/10 transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-2 active:scale-95"
                   title="Run Rainbow LED Matrix Sweep"
                 >
-                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+                  <Flame className="w-4 h-4 text-amber-400" />
                   <span>Rainbow Wave</span>
                 </button>
 
                 <button
                   onClick={() => setActiveView('camera')}
-                  className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-[var(--theme-accent)]/20 hover:bg-[var(--theme-accent)]/30 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-[var(--theme-accent)]/20 hover:bg-[var(--theme-accent)]/30 text-[var(--theme-accent)] border border-[var(--theme-accent)]/40 transition-all cursor-pointer flex items-center gap-2 active:scale-95"
                   title="Open Pi Camera Module & Computer Vision Filters"
                 >
-                  <Camera className="w-3.5 h-3.5" />
+                  <Camera className="w-4 h-4" />
                   <span>Camera Vision</span>
                 </button>
               </div>
@@ -177,7 +183,7 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => clearMatrix([0, 0, 0])}
-                  className="px-2 py-1 rounded text-[11px] font-mono text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] hover:bg-white/10 transition-all cursor-pointer"
+                  className="px-3 py-1.5 rounded-none text-xs font-mono font-bold text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] bg-white/5 hover:bg-white/15 border border-white/10 transition-all cursor-pointer"
                   title="Clear all LEDs on matrix"
                 >
                   Clear LEDs ✕

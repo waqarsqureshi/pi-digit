@@ -55,6 +55,11 @@ TEST_SUITE = [
         "script": "test_examples_and_structure.py",
         "args": [],
     },
+    {
+        "name": "Pi Camera Module & Video Frame Generation",
+        "script": "test_camera.py",
+        "args": [],
+    },
 ]
 
 def main():
