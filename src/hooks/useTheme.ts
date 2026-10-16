@@ -5,11 +5,11 @@ export function useTheme() {
   const [theme, setThemeState] = useState<ThemeId>(() => {
     try {
       const saved = localStorage.getItem('pi_digit_theme') as ThemeId;
-      if (saved && (saved === 'neon' || saved === 'cyberpunk' || saved === 'lite' || saved === 'light' || saved === 'minimalist')) {
+      if (saved && (saved === 'galway' || saved === 'galway-dark' || saved === 'lite' || saved === 'light' || saved === 'minimalist' || saved === 'neon' || saved === 'cyberpunk')) {
         return saved === 'light' ? 'lite' : saved;
       }
     } catch {}
-    return 'neon'; // Default to exciting Neon Hacker for younger students!
+    return 'galway'; // Default to University of Galway Academic Light Theme!
   });
 
   const setTheme = (newTheme: ThemeId) => {

@@ -1,15 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Layers,
-  LineChart,
   Camera,
-  AlertTriangle,
-  Zap,
-  CheckCircle2,
-  Wifi,
-  Copy,
-  Check,
   BookOpen,
+  ChevronDown,
+  Wrench,
+  Cpu,
+  RotateCcw,
 } from 'lucide-react';
 import { FullHardwareState } from '../types/digitalTwin';
 import { ThemeId } from '../types/theme';
@@ -17,14 +14,14 @@ import { ThemeSelector } from './ThemeSelector';
 
 interface HeaderRibbonProps {
   state: FullHardwareState | null;
-  activeView: 'canvas' | 'workspace' | 'camera' | 'help';
-  setActiveView: (view: 'canvas' | 'workspace' | 'camera' | 'help') => void;
-  showSensorGraphs: boolean;
-  onToggleSensorGraphs: () => void;
-  selectedMode: 'simulation' | 'emulation';
-  onSetMode: (mode: 'simulation' | 'emulation') => void;
+  activeView: 'workspace' | 'camera' | 'help';
+  setActiveView: (view: 'workspace' | 'camera' | 'help') => void;
+  selectedMode?: 'simulation' | 'emulation';
+  onSetMode?: (mode: 'simulation' | 'emulation') => void;
   onConnectHardware?: () => void;
   onOpenDiagnostics?: () => void;
+  onRestoreDefaultView?: () => void;
+  onOpenWiki?: () => void;
   isProbingHardware?: boolean;
   githubUrl?: string;
   theme: ThemeId;
@@ -32,273 +29,212 @@ interface HeaderRibbonProps {
 }
 
 export function HeaderRibbon({
-  state,
   activeView,
   setActiveView,
-  showSensorGraphs,
-  onToggleSensorGraphs,
   onConnectHardware,
   onOpenDiagnostics,
+  onRestoreDefaultView,
+  onOpenWiki,
   isProbingHardware = false,
-  githubUrl = 'https://github.com/waqarsqureshi/pi-digit',
   theme,
   onSelectTheme,
 }: HeaderRibbonProps) {
-  const [copiedIp, setCopiedIp] = useState(false);
-  const isPhysicalConnected = state?.isSenseHatConnected ?? false;
-  const isPartial = isPhysicalConnected && state?.hardwareLinkStatus === 'partial';
+  const [viewsMenuOpen, setViewsMenuOpen] = useState(false);
+  const viewsRef = useRef<HTMLDivElement>(null);
 
-  const handleCopyIp = () => {
-    const url = state?.network?.networkUrl || `http://127.0.0.1:${state?.network?.port || 3000}`;
-    navigator.clipboard?.writeText(url);
-    setCopiedIp(true);
-    setTimeout(() => setCopiedIp(false), 2000);
-  };
+  // Close views menu when clicked outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (viewsRef.current && !viewsRef.current.contains(event.target as Node)) {
+        setViewsMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <header className="bg-[var(--header-bg)] text-[var(--header-text)] shadow-md sticky top-0 z-40 border-b border-[var(--header-border)] transition-colors duration-200">
-      {/* 3-Zone Top Bar */}
-      <div className="max-w-[1800px] mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-3">
-        {/* Zone 1: Brand Zone */}
-        <div className="flex items-center gap-3 shrink-0">
+    <header className="w-full bg-[var(--theme-bg-card)] text-[var(--theme-text-main)] shadow-xs sticky top-0 z-40 border-b border-[var(--theme-border)] transition-colors duration-150">
+      <div className="w-full px-4 sm:px-6 h-15 flex items-center justify-between gap-4">
+        {/* Brand Zone - Authoritative University of Galway & Raspberry Pi Identity */}
+        <div className="flex items-center gap-3.5 shrink-0">
           <a
             href="/"
-            className="flex items-center gap-2.5 text-inherit no-underline group transition-opacity hover:opacity-95"
-            title="Return to Main Website"
+            className="flex items-center gap-3 text-inherit no-underline group hover:opacity-95 transition-opacity"
+            title="University of Galway · Raspberry Pi Digital Twin Studio"
           >
-            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center p-1.5 border border-white/15 shadow-2xs group-hover:bg-white/15 transition-colors">
+            {/* University of Galway OIP Crest & Raspberry Pi Insignia */}
+            <div className="h-10 px-2.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] flex items-center justify-center gap-2 shadow-xs">
+              <img
+                src="/assets/images/OIP.svg"
+                alt="University of Galway (OÉ Gaillimh) Crest"
+                className="h-8 w-auto object-contain"
+              />
+              <div className="w-[1px] h-5 bg-[var(--theme-border)]" />
               <img
                 src="/assets/images/pi-logo.svg"
-                alt="Raspberry Pi Logo"
-                className="w-5 h-5 object-contain"
+                alt="Raspberry Pi"
+                className="w-5.5 h-5.5 object-contain"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-base sm:text-lg font-bold tracking-tight leading-none font-mono">
-                Pi-Digit
-              </span>
-              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--theme-accent)]/20 text-[var(--theme-accent)] border border-[var(--theme-accent)]/30 uppercase tracking-wide">
-                Twin
-              </span>
-              <span className="hidden md:inline text-xs text-white/60 font-normal">
-                · Raspberry Pi 4
+            
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold tracking-wider text-[#860038] uppercase font-mono">
+                  University of Galway
+                </span>
+                <span className="inline-block w-1 h-1 rounded-full bg-[#f39200]" />
+                <span className="text-[11px] font-bold text-[#f39200] font-mono uppercase">
+                  OÉ Gaillimh
+                </span>
+              </div>
+              <span className="text-base sm:text-lg font-bold tracking-tight leading-snug text-[var(--theme-text-main)] font-sans">
+                Pi-Digit Digital Twin Studio
               </span>
             </div>
           </a>
         </div>
 
-        {/* Zone 2: Workspace Navigation & Sample Toggles */}
-        <nav className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
-          <button
-            onClick={() => setActiveView('canvas')}
-            className={`transition-all flex items-center gap-2 py-2 px-3.5 rounded-none cursor-pointer font-mono font-bold ${
-              activeView === 'canvas'
-                ? 'text-white bg-blue-600/40 border border-blue-400 shadow-xs'
-                : 'text-white/80 hover:text-white hover:bg-white/10'
-            }`}
-            title="Open Interactive Canvas Studio (IoT React Studio)"
-          >
-            <span className="text-cyan-400">⚛</span>
-            <span>Canvas</span>
-          </button>
-
+        {/* Center Zone: Professional Segmented View Switcher */}
+        <div className="hidden md:flex items-center bg-[var(--theme-bg-subtle)] p-1 rounded border border-[var(--theme-border)] text-sm font-semibold">
           <button
             onClick={() => setActiveView('workspace')}
-            className={`transition-all flex items-center gap-2 py-2 px-3.5 rounded-none cursor-pointer font-mono font-bold ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer ${
               activeView === 'workspace'
-                ? 'text-white bg-white/25 border border-white/40 shadow-xs'
-                : 'text-white/80 hover:text-white hover:bg-white/10'
+                ? 'bg-[var(--theme-bg-card)] text-[#860038] dark:text-[#f39200] shadow-xs font-bold'
+                : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Workspace</span>
+            <Layers className="w-4 h-4 shrink-0" />
+            <span>Workspace Studio</span>
           </button>
 
-          {/* Dedicated Camera & Morphological Vision View */}
           <button
             onClick={() => setActiveView('camera')}
-            className={`transition-all flex items-center gap-2 py-2 px-3.5 rounded-none cursor-pointer font-mono font-bold ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer ${
               activeView === 'camera'
-                ? 'text-white bg-[var(--theme-accent)]/30 border border-[var(--theme-accent)] shadow-xs'
-                : 'text-white/80 hover:text-white hover:bg-white/10'
+                ? 'bg-[var(--theme-bg-card)] text-[#860038] dark:text-[#f39200] shadow-xs font-bold'
+                : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
             }`}
-            title="Open Pi Camera Module & Morphological Computer Vision View"
           >
-            <Camera className="w-4 h-4 text-amber-300" />
-            <span>Pi Camera</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-none font-bold bg-amber-400 text-slate-950 uppercase hidden sm:inline">
-              CV
-            </span>
-          </button>
-
-          <button
-            onClick={onToggleSensorGraphs}
-            className={`transition-all flex items-center gap-2 py-2 px-3 rounded-none cursor-pointer font-mono font-bold ${
-              showSensorGraphs
-                ? 'text-white bg-white/25 border border-white/40 shadow-xs'
-                : 'text-white/80 hover:text-white hover:bg-white/10'
-            }`}
-            title="Toggle Sensor Graphs"
-          >
-            <LineChart className="w-4 h-4" />
-            <span className="hidden sm:inline">Graphs</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-none font-bold uppercase transition-colors ${
-                showSensorGraphs
-                  ? 'bg-emerald-400 text-emerald-950'
-                  : 'bg-white/20 text-slate-200'
-              }`}
-            >
-              {showSensorGraphs ? 'ON' : 'OFF'}
-            </span>
+            <Camera className="w-4 h-4 shrink-0" />
+            <span>Pi Camera & CV</span>
           </button>
 
           <button
             onClick={() => setActiveView('help')}
-            className={`transition-all flex items-center gap-2 py-2 px-3 rounded-none cursor-pointer font-mono font-bold ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer ${
               activeView === 'help'
-                ? 'text-white bg-white/25 border border-white/40 shadow-xs'
-                : 'text-white/80 hover:text-white hover:bg-white/10'
+                ? 'bg-[var(--theme-bg-card)] text-[#860038] dark:text-[#f39200] shadow-xs font-bold'
+                : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
             }`}
           >
-            <BookOpen className="w-4 h-4" />
-            <span>Guide</span>
+            <BookOpen className="w-4 h-4 shrink-0" />
+            <span>Help & Manual</span>
           </button>
-        </nav>
+        </div>
 
-        {/* Zone 3: Theme Selector & Hardware Link Status */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* THEME SELECTOR: Neon Hacker, Cyberpunk, Lite, Minimalist */}
-          <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme} />
-
-          {/* LAN IP Address Indicator */}
+        {/* Mobile View Dropdown (Visible on small screens) */}
+        <div className="md:hidden relative" ref={viewsRef}>
           <button
-            onClick={handleCopyIp}
-            className={`hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-none text-xs sm:text-sm font-mono font-bold border transition-all cursor-pointer ${
-              state?.network?.isOnline
-                ? 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border-emerald-500/40'
-                : 'bg-white/10 hover:bg-white/15 text-white/90 border-white/20'
-            }`}
-            title={
-              state?.network?.isOnline
-                ? `LAN IP: ${state.network.localIp} · Click to copy URL`
-                : 'Offline / Local loop only · Click to copy 127.0.0.1:3000'
-            }
+            onClick={() => setViewsMenuOpen((prev) => !prev)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] text-[var(--theme-text-main)] text-sm font-semibold cursor-pointer shadow-xs"
           >
-            <Wifi
-              className={`w-3.5 h-3.5 ${state?.network?.isOnline ? 'text-emerald-400' : 'text-slate-300'}`}
-            />
-            <span>
-              {state?.network?.isOnline
-                ? `${state.network.localIp}:${state.network.port}`
-                : '127.0.0.1:3000'}
-            </span>
-            {copiedIp ? (
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-            ) : (
-              <Copy className="w-3.5 h-3.5 text-white/60" />
-            )}
+            {activeView === 'workspace' && <Layers className="w-4 h-4 text-[#860038]" />}
+            {activeView === 'camera' && <Camera className="w-4 h-4 text-[#f39200]" />}
+            {activeView === 'help' && <BookOpen className="w-4 h-4 text-[#860038]" />}
+            <span>{activeView === 'workspace' ? 'Workspace' : activeView === 'camera' ? 'Camera' : 'Help'}</span>
+            <ChevronDown className="w-4 h-4 text-[var(--theme-text-muted)]" />
           </button>
 
-          {/* Connection Status Badge */}
-          <div
-            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-none text-xs sm:text-sm font-mono font-bold border transition-colors ${
-              isPhysicalConnected
-                ? isPartial
-                  ? 'bg-amber-950/40 text-amber-300 border-amber-500/40'
-                  : 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40'
-                : 'bg-white/10 text-white/90 border-white/20'
-            }`}
-          >
-            {isPhysicalConnected ? (
-              isPartial ? (
-                <>
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Partial Pi</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Pi 4 Linked</span>
-                </>
-              )
-            ) : (
-              <>
-                <span className="w-2.5 h-2.5 rounded-none bg-sky-400" />
-                <span>Sim Twin</span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Sub-Header Notice / Diagnostic Banner when Partial or Disconnected */}
-      <div className="bg-black/30 border-t border-white/5 px-3 sm:px-6 py-1 text-xs font-mono flex items-center justify-between gap-3 text-white/70">
-        <div className="flex items-center gap-2 truncate">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-accent)] animate-pulse" />
-          <span className="truncate text-[11px]">
-            {isPhysicalConnected ? (
-              isPartial ? (
-                <>
-                  <strong className="text-amber-300 font-bold">
-                    Hardware Notice:
-                  </strong>{' '}
-                  LED Matrix (/dev/fb1) linked. Sensors on I2C bus are unlinked.
-                </>
-              ) : (
-                <>
-                  <strong className="text-emerald-300 font-bold">
-                    Physical Hardware Online:
-                  </strong>{' '}
-                  LED Matrix (/dev/fb1), I2C sensors, and evdev joystick active.
-                </>
-              )
-            ) : (
-              <>
-                <strong className="text-white font-bold">
-                  Virtual Digital Twin:
-                </strong>{' '}
-                Browser emulator running. Ready to bridge to Raspberry Pi hardware.
-              </>
-            )}
-          </span>
+          {viewsMenuOpen && (
+            <div className="absolute left-0 mt-1.5 w-56 bg-[var(--theme-bg-card)] border border-[var(--theme-border)] rounded shadow-xl py-1 z-50 text-sm font-semibold text-[var(--theme-text-main)]">
+              <button
+                onClick={() => {
+                  setActiveView('workspace');
+                  setViewsMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
+              >
+                <Layers className="w-4 h-4 text-[#860038]" />
+                <span>Workspace Studio</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveView('camera');
+                  setViewsMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
+              >
+                <Camera className="w-4 h-4 text-[#f39200]" />
+                <span>Pi Camera & CV</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveView('help');
+                  setViewsMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
+              >
+                <BookOpen className="w-4 h-4 text-[#860038]" />
+                <span>Help & Manual</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {onOpenDiagnostics && (
+        {/* Right Zone: Primary Actions, Restore Default View, Wiki, Themes & Diagnostics */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Promoted "Restore Default View" Action Button */}
+          {onRestoreDefaultView && (
             <button
-              onClick={onOpenDiagnostics}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors cursor-pointer border ${
-                isPartial
-                  ? 'bg-amber-400/20 text-amber-200 border-amber-400/40 hover:bg-amber-400/30'
-                  : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-              }`}
+              onClick={onRestoreDefaultView}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded bg-[var(--theme-bg-subtle)] hover:bg-[var(--theme-border)] border border-[var(--theme-border)] text-[var(--theme-text-main)] text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Restore all 8 applets and reset to the default workspace view"
             >
-              Diagnostics
+              <RotateCcw className="w-4 h-4 text-[#f39200] shrink-0" />
+              <span className="hidden lg:inline">Restore Default View</span>
+              <span className="lg:hidden">Default View</span>
             </button>
           )}
 
+          {/* Promoted "Emulator Wiki" Action Button */}
+          {onOpenWiki && (
+            <button
+              onClick={onOpenWiki}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded bg-[#860038] hover:bg-[#9e0e47] text-white text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Open Interactive Emulator Wiki & Python API Reference"
+            >
+              <BookOpen className="w-4 h-4 text-white shrink-0" />
+              <span className="hidden sm:inline">Emulator Wiki</span>
+              <span className="sm:hidden">Wiki</span>
+            </button>
+          )}
+
+          {/* Connect Hardware Probe */}
           {onConnectHardware && (
             <button
               onClick={onConnectHardware}
               disabled={isProbingHardware}
-              className={`px-2.5 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                isPhysicalConnected
-                  ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
-                  : 'bg-[var(--theme-accent)] hover:opacity-90 text-[var(--theme-accent-text)] shadow-xs'
-              }`}
+              className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 text-sm font-semibold cursor-pointer transition-colors"
+              title="Connect / Probe Physical Raspberry Pi Hardware"
             >
-              {isProbingHardware ? (
-                <>
-                  <span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  <span>Probing...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-3 h-3" />
-                  <span>{isPhysicalConnected ? 'Unlink Bridge' : 'Connect Pi'}</span>
-                </>
-              )}
+              <Cpu className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>{isProbingHardware ? 'Probing...' : 'Probe Pi'}</span>
+            </button>
+          )}
+
+          {/* UI Themes Selector */}
+          <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme} />
+
+          {/* Hardware Diagnostics Modal Trigger */}
+          {onOpenDiagnostics && (
+            <button
+              onClick={onOpenDiagnostics}
+              className="p-2 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] hover:border-[#860038] text-[var(--theme-text-main)] cursor-pointer transition-colors shadow-xs"
+              title="System Diagnostics & Hardware Self-Test"
+            >
+              <Wrench className="w-4 h-4 text-[var(--theme-text-muted)]" />
             </button>
           )}
         </div>

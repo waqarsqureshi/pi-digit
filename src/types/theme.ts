@@ -1,4 +1,4 @@
-export type ThemeId = 'neon' | 'cyberpunk' | 'lite' | 'light' | 'minimalist';
+export type ThemeId = 'galway' | 'galway-dark' | 'lite' | 'light' | 'minimalist' | 'neon' | 'cyberpunk';
 
 export interface ThemeOption {
   id: ThemeId;
@@ -12,27 +12,27 @@ export interface ThemeOption {
 
 export const THEME_OPTIONS: ThemeOption[] = [
   {
-    id: 'neon',
-    name: 'Neon Hacker',
-    tagline: 'Matrix Phosphor Void',
-    emoji: '🟢',
-    primaryColor: '#00ff66',
-    bgColor: '#030804',
-    accentColor: '#34d399',
+    id: 'galway',
+    name: 'Univ. of Galway (Light)',
+    tagline: 'Academic Maroon & Gold',
+    emoji: '🏛️',
+    primaryColor: '#860038',
+    bgColor: '#ffffff',
+    accentColor: '#f39200',
   },
   {
-    id: 'cyberpunk',
-    name: 'Cyberpunk',
-    tagline: 'Night City Synthwave',
-    emoji: '🟣',
-    primaryColor: '#ff007f',
-    bgColor: '#0b0318',
-    accentColor: '#00f0ff',
+    id: 'galway-dark',
+    name: 'Univ. of Galway (Dark)',
+    tagline: 'Galway Engineering Obsidian',
+    emoji: '🌑',
+    primaryColor: '#860038',
+    bgColor: '#0c0e14',
+    accentColor: '#f39200',
   },
   {
     id: 'lite',
-    name: 'Lite',
-    tagline: 'Clean High-Contrast Classroom',
+    name: 'Clean Slate Light',
+    tagline: 'High-Contrast Classroom',
     emoji: '☀️',
     primaryColor: '#0284c7',
     bgColor: '#f8fafc',
@@ -40,11 +40,11 @@ export const THEME_OPTIONS: ThemeOption[] = [
   },
   {
     id: 'minimalist',
-    name: 'Minimalist',
-    tagline: 'Sleek Dark Obsidian',
+    name: 'Dark Studio',
+    tagline: 'Deep Slate Workstation',
     emoji: '⚪',
-    primaryColor: '#e11d48',
-    bgColor: '#09090b',
-    accentColor: '#38bdf8',
+    primaryColor: '#3b82f6',
+    bgColor: '#090d16',
+    accentColor: '#06b6d4',
   },
 ];

@@ -22,13 +22,12 @@ import { DataLoggerView } from './components/DataLoggerView';
 import { HelpAndGuide } from './components/HelpAndGuide';
 import { HardwareDiagnosticModal } from './components/HardwareDiagnosticModal';
 import { PiCameraTwin } from './components/PiCameraTwin';
-import { CanvasWorkspace } from './components/CanvasWorkspace';
+import { UnifiedWorkspace } from './components/UnifiedWorkspace';
 import { CURRICULUM_EXAMPLES } from './data/curriculumExamples';
 
 export default function App() {
   const { theme, setTheme } = useTheme();
-  const [activeView, setActiveView] = useState<'canvas' | 'workspace' | 'camera' | 'help'>('canvas');
-  const [showSensorGraphs, setShowSensorGraphs] = useState(false);
+  const [activeView, setActiveView] = useState<'workspace' | 'camera' | 'help'>('workspace');
   const [selectedMode, setSelectedMode] = useState<'simulation' | 'emulation'>('emulation');
   const [copiedMainError, setCopiedMainError] = useState(false);
 
@@ -86,10 +85,6 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
     setTimeout(() => setCopiedMainError(false), 2500);
   };
 
-  const handleToggleSensorGraphs = () => {
-    setShowSensorGraphs((prev) => !prev);
-  };
-
   const handleRunLoggerScript = () => {
     const loggerCode = `# Sense HAT Telemetry Collector\nfrom pi_twin import SenseHat\nimport time\n\nsense = SenseHat()\nprint("=== Physical Sensor Telemetry Polling ===")\nfor i in range(1, 6):\n    t = sense.get_temperature()\n    h = sense.get_humidity()\n    p = sense.get_pressure()\n    print(f"Sample #{i} -> Temp: {t:.1f}°C | Hum: {h:.1f}% | Press: {p:.1f} hPa")\n    time.sleep(0.4)\nprint("Polling completed.")\n`;
     runProgram(loggerCode, 'python', 'sensor_logger.py', 10000);
@@ -122,6 +117,18 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
     }
   };
 
+  const handleRestoreDefaultView = () => {
+    try {
+      localStorage.removeItem('iot-workspace-applets-v3');
+    } catch {}
+    window.dispatchEvent(new CustomEvent('restore-default-applets'));
+  };
+
+  const handleOpenWiki = () => {
+    setActiveView('help');
+    window.dispatchEvent(new CustomEvent('open-emulator-wiki'));
+  };
+
   return (
     <div
       data-theme={theme}
@@ -132,295 +139,94 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
         state={state}
         activeView={activeView}
         setActiveView={setActiveView}
-        showSensorGraphs={showSensorGraphs}
-        onToggleSensorGraphs={handleToggleSensorGraphs}
         selectedMode={selectedMode}
         onSetMode={handleSetMode}
         onConnectHardware={() => connectHardware()}
         onOpenDiagnostics={() => setIsDiagModalOpen(true)}
+        onRestoreDefaultView={handleRestoreDefaultView}
+        onOpenWiki={handleOpenWiki}
         isProbingHardware={isProbingHardware}
         githubUrl="https://github.com/waqarsqureshi/pi-digit"
         theme={theme}
         onSelectTheme={setTheme}
       />
 
-      {/* INTERACTIVE CANVAS WORKSPACE VIEW (MATCHING USER REFERENCE IMAGE) */}
-      {activeView === 'canvas' && state && (
-        <CanvasWorkspace
+      {/* UNIFIED PRIMARY WORKSPACE (MERGING ALL CANVAS & WORKSPACE CAPABILITIES) */}
+      {activeView === 'workspace' && state && (
+        <UnifiedWorkspace
           state={state}
+          terminalOutputs={terminalOutputs}
           onSetPixel={setPixel}
           onClearMatrix={clearMatrix}
           onSetMatrixPattern={setMatrixPattern}
           onTriggerJoystick={triggerJoystick}
           onRunProgram={runProgram}
           onStopProgram={stopProgram}
+          onClearTerminal={clearTerminal}
+          onExecBashCommand={execBashCommand}
           onConnectHardware={() => connectHardware()}
           onOpenDiagnostics={() => setIsDiagModalOpen(true)}
           onOpenHelp={() => setActiveView('help')}
+          isProbingHardware={isProbingHardware}
         />
       )}
 
-      {/* Main Content for other views */}
-      {activeView !== 'canvas' && (
+      {/* SUB-VIEWS: PI CAMERA STUDIO / HELP MANUAL */}
+      {activeView !== 'workspace' && (
         <>
-        <main className="flex-1 max-w-[1800px] w-full mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-col gap-4">
-          {/* INTERACTIVE WORKSPACE VIEW */}
-          {activeView === 'workspace' && state && (
-            <div className="flex flex-col gap-4">
-            {/* TEEN-FRIENDLY ACCESSIBLE QUICK ACTION BAR (PROPER HARDWARE CORNERS & BIGGER HITBOXES) */}
-            <div className="p-2 sm:p-3 rounded-none border border-[var(--theme-border)] bg-[var(--theme-bg-card)] shadow-xs flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-xs sm:text-sm font-mono font-bold text-[var(--theme-text-muted)] uppercase tracking-wider flex items-center gap-1.5 px-1">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span>Quick Lab:</span>
-                </span>
-
-                <button
-                  onClick={handleLaunchTicTacToe}
-                  className="px-3.5 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-2 active:scale-95"
-                  title="Play Tic-Tac-Toe on the 8x8 LED Matrix"
-                >
-                  <Gamepad2 className="w-4 h-4 text-pink-400" />
-                  <span>Tic-Tac-Toe (Play)</span>
-                </button>
-
-                <button
-                  onClick={handleLaunchRainbowWave}
-                  className="px-3.5 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-2 active:scale-95"
-                  title="Run Rainbow LED Matrix Sweep"
-                >
-                  <Flame className="w-4 h-4 text-amber-400" />
-                  <span>Rainbow Wave</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveView('camera')}
-                  className="px-3.5 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-[var(--theme-accent)]/20 hover:bg-[var(--theme-accent)]/30 text-[var(--theme-accent)] border border-[var(--theme-accent)]/40 transition-all cursor-pointer flex items-center gap-2 active:scale-95"
-                  title="Open Pi Camera Module & Computer Vision Filters"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>Camera Vision</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => clearMatrix([0, 0, 0])}
-                  className="px-3 py-1.5 rounded-none text-xs font-mono font-bold text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] bg-white/5 hover:bg-white/15 border border-white/10 transition-all cursor-pointer"
-                  title="Clear all LEDs on matrix"
-                >
-                  Clear LEDs ✕
-                </button>
-              </div>
-            </div>
-
-            {/* OPTIONAL EXPANDABLE SENSOR WAVEFORMS SAMPLE PANEL */}
-            {showSensorGraphs && (
-              <div className="bg-[var(--theme-bg-card)] border border-[var(--theme-border)] rounded-xl p-4 shadow-xs flex flex-col gap-3">
-                <div className="flex items-center justify-between pb-2 border-b border-[var(--theme-border)]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[var(--theme-text-main)] text-xs sm:text-sm font-mono">
-                      Sensor Telemetry & Trends
-                    </span>
-                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold uppercase">
-                      Live Telemetry
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setShowSensorGraphs(false)}
-                    className="text-xs font-mono text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] px-2 py-0.5 rounded bg-white/10 border border-white/10 cursor-pointer"
-                  >
-                    Hide ✕
-                  </button>
-                </div>
-                <DataLoggerView
-                  history={telemetryHistory}
-                  currentSensors={state.sensors}
-                  selectedMode={selectedMode}
-                  isPhysicalConnected={state.isSenseHatConnected}
-                  onRunLoggerScript={handleRunLoggerScript}
-                />
-              </div>
+          <main className="flex-1 max-w-[1800px] w-full mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-col gap-4">
+            {/* PI CAMERA & MORPHOLOGICAL FILTERS VIEW */}
+            {activeView === 'camera' && (
+              <PiCameraTwin
+                theme={theme}
+                onSendMatrixFrame={(pixels) => setMatrixPattern(pixels)}
+                onLoadVisionCode={handleLoadCameraVisionCode}
+                onBackToWorkspace={() => setActiveView('workspace')}
+              />
             )}
 
-            {/* HARDWARE STATUS ALERT BANNER (IF PARTIAL HARDWARE DETECTED) */}
-            {selectedMode === 'emulation' && state.hardwareLinkStatus === 'partial' && (
-              <div className="bg-amber-950/30 border-2 border-amber-500/40 rounded-xl p-3 sm:p-4 text-xs font-mono text-amber-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <strong className="text-sm font-bold text-amber-300">
-                        Hardware Status: 8×8 RGB LED Matrix is Active & Working on Raspberry Pi
-                      </strong>
-                      <span className="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">
-                        /dev/fb1 ONLINE
-                      </span>
-                    </div>
-                    <p className="mt-1 text-slate-300 text-xs leading-relaxed">
-                      Physical LEDs are connected and respond to your Python scripts. Environmental sensors (HTS221/LPS25H) are unlinked on the I2C bus ({diagnostics?.sensors.error || 'I2C communication in standby'}). Click below to copy the error report or view fix commands.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+            {/* HELP & WIKI DOCUMENTATION MANUAL */}
+            {activeView === 'help' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
                   <button
-                    onClick={handleCopyMainError}
-                    className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
-                    title="Copy formatted diagnostic error report to clipboard"
+                    onClick={() => setActiveView('workspace')}
+                    className="px-3.5 py-1.5 rounded-lg bg-[var(--theme-accent)] hover:opacity-90 text-[var(--theme-accent-text)] text-xs font-mono font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                   >
-                    {copiedMainError ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Copy Report</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setIsDiagModalOpen(true)}
-                    className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition-colors cursor-pointer text-xs flex items-center gap-1.5"
-                  >
-                    <Wrench className="w-3.5 h-3.5 text-slate-950" />
-                    <span>View Diagnostics</span>
+                    <span>← Open Primary Workspace Studio</span>
                   </button>
                 </div>
+                <HelpAndGuide onGoToWorkspace={() => setActiveView('workspace')} />
               </div>
             )}
+          </main>
 
-            {/* SIDE-BY-SIDE MAIN AREA: CODE ON LEFT, DIGITAL TWIN ON RIGHT */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              {/* LEFT COLUMN: CODE STUDIO */}
-              <div className="min-w-0 flex flex-col gap-3">
-                <CodeStudio
-                  program={state.program}
-                  terminalOutputs={terminalOutputs}
-                  onRunProgram={runProgram}
-                  onStopProgram={stopProgram}
-                  onClearTerminal={clearTerminal}
-                  onExecBashCommand={execBashCommand}
-                />
-              </div>
-
-              {/* RIGHT COLUMN: DIGITAL TWIN HARDWARE CONSOLE */}
-              <div className="min-w-0 flex flex-col gap-3">
-                {/* DEDICATED HARDWARE STATUS & RECONNECT / PING PANEL */}
-                <HardwareStatusPanel
-                  state={state}
-                  selectedMode={selectedMode}
-                  isPhysicalConnected={state.isSenseHatConnected}
-                  onConnectHardware={connectHardware}
-                  onPingHardware={pingHardware}
-                  isPinging={isPinging}
-                  isProbing={isProbingHardware}
-                  lastPingResult={lastPingResult}
-                  onSwitchMode={handleSetMode}
-                  sensorSource={state.sensorSource}
-                  onToggleSensorSource={setSensorSource}
-                  operatingMode={state.operatingMode}
-                  onToggleOperatingMode={setOperatingMode}
-                  diagnostics={diagnostics}
-                  onOpenDiagnostics={() => setIsDiagModalOpen(true)}
-                  hardwareWarning={hardwareWarning}
-                  onDismissWarning={() => setHardwareWarning(null)}
-                />
-
-                {/* Sense HAT Emulator (8x8 RGB LED Matrix & Telemetry) */}
-                <SenseHatTwin
-                  matrix={state.matrix}
-                  sensors={state.sensors}
-                  lastJoystick={state.lastJoystickEvent}
-                  isSenseHatConnected={state.isSenseHatConnected}
-                  selectedMode={selectedMode}
-                  hardwareLinkStatus={state.hardwareLinkStatus}
-                  onSetPixel={setPixel}
-                  onClearMatrix={clearMatrix}
-                  onSetMatrixPattern={setMatrixPattern}
-                  onTriggerJoystick={triggerJoystick}
-                  onInjectSensors={injectSensors}
-                  onConnectHardware={connectHardware}
-                  onOpenDiagnostics={() => setIsDiagModalOpen(true)}
-                  isProbingHardware={isProbingHardware}
-                />
-
-                {/* 16x2 Character LCD Display */}
-                <LcdDisplayTwin
-                  lcd={state.lcd}
-                  selectedMode={selectedMode}
-                  isPhysicalConnected={state.isSenseHatConnected}
-                  onClearLcd={clearLcd}
-                  onConnectHardware={() => connectHardware()}
-                  isProbingHardware={isProbingHardware}
-                />
-
-                {/* 40-Pin GPIO Header & Hardware PWM Oscilloscope */}
-                <GpioHeaderTwin
-                  pins={state.gpio}
-                  selectedMode={selectedMode}
-                  isPhysicalConnected={state.isSenseHatConnected}
-                  onTogglePin={toggleGpioPin}
-                  pwm={state.pwm}
-                />
+          {/* Clean Academic / Cyber Footer */}
+          <footer className="border-t border-[var(--theme-border)] bg-[var(--theme-bg-card)] py-4 px-6 text-xs font-mono text-[var(--theme-text-muted)] text-center transition-colors">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+              <span>
+                IoT React Studio · Raspberry Pi 4 Physical Computing & Digital Twin Platform
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setActiveView('workspace')}
+                  className="text-[var(--theme-accent)] hover:underline font-bold"
+                >
+                  Workspace Studio
+                </button>
+                <span>·</span>
+                <a
+                  href="https://github.com/waqarsqureshi/pi-digit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--theme-accent)] hover:underline font-bold"
+                >
+                  GitHub
+                </a>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* PI CAMERA & MORPHOLOGICAL FILTERS VIEW */}
-        {activeView === 'camera' && (
-          <PiCameraTwin
-            theme={theme}
-            onSendMatrixFrame={(pixels) => setMatrixPattern(pixels)}
-            onLoadVisionCode={handleLoadCameraVisionCode}
-            onBackToWorkspace={() => setActiveView('workspace')}
-          />
-        )}
-
-        {/* HELP & WIKI DOCUMENTATION MANUAL */}
-        {activeView === 'help' && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setActiveView('workspace')}
-                className="px-3.5 py-1.5 rounded-lg bg-[var(--theme-accent)] hover:opacity-90 text-[var(--theme-accent-text)] text-xs font-mono font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-              >
-                <span>← Open Interactive Workspace (Code & Digital Twin)</span>
-              </button>
-            </div>
-            <HelpAndGuide onGoToWorkspace={() => setActiveView('workspace')} />
-          </div>
-        )}
-      </main>
-
-      {/* Clean Academic / Cyber Footer */}
-      <footer className="border-t border-[var(--theme-border)] bg-[var(--theme-bg-card)] py-4 px-6 text-xs font-mono text-[var(--theme-text-muted)] text-center transition-colors">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>
-            Pi-Digit · Raspberry Pi 4 Physical Computing & Digital Twin Platform
-          </span>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setActiveView('camera')}
-              className="text-[var(--theme-accent)] hover:underline font-bold"
-            >
-              Camera & CV Studio
-            </button>
-            <span>·</span>
-            <a
-              href="https://github.com/waqarsqureshi/pi-digit"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[var(--theme-accent)] hover:underline font-bold"
-            >
-              GitHub: github.com/waqarsqureshi/pi-digit
-            </a>
-          </div>
-        </div>
-      </footer>
-      </>
+          </footer>
+        </>
       )}
 
       {/* Hardware Diagnostics & Error Report Modal */}

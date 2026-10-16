@@ -1,8 +1,94 @@
 @import "tailwindcss";
 
 @layer base {
-  /* Default: Minimalist Dark Theme */
+  /* Default: University of Galway Academic Light Theme */
   :root,
+  [data-theme="galway"] {
+    --theme-name: "galway";
+    --theme-bg-app: #fdfdfd;
+    --theme-bg-card: #ffffff;
+    --theme-bg-subtle: #f8fafc;
+    --theme-border: #e2e8f0;
+    --theme-border-hover: #cbd5e1;
+    --theme-text-main: #0f172a;
+    --theme-text-sub: #334155;
+    --theme-text-muted: #64748b;
+    --theme-accent: #860038;
+    --theme-accent-hover: #9e0e47;
+    --theme-accent-text: #ffffff;
+    --theme-secondary: #f39200;
+    --theme-glow: 0 0 10px rgba(134, 0, 56, 0.2);
+    
+    /* Terminal Console */
+    --terminal-bg: #0f172a;
+    --terminal-text: #f8fafc;
+    --terminal-border: #334155;
+    --terminal-cursor: #f39200;
+    --terminal-prompt: #38bdf8;
+    
+    /* Sense HAT Subsystem */
+    --sensehat-bezel-bg: #1e293b;
+    --sensehat-bezel-border: #860038;
+    --sensehat-grid-bg: #0f172a;
+    --sensehat-pixel-off: #1e293b;
+    --sensehat-accent: #860038;
+    
+    /* Joystick Controls */
+    --joystick-bg: #f1f5f9;
+    --joystick-border: #cbd5e1;
+    --joystick-btn-bg: #ffffff;
+    --joystick-btn-text: #0f172a;
+    
+    /* Header Bar */
+    --header-bg: #ffffff;
+    --header-border: #e2e8f0;
+    --header-text: #0f172a;
+  }
+
+  /* University of Galway Obsidian Dark Theme */
+  [data-theme="galway-dark"] {
+    --theme-name: "galway-dark";
+    --theme-bg-app: #0c0e14;
+    --theme-bg-card: #121622;
+    --theme-bg-subtle: #181d2c;
+    --theme-border: #232b3e;
+    --theme-border-hover: #860038;
+    --theme-text-main: #f1f5f9;
+    --theme-text-sub: #94a3b8;
+    --theme-text-muted: #64748b;
+    --theme-accent: #860038;
+    --theme-accent-hover: #a1144a;
+    --theme-accent-text: #ffffff;
+    --theme-secondary: #f39200;
+    --theme-glow: 0 0 14px rgba(134, 0, 56, 0.35);
+    
+    /* Terminal Console */
+    --terminal-bg: #080a10;
+    --terminal-text: #f1f5f9;
+    --terminal-border: #1e273a;
+    --terminal-cursor: #f39200;
+    --terminal-prompt: #38bdf8;
+    
+    /* Sense HAT Subsystem */
+    --sensehat-bezel-bg: #151a28;
+    --sensehat-bezel-border: #860038;
+    --sensehat-grid-bg: #090c14;
+    --sensehat-pixel-off: #1a2234;
+    --sensehat-accent: #860038;
+    
+    /* Joystick Controls */
+    --joystick-bg: #141b2a;
+    --joystick-border: #222d44;
+    --joystick-btn-bg: #1a243a;
+    --joystick-btn-text: #f1f5f9;
+    
+    /* Header Bar */
+    --header-bg: #0f131d;
+    --header-border: #1f273b;
+    --header-text: #ffffff;
+  }
+
+  /* Minimalist Dark Theme */
   [data-theme="minimalist"] {
     --theme-name: "minimalist";
     --theme-bg-app: #09090b;
@@ -13,16 +99,17 @@
     --theme-text-main: #f4f4f5;
     --theme-text-sub: #a1a1aa;
     --theme-text-muted: #71717a;
-    --theme-accent: #e11d48;
-    --theme-accent-hover: #f43f5e;
+    --theme-accent: #860038;
+    --theme-accent-hover: #9e0e47;
     --theme-accent-text: #ffffff;
-    --theme-glow: 0 0 12px rgba(225, 29, 72, 0.25);
+    --theme-secondary: #f39200;
+    --theme-glow: 0 0 12px rgba(134, 0, 56, 0.25);
     
     /* Terminal Console */
     --terminal-bg: #0c0c0e;
     --terminal-text: #e4e4e7;
     --terminal-border: #27272a;
-    --terminal-cursor: #f43f5e;
+    --terminal-cursor: #f39200;
     --terminal-prompt: #38bdf8;
     
     /* Sense HAT Subsystem */
@@ -30,7 +117,7 @@
     --sensehat-bezel-border: #27272a;
     --sensehat-grid-bg: #09090b;
     --sensehat-pixel-off: #1c1c22;
-    --sensehat-accent: #e11d48;
+    --sensehat-accent: #860038;
     
     /* Joystick Controls */
     --joystick-bg: #18181b;
@@ -186,4 +273,97 @@
   background-color: var(--theme-bg-card);
   border: 1px solid var(--theme-border);
   border-radius: 0;
+}
+
+/* Syntax Highlighting for Python and C Code (Prism.js) */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6a9955;
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #94a3b8;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f59e0b;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #10b981;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #38bdf8;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #c084fc;
+  font-weight: 600;
+}
+
+.token.function,
+.token.class-name {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #f43f5e;
+}
+
+.token.macro,
+.token.directive,
+.token.directive-hash {
+  color: #fb7185;
+  font-weight: 600;
+}
+
+/* Light Mode Overrides for High Contrast Syntax Highlighting */
+[data-theme="galway"] .token.comment {
+  color: #15803d;
+  font-style: italic;
+}
+[data-theme="galway"] .token.keyword {
+  color: #860038;
+  font-weight: 700;
+}
+[data-theme="galway"] .token.string {
+  color: #047857;
+}
+[data-theme="galway"] .token.number {
+  color: #b45309;
+}
+[data-theme="galway"] .token.function {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+[data-theme="galway"] .token.macro {
+  color: #be123c;
+  font-weight: 600;
+}
+[data-theme="galway"] .token.punctuation {
+  color: #475569;
 }
