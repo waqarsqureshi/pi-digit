@@ -944,7 +944,9 @@ function triggerJoystick(direction: JoystickEvent['direction'], action: Joystick
     cur.humidity = sensors.humidity;
     cur.pressure = sensors.pressure;
     cur.timestamp = Date.now();
-    fs.writeFileSync('/tmp/pi_sense_hardware.json', JSON.stringify(cur));
+    const tmpFile = `/tmp/pi_sense_hardware_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.tmp`;
+    fs.writeFileSync(tmpFile, JSON.stringify(cur));
+    fs.renameSync(tmpFile, '/tmp/pi_sense_hardware.json');
   } catch (e) {}
 }
 
@@ -1091,7 +1093,50 @@ async function executeStudentCode(
       }
     }
 
-    // 5. Printf calls in C
+    // 5. Hardware PWM calls in C
+    const pwmInitMatch = code.match(/twin_pwm_init\s*\(\s*(\d+)\s*,\s*([\d\.]+)\s*\)/);
+    if (pwmInitMatch) {
+      const channel = Number(pwmInitMatch[1]);
+      const freq = Number(pwmInitMatch[2]);
+      currentPwmState = { ...currentPwmState, channel, freq, active: true };
+      broadcast('pwm.update', currentPwmState);
+    }
+    const pwmStartMatch = code.match(/twin_pwm_start\s*\(\s*(\d+)\s*,\s*([\d\.]+)\s*\)/);
+    if (pwmStartMatch) {
+      const channel = Number(pwmStartMatch[1]);
+      const duty = Number(pwmStartMatch[2]);
+      currentPwmState = { ...currentPwmState, channel, duty, active: true };
+      const target = gpioPins.find((p) => p.bcm === channel);
+      if (target) {
+        target.mode = 'PWM';
+        target.pwmDuty = duty;
+      }
+      broadcast('pwm.update', currentPwmState);
+      await new Promise((res) => setTimeout(res, 120));
+    }
+    const pwmDutyMatch = code.match(/twin_pwm_set_duty\s*\(\s*(\d+)\s*,\s*([\d\.]+)\s*\)/);
+    if (pwmDutyMatch) {
+      const channel = Number(pwmDutyMatch[1]);
+      const duty = Number(pwmDutyMatch[2]);
+      currentPwmState = { ...currentPwmState, channel, duty, active: true };
+      const target = gpioPins.find((p) => p.bcm === channel);
+      if (target) target.pwmDuty = duty;
+      broadcast('pwm.update', currentPwmState);
+      await new Promise((res) => setTimeout(res, 100));
+    }
+    const pwmFreqMatch = code.match(/twin_pwm_set_freq\s*\(\s*(\d+)\s*,\s*([\d\.]+)\s*\)/);
+    if (pwmFreqMatch) {
+      const channel = Number(pwmFreqMatch[1]);
+      const freq = Number(pwmFreqMatch[2]);
+      currentPwmState = { ...currentPwmState, channel, freq, active: true };
+      broadcast('pwm.update', currentPwmState);
+    }
+    if (code.includes('twin_pwm_stop')) {
+      currentPwmState = { ...currentPwmState, active: false };
+      broadcast('pwm.update', currentPwmState);
+    }
+
+    // 6. Printf calls in C
     const lines = code.split('\n');
     for (const l of lines) {
       const printMatchC = l.match(/printf\s*\(\s*"(.*?)(?:\\n)?"/);

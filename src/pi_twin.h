@@ -32,6 +32,13 @@ void twin_lcd_clear(void);
 void twin_lcd_print(const char* text);
 void twin_lcd_set_cursor(int row, int col);
 
+// Hardware PWM Controller (GPIO 18 / PWM0 · Pin 12)
+void twin_pwm_init(int channel, float freq_hz);
+void twin_pwm_start(int channel, float duty_cycle);
+void twin_pwm_set_duty(int channel, float duty_cycle);
+void twin_pwm_set_freq(int channel, float freq_hz);
+void twin_pwm_stop(int channel);
+
 #ifdef __cplusplus
 }
 #endif

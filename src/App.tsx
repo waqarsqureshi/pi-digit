@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useDigitalTwin } from './hooks/useDigitalTwin';
 import { useTheme } from './hooks/useTheme';
-import { HeaderRibbon } from './components/HeaderRibbon';
+import { HeaderRibbon, WorkspaceLayout } from './components/HeaderRibbon';
 import { SenseHatTwin } from './components/SenseHatTwin';
 import { GpioHeaderTwin } from './components/GpioHeaderTwin';
 import { LcdDisplayTwin } from './components/LcdDisplayTwin';
@@ -29,6 +29,7 @@ export default function App() {
   const { theme, setTheme } = useTheme();
   const [activeView, setActiveView] = useState<'workspace' | 'camera' | 'help'>('workspace');
   const [selectedMode, setSelectedMode] = useState<'simulation' | 'emulation'>('emulation');
+  const [layoutMode, setLayoutMode] = useState<WorkspaceLayout>('grid');
   const [copiedMainError, setCopiedMainError] = useState(false);
 
   const {
@@ -134,11 +135,13 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
       data-theme={theme}
       className="min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-[var(--theme-accent)]/30 selection:text-[var(--theme-accent)] bg-[var(--theme-bg-app)] text-[var(--theme-text-main)]"
     >
-      {/* Top Header Ribbon with Theme Switcher & Navigation */}
+      {/* Top Header Ribbon with Theme Switcher, Layout Selector & Navigation */}
       <HeaderRibbon
         state={state}
         activeView={activeView}
         setActiveView={setActiveView}
+        layoutMode={layoutMode}
+        onSelectLayout={setLayoutMode}
         selectedMode={selectedMode}
         onSetMode={handleSetMode}
         onConnectHardware={() => connectHardware()}
@@ -156,6 +159,8 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
         <UnifiedWorkspace
           state={state}
           terminalOutputs={terminalOutputs}
+          layoutMode={layoutMode}
+          onSelectLayout={setLayoutMode}
           onSetPixel={setPixel}
           onClearMatrix={clearMatrix}
           onSetMatrixPattern={setMatrixPattern}

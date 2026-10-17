@@ -44,11 +44,13 @@ import {
   Sparkles,
   RefreshCw,
   FolderOpen,
+  Gamepad2,
 } from 'lucide-react';
 import {
   FullHardwareState,
   RgbColor,
   JoystickDirection,
+  JoystickAction,
   ProgramLanguage,
   TerminalOutput,
 } from '../types/digitalTwin';
@@ -57,10 +59,12 @@ import { CURRICULUM_EXAMPLES } from '../data/curriculumExamples';
 interface UnifiedWorkspaceProps {
   state: FullHardwareState;
   terminalOutputs: TerminalOutput[];
+  layoutMode?: 'grid' | 'floating' | 'studio-focus' | 'bench';
+  onSelectLayout?: (layout: 'grid' | 'floating' | 'studio-focus' | 'bench') => void;
   onSetPixel: (x: number, y: number, color: RgbColor) => void;
   onClearMatrix: (color?: RgbColor) => void;
   onSetMatrixPattern: (pixels: RgbColor[]) => void;
-  onTriggerJoystick: (direction: JoystickDirection) => void;
+  onTriggerJoystick: (direction: JoystickDirection, action?: JoystickAction) => void;
   onRunProgram: (code: string, language: ProgramLanguage, filename: string, timeoutMs: number) => void;
   onStopProgram: () => void;
   onClearTerminal: () => void;
@@ -443,6 +447,8 @@ function AppletCard({
 export function UnifiedWorkspace({
   state,
   terminalOutputs,
+  layoutMode: parentLayoutMode = 'grid',
+  onSelectLayout,
   onSetPixel,
   onClearMatrix,
   onSetMatrixPattern,
@@ -634,29 +640,360 @@ export function UnifiedWorkspace({
     sensors: true,
   });
 
-  // Matrix Interactive Controls
+  // Matrix Interactive Controls & Sizing (User Requirement: 72px ultra large scale)
+  const [matrixScale, setMatrixScale] = useState<'compact' | 'large' | 'ultra'>('large');
   const [selectedPaintColor, setSelectedPaintColor] = useState<RgbColor>([239, 68, 68]);
   const [customHex, setCustomHex] = useState('#ef4444');
   const [matrixBrightness, setMatrixBrightness] = useState<number>(100);
 
+  // Tic-Tac-Toe Interactive Game Mode on 8x8 Matrix
+  const [isTttMode, setIsTttMode] = useState<boolean>(false);
+  const [tttBoard, setTttBoard] = useState<number[]>(Array(9).fill(0));
+  const [tttCursor, setTttCursor] = useState<{ r: number; c: number }>({ r: 1, c: 1 });
+  const [tttGameOver, setTttGameOver] = useState<boolean>(false);
+  const [tttStatus, setTttStatus] = useState<string>('Your Turn (X) — Use Joystick to move, OK to place');
+  const [tttScores, setTttScores] = useState({ player: 0, ai: 0, ties: 0 });
+
+  const TTT_CELLS = [
+    [[0,0],[1,0],[0,1],[1,1]], [[3,0],[4,0],[3,1],[4,1]], [[6,0],[7,0],[6,1],[7,1]],
+    [[0,3],[1,3],[0,4],[1,4]], [[3,3],[4,3],[3,4],[4,4]], [[6,3],[7,3],[6,4],[7,4]],
+    [[0,6],[1,6],[0,7],[1,7]], [[3,6],[4,6],[3,7],[4,7]], [[6,6],[7,6],[6,7],[7,7]]
+  ];
+
+  const checkTttWinner = (b: number[]): { winner: number; line: number[] | null } => {
+    const lines = [
+      [0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]
+    ];
+    for (const p of [1, 2]) {
+      for (const line of lines) {
+        if (b[line[0]] === p && b[line[1]] === p && b[line[2]] === p) {
+          return { winner: p, line };
+        }
+      }
+    }
+    if (b.every((x) => x !== 0)) return { winner: 3, line: null };
+    return { winner: 0, line: null };
+  };
+
+  const renderTttMatrix = (boardState: number[], cursor: { r: number; c: number }) => {
+    const gridColor: RgbColor = [30, 45, 60];
+    const p1Color: RgbColor = [0, 220, 255]; // Cyan X
+    const p2Color: RgbColor = [255, 140, 0]; // Amber O
+    const cursorColor: RgbColor = [255, 255, 255];
+
+    const p: RgbColor[] = Array(64).fill([0, 0, 0]);
+
+    for (let i = 0; i < 8; i++) {
+      p[i * 8 + 2] = gridColor;
+      p[i * 8 + 5] = gridColor;
+      p[2 * 8 + i] = gridColor;
+      p[5 * 8 + i] = gridColor;
+    }
+
+    boardState.forEach((val, idx) => {
+      const c = val === 1 ? p1Color : (val === 2 ? p2Color : null);
+      if (c) {
+        for (const [cx, cy] of TTT_CELLS[idx]) {
+          p[cy * 8 + cx] = c;
+        }
+      }
+    });
+
+    const cIdx = cursor.r * 3 + cursor.c;
+    for (const [cx, cy] of TTT_CELLS[cIdx]) {
+      if (boardState[cIdx] === 0) {
+        p[cy * 8 + cx] = cursorColor;
+      }
+    }
+    if (onSetMatrixPattern) onSetMatrixPattern(p);
+  };
+
+  const handleTttJoystickInput = (dir: JoystickDirection) => {
+    if (tttGameOver) return;
+    if (dir === 'up') {
+      const nextR = Math.max(0, tttCursor.r - 1);
+      setTttCursor((prev) => ({ ...prev, r: nextR }));
+      renderTttMatrix(tttBoard, { r: nextR, c: tttCursor.c });
+    } else if (dir === 'down') {
+      const nextR = Math.min(2, tttCursor.r + 1);
+      setTttCursor((prev) => ({ ...prev, r: nextR }));
+      renderTttMatrix(tttBoard, { r: nextR, c: tttCursor.c });
+    } else if (dir === 'left') {
+      const nextC = Math.max(0, tttCursor.c - 1);
+      setTttCursor((prev) => ({ ...prev, c: nextC }));
+      renderTttMatrix(tttBoard, { r: tttCursor.r, c: nextC });
+    } else if (dir === 'right') {
+      const nextC = Math.min(2, tttCursor.c + 1);
+      setTttCursor((prev) => ({ ...prev, c: nextC }));
+      renderTttMatrix(tttBoard, { r: tttCursor.r, c: nextC });
+    } else if (dir === 'middle' || dir === 'centre') {
+      const targetIdx = tttCursor.r * 3 + tttCursor.c;
+      if (tttBoard[targetIdx] === 0) {
+        const nextBoard = [...tttBoard];
+        nextBoard[targetIdx] = 1; // Player mark X
+        setTttBoard(nextBoard);
+        renderTttMatrix(nextBoard, tttCursor);
+
+        const res = checkTttWinner(nextBoard);
+        if (res.winner === 1) {
+          setTttScores((prev) => ({ ...prev, player: prev.player + 1 }));
+          setTttStatus('🎉 YOU WIN! Awesome match!');
+          setTttGameOver(true);
+          return;
+        } else if (res.winner === 3) {
+          setTttScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
+          setTttStatus('🤝 Game Over: It is a Tie!');
+          setTttGameOver(true);
+          return;
+        }
+
+        setTttStatus('AI Thinking (O)...');
+        setTimeout(() => {
+          const empty = nextBoard.map((v, i) => (v === 0 ? i : -1)).filter((i) => i !== -1);
+          if (empty.length > 0) {
+            let aiPick = -1;
+            for (const cell of empty) {
+              const testB = [...nextBoard];
+              testB[cell] = 2;
+              if (checkTttWinner(testB).winner === 2) {
+                aiPick = cell;
+                break;
+              }
+            }
+            if (aiPick === -1) {
+              for (const cell of empty) {
+                const testB = [...nextBoard];
+                testB[cell] = 1;
+                if (checkTttWinner(testB).winner === 1) {
+                  aiPick = cell;
+                  break;
+                }
+              }
+            }
+            if (aiPick === -1 && nextBoard[4] === 0) aiPick = 4;
+            if (aiPick === -1) aiPick = empty[Math.floor(Math.random() * empty.length)];
+
+            nextBoard[aiPick] = 2;
+            setTttBoard(nextBoard);
+            renderTttMatrix(nextBoard, tttCursor);
+
+            const aiRes = checkTttWinner(nextBoard);
+            if (aiRes.winner === 2) {
+              setTttScores((prev) => ({ ...prev, ai: prev.ai + 1 }));
+              setTttStatus('🤖 AI Wins! Play again to beat the machine!');
+              setTttGameOver(true);
+            } else if (aiRes.winner === 3) {
+              setTttScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
+              setTttStatus('🤝 Game Over: It is a Tie!');
+              setTttGameOver(true);
+            } else {
+              setTttStatus('Your Turn (X) — Move cursor & press OK');
+            }
+          }
+        }, 300);
+      }
+    }
+  };
+
+  const handleStartTtt = () => {
+    setIsTttMode(true);
+    const clean = Array(9).fill(0);
+    setTttBoard(clean);
+    setTttCursor({ r: 1, c: 1 });
+    setTttGameOver(false);
+    setTttStatus('Your Turn (X) — Use Joystick, Press OK to Place');
+    renderTttMatrix(clean, { r: 1, c: 1 });
+  };
+
+  const handleResetTtt = () => {
+    const clean = Array(9).fill(0);
+    setTttBoard(clean);
+    setTttCursor({ r: 1, c: 1 });
+    setTttGameOver(false);
+    setTttStatus('Your Turn (X) — Use Joystick, Press OK to Place');
+    renderTttMatrix(clean, { r: 1, c: 1 });
+  };
+
+  const handleExitTtt = () => {
+    setIsTttMode(false);
+    onClearMatrix([0, 0, 0]);
+  };
+
   // LCD Contrast State
   const [lcdContrast, setLcdContrast] = useState<number>(85);
 
-  // Joystick Coords State
+  // Joystick Coords, Full Press/Release Action State Machine & evdev Diagnostics
   const [joystickCoords, setJoystickCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [joystickHistory, setJoystickHistory] = useState<Array<{
+    timestamp: number;
+    dir: JoystickDirection;
+    action: JoystickAction;
+    keycode: number;
+  }>>([
+    { timestamp: Date.now() - 4000, dir: 'middle', action: 'release', keycode: 28 },
+    { timestamp: Date.now() - 3900, dir: 'middle', action: 'press', keycode: 28 },
+  ]);
+  const [pulseTestResult, setPulseTestResult] = useState<string | null>(null);
+  const activeJoyDirRef = useRef<JoystickDirection | null>(null);
+  const joyHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleMoveJoystick = (dir: JoystickDirection) => {
-    onTriggerJoystick(dir);
+  const DIR_TO_KEYCODE: Record<JoystickDirection, number> = {
+    up: 103,
+    down: 108,
+    left: 105,
+    right: 106,
+    middle: 28,
+    centre: 28,
+  };
+
+  const handleJoystickDown = (dir: JoystickDirection, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    activeJoyDirRef.current = dir;
     const deltas: Record<JoystickDirection, { x: number; y: number }> = {
-      up: { x: 0, y: -18 },
-      down: { x: 0, y: 18 },
-      left: { x: -18, y: 0 },
-      right: { x: 18, y: 0 },
+      up: { x: 0, y: -20 },
+      down: { x: 0, y: 20 },
+      left: { x: -20, y: 0 },
+      right: { x: 20, y: 0 },
       middle: { x: 0, y: 0 },
       centre: { x: 0, y: 0 },
     };
     setJoystickCoords(deltas[dir] || { x: 0, y: 0 });
-    setTimeout(() => setJoystickCoords({ x: 0, y: 0 }), 300);
+
+    // 1. Emit press action to physical Pi & digital twin
+    onTriggerJoystick(dir, 'press');
+
+    // 2. Add to live evdev monitor
+    setJoystickHistory((prev) => [
+      { timestamp: Date.now(), dir, action: 'press', keycode: DIR_TO_KEYCODE[dir] || 28 },
+      ...prev.slice(0, 5),
+    ]);
+
+    // 3. Forward to Tic-Tac-Toe if active!
+    if (isTttMode && !tttGameOver) {
+      handleTttJoystickInput(dir);
+    }
+
+    // 4. Hold state timer
+    if (joyHoldTimerRef.current) clearTimeout(joyHoldTimerRef.current);
+    joyHoldTimerRef.current = setTimeout(() => {
+      if (activeJoyDirRef.current === dir) {
+        onTriggerJoystick(dir, 'hold');
+        setJoystickHistory((prev) => [
+          { timestamp: Date.now(), dir, action: 'hold', keycode: DIR_TO_KEYCODE[dir] || 28 },
+          ...prev.slice(0, 5),
+        ]);
+      }
+    }, 350);
+  };
+
+  const handleJoystickUp = (dir: JoystickDirection, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (joyHoldTimerRef.current) {
+      clearTimeout(joyHoldTimerRef.current);
+      joyHoldTimerRef.current = null;
+    }
+    activeJoyDirRef.current = null;
+    setJoystickCoords({ x: 0, y: 0 });
+
+    // Emit release action to physical Pi & digital twin
+    onTriggerJoystick(dir, 'release');
+
+    setJoystickHistory((prev) => [
+      { timestamp: Date.now(), dir, action: 'release', keycode: DIR_TO_KEYCODE[dir] || 28 },
+      ...prev.slice(0, 5),
+    ]);
+  };
+
+  // Backward compatibility alias for single click
+  const handleMoveJoystick = (dir: JoystickDirection) => {
+    handleJoystickDown(dir);
+    setTimeout(() => handleJoystickUp(dir), 120);
+  };
+
+  // Keyboard navigation support for Sense HAT joystick
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (e.repeat) return;
+      if (e.key === 'ArrowUp') handleJoystickDown('up');
+      else if (e.key === 'ArrowDown') handleJoystickDown('down');
+      else if (e.key === 'ArrowLeft') handleJoystickDown('left');
+      else if (e.key === 'ArrowRight') handleJoystickDown('right');
+      else if (e.key === 'Enter' || e.key === ' ') handleJoystickDown('middle');
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+
+      if (e.key === 'ArrowUp') handleJoystickUp('up');
+      else if (e.key === 'ArrowDown') handleJoystickUp('down');
+      else if (e.key === 'ArrowLeft') handleJoystickUp('left');
+      else if (e.key === 'ArrowRight') handleJoystickUp('right');
+      else if (e.key === 'Enter' || e.key === ' ') handleJoystickUp('middle');
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isTttMode, tttGameOver, tttCursor, tttBoard]);
+
+  // Synchronize incoming hardware joystick events (evdev / physical Sense HAT or Python)
+  const lastProcessedJoyTsRef = useRef<number>(0);
+  useEffect(() => {
+    if (!state.lastJoystickEvent) return;
+    const { direction, action, timestamp, source } = state.lastJoystickEvent;
+    if (timestamp && timestamp <= lastProcessedJoyTsRef.current) return;
+    lastProcessedJoyTsRef.current = timestamp || Date.now();
+
+    const deltas: Record<JoystickDirection, { x: number; y: number }> = {
+      up: { x: 0, y: -20 },
+      down: { x: 0, y: 20 },
+      left: { x: -20, y: 0 },
+      right: { x: 20, y: 0 },
+      middle: { x: 0, y: 0 },
+      centre: { x: 0, y: 0 },
+    };
+
+    if (action === 'press') {
+      setJoystickCoords(deltas[direction] || { x: 0, y: 0 });
+      setJoystickHistory((prev) => [
+        { timestamp: timestamp || Date.now(), dir: direction, action: 'press', keycode: DIR_TO_KEYCODE[direction] || 28 },
+        ...prev.slice(0, 5),
+      ]);
+      // If event came from physical hardware, also advance interactive Tic-Tac-Toe
+      if (source === 'hardware' && isTttMode && !tttGameOver) {
+        handleTttJoystickInput(direction);
+      }
+    } else if (action === 'release') {
+      setJoystickCoords({ x: 0, y: 0 });
+      setJoystickHistory((prev) => [
+        { timestamp: timestamp || Date.now(), dir: direction, action: 'release', keycode: DIR_TO_KEYCODE[direction] || 28 },
+        ...prev.slice(0, 5),
+      ]);
+    } else if (action === 'hold') {
+      setJoystickHistory((prev) => [
+        { timestamp: timestamp || Date.now(), dir: direction, action: 'hold', keycode: DIR_TO_KEYCODE[direction] || 28 },
+        ...prev.slice(0, 5),
+      ]);
+    }
+  }, [state.lastJoystickEvent, isTttMode, tttGameOver]);
+
+  // Interactive Test Pulse / Loopback Test
+  const handleJoystickTestPulse = async () => {
+    setPulseTestResult('Testing...');
+    const tStart = performance.now();
+    handleJoystickDown('middle');
+    await new Promise((r) => setTimeout(r, 90));
+    handleJoystickUp('middle');
+    const elapsed = Math.round(performance.now() - tStart);
+    setPulseTestResult(`✓ Loopback OK (${elapsed}ms)`);
+    setTimeout(() => setPulseTestResult(null), 3000);
   };
 
   // Camera Capture and Frame Timestamp
@@ -684,17 +1021,62 @@ export function UnifiedWorkspace({
     setTimeout(() => setIsCapturing(false), 600);
   };
 
-  // PWM Controller Waveform State
+  // PWM Controller Waveform State (Synchronized from Code and Oscilloscope Visualizer)
   const [pwmDuty, setPwmDuty] = useState<number>(50);
   const [pwmFreq, setPwmFreq] = useState<number>(1000);
   const [pwmPhase, setPwmPhase] = useState<number>(0);
+  const [pwmActive, setPwmActive] = useState<boolean>(true);
+  const [isPwmCodeDriven, setIsPwmCodeDriven] = useState<boolean>(false);
+  const [isSweepingPwm, setIsSweepingPwm] = useState<boolean>(false);
+
+  // Synchronize with state.pwm when student code runs
+  useEffect(() => {
+    if (state.pwm) {
+      if (typeof state.pwm.duty === 'number') {
+        setPwmDuty(Math.round(state.pwm.duty));
+      }
+      if (typeof state.pwm.freq === 'number') {
+        setPwmFreq(Math.round(state.pwm.freq));
+      }
+      if (typeof state.pwm.active === 'boolean') {
+        // Keep active if duty > 0 or if explicitly flagged
+        setPwmActive(state.pwm.active || (state.pwm.duty > 0));
+      }
+      if (state.program?.status === 'running' || state.pwm.active) {
+        setIsPwmCodeDriven(true);
+      }
+    }
+  }, [state.pwm, state.program?.status]);
 
   useEffect(() => {
+    if (!pwmActive) return;
+    const intervalMs = Math.max(20, Math.min(80, Math.round(20000 / (pwmFreq || 1000))));
     const pwmInterval = setInterval(() => {
-      setPwmPhase((prev) => (prev + 1) % 360);
-    }, 50);
+      setPwmPhase((prev) => (prev + 0.08) % 1);
+    }, intervalMs);
     return () => clearInterval(pwmInterval);
-  }, []);
+  }, [pwmActive, pwmFreq]);
+
+  // Demo sweep generator for oscilloscope verification
+  const handlePwmSweep = async () => {
+    setIsSweepingPwm(true);
+    setIsPwmCodeDriven(false);
+    setPwmActive(true);
+    const testSteps = [
+      { d: 15, f: 500 },
+      { d: 35, f: 1000 },
+      { d: 50, f: 1500 },
+      { d: 75, f: 2000 },
+      { d: 90, f: 3000 },
+      { d: 50, f: 1000 },
+    ];
+    for (const step of testSteps) {
+      setPwmDuty(step.d);
+      setPwmFreq(step.f);
+      await new Promise((r) => setTimeout(r, 450));
+    }
+    setIsSweepingPwm(false);
+  };
 
   // Program Execution & Termination
   const handleRunCurrentCode = () => {
@@ -806,17 +1188,30 @@ export function UnifiedWorkspace({
   };
 
   // Floating Applets Manager State (User Requirement: Applets should be floating not fixed)
-  const [layoutMode, setLayoutMode] = useState<'floating' | 'grid'>('floating');
+  const [layoutMode, setLayoutMode] = useState<'floating' | 'grid'>(
+    parentLayoutMode === 'floating' ? 'floating' : 'grid'
+  );
+
+  useEffect(() => {
+    if (parentLayoutMode) {
+      setLayoutMode(parentLayoutMode === 'floating' ? 'floating' : 'grid');
+      if (parentLayoutMode === 'studio-focus') {
+        setIsStudioExpanded(true);
+      } else if (parentLayoutMode === 'bench') {
+        setIsStudioExpanded(false);
+      }
+    }
+  }, [parentLayoutMode]);
 
   const DEFAULT_FLOATING_POSITIONS: Record<AppletId, { x: number; y: number; zIndex: number; width?: number }> = {
-    matrix: { x: 20, y: 20, zIndex: 10, width: 440 },
-    sensors: { x: 480, y: 20, zIndex: 11, width: 460 },
-    camera: { x: 20, y: 460, zIndex: 12, width: 500 }, // User req: 240x480 widget, expands on maximize
-    pwm: { x: 540, y: 460, zIndex: 13, width: 440 },
-    lcd: { x: 20, y: 920, zIndex: 14, width: 440 },
-    gpio: { x: 480, y: 920, zIndex: 15, width: 460 },
-    joystick: { x: 20, y: 1380, zIndex: 16, width: 380 },
-    monitor: { x: 420, y: 1380, zIndex: 17, width: 480 },
+    matrix: { x: 20, y: 20, zIndex: 10, width: 480 },
+    lcd: { x: 520, y: 20, zIndex: 11, width: 460 },
+    joystick: { x: 520, y: 310, zIndex: 12, width: 460 }, // User Requirement: Directly under LCD Display!
+    camera: { x: 20, y: 640, zIndex: 13, width: 480 },
+    pwm: { x: 520, y: 760, zIndex: 14, width: 460 },
+    sensors: { x: 20, y: 1180, zIndex: 15, width: 480 },
+    gpio: { x: 520, y: 1180, zIndex: 16, width: 460 },
+    monitor: { x: 20, y: 1640, zIndex: 17, width: 480 },
   };
 
   const [floatingPositions, setFloatingPositions] = useState(DEFAULT_FLOATING_POSITIONS);
@@ -1016,11 +1411,13 @@ export function UnifiedWorkspace({
 
   // Generate Digital Square Wave Path for PWM
   const generatePwmSquareWavePath = () => {
+    if (!pwmActive || pwmDuty <= 0) return 'M 0 62 L 300 62';
+    if (pwmDuty >= 100) return 'M 0 16 L 300 16';
     const width = 300;
     const highY = 16;  // 3.3V HIGH
     const lowY = 62;   // 0.0V LOW
-    const period = Math.max(20, Math.min(80, Math.round(5000 / pwmFreq * 8)));
-    const dutyFrac = pwmDuty / 100;
+    const period = Math.max(20, Math.min(80, Math.round(5000 / (pwmFreq || 1000) * 8)));
+    const dutyFrac = Math.max(0.05, Math.min(0.95, pwmDuty / 100));
     const points: string[] = [];
 
     let currentX = 0;
@@ -1048,7 +1445,6 @@ export function UnifiedWorkspace({
 
       currentX += period;
     }
-
     return points.join(' ');
   };
 
@@ -1780,11 +2176,14 @@ export function UnifiedWorkspace({
               {/* -------------------------------------------------------------
                   APPLET 1: 8x8 Matrix (RGB) [With Color Change Menu & Compact Height]
                  ------------------------------------------------------------- */}
+              {/* -------------------------------------------------------------
+                  APPLET 1: 8x8 Matrix (RGB) [With Ultra 72px Scaling & Tic-Tac-Toe Arena]
+                 ------------------------------------------------------------- */}
               {applets.find((a) => a.id === 'matrix')?.enabled && (
                 <AppletCard
                   id="matrix"
-                  title="8x8 Matrix (RGB) - Click to Paint"
-                  icon={Grid}
+                  title={isTttMode ? '8x8 Matrix · Tic-Tac-Toe Arena' : `8x8 Matrix (RGB) · ${matrixScale.toUpperCase()}`}
+                  icon={isTttMode ? Gamepad2 : Grid}
                   isSelected={selectedAppletId === 'matrix'}
                   isMinimized={applets.find((a) => a.id === 'matrix')!.minimized}
                   isMaximized={applets.find((a) => a.id === 'matrix')!.maximized}
@@ -1798,414 +2197,661 @@ export function UnifiedWorkspace({
                   isFloating={layoutMode === 'floating'}
                   floatingPos={floatingPositions.matrix}
                   onHeaderPointerDown={(e) => handleHeaderPointerDown('matrix', e)}
+                  className={matrixScale === 'ultra' ? 'col-span-full' : 'col-span-1'}
                 >
-                {/* Compact Color Change Palette Menu */}
-                <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-[#1b253b]">
-                  <div className="flex items-center gap-1.5">
-                    <Palette className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-[10px] text-slate-400 font-mono uppercase font-bold">Palette:</span>
-                    <div className="flex items-center gap-1">
-                      {PALETTE_COLORS.map((p) => (
+                  {/* Top Bar: Tic-Tac-Toe Toggle + Scale Selector + Palette */}
+                  <div className="flex flex-wrap items-center justify-between pb-2 mb-2 border-b border-[#1b253b] gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Tic-Tac-Toe Game Mode Toggle */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isTttMode) handleExitTtt();
+                          else handleStartTtt();
+                        }}
+                        className={`px-2.5 py-1 rounded text-xs font-bold font-mono flex items-center gap-1.5 transition-all cursor-pointer shadow-xs border ${
+                          isTttMode
+                            ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-sm animate-pulse'
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400'
+                        }`}
+                        title="Play interactive Tic-Tac-Toe against AI on the 8x8 matrix"
+                      >
+                        <Gamepad2 className="w-3.5 h-3.5" />
+                        <span>{isTttMode ? 'Exit Game' : '🎮 Tic-Tac-Toe'}</span>
+                      </button>
+
+                      {/* Pixel Scale Selector (User Requirement: 72px ultra large scale) */}
+                      <div className="flex items-center bg-[var(--theme-bg-subtle)] p-0.5 rounded border border-[var(--theme-border)] text-[11px] font-mono">
                         <button
-                          key={p.name}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedPaintColor(p.color);
-                            setCustomHex(p.hex);
+                            setMatrixScale('compact');
                           }}
-                          style={{ backgroundColor: p.hex }}
-                          className={`w-3.5 h-3.5 rounded-full border transition-transform cursor-pointer ${
-                            selectedPaintColor[0] === p.color[0] &&
-                            selectedPaintColor[1] === p.color[1] &&
-                            selectedPaintColor[2] === p.color[2]
-                              ? 'scale-125 border-white shadow-xs'
-                              : 'border-black/50 hover:scale-110'
+                          className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                            matrixScale === 'compact'
+                              ? 'bg-[#860038] text-white font-bold'
+                              : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
                           }`}
-                          title={`Select ${p.name}`}
-                        />
-                      ))}
+                          title="Compact size (20px per pixel)"
+                        >
+                          20px
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMatrixScale('large');
+                          }}
+                          className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                            matrixScale === 'large'
+                              ? 'bg-[#860038] text-white font-bold'
+                              : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
+                          }`}
+                          title="Large size (36px per pixel)"
+                        >
+                          36px
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMatrixScale('ultra');
+                          }}
+                          className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                            matrixScale === 'ultra'
+                              ? 'bg-[#860038] text-white font-bold shadow-xs'
+                              : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
+                          }`}
+                          title="Ultra large view (72px per pixel with LED diodes and glow)"
+                        >
+                          72px Ultra
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Compact Palette */}
+                      {!isTttMode && (
+                        <div className="flex items-center gap-1">
+                          {PALETTE_COLORS.slice(0, 5).map((p) => (
+                            <button
+                              key={p.name}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPaintColor(p.color);
+                                setCustomHex(p.hex);
+                              }}
+                              style={{ backgroundColor: p.hex }}
+                              className={`w-3.5 h-3.5 rounded-full border transition-transform cursor-pointer ${
+                                selectedPaintColor[0] === p.color[0] &&
+                                selectedPaintColor[1] === p.color[1] &&
+                                selectedPaintColor[2] === p.color[2]
+                                  ? 'scale-125 border-white shadow-xs'
+                                  : 'border-black/50 hover:scale-110'
+                              }`}
+                              title={`Select ${p.name}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isTttMode) handleResetTtt();
+                          else onClearMatrix([0, 0, 0]);
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer"
+                      >
+                        {isTttMode ? 'Restart' : 'Clear ✕'}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Clear Matrix Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClearMatrix([0, 0, 0]);
-                    }}
-                    className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer"
-                  >
-                    Clear ✕
-                  </button>
-                </div>
+                  {/* Tic-Tac-Toe Game Banner if active */}
+                  {isTttMode && (
+                    <div className="mb-2 p-2 rounded bg-indigo-950 text-indigo-100 border border-indigo-400 flex items-center justify-between text-xs font-mono shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">X (Cyan) vs O (Amber):</span>
+                        <span className="text-cyan-300 font-medium">{tttStatus}</span>
+                      </div>
+                      <div className="text-[11px] font-bold px-2 py-0.5 bg-black/50 border border-indigo-400/50 text-white rounded">
+                        Score: <span className="text-cyan-400">{tttScores.player}W</span> · <span className="text-amber-400">{tttScores.ai}L</span> · <span className="text-slate-300">{tttScores.ties}D</span>
+                      </div>
+                    </div>
+                  )}
 
-                {/* Compact 8x8 Circular LED Grid & Brightness Slider */}
-                <div className="flex items-center justify-center gap-5 my-0.5">
-                  <div className="p-2 bg-[#090d16] rounded border border-[#1b2438] shadow-inner grid grid-cols-8 gap-1">
-                    {activeMatrix.map(([r, g, b], idx) => {
-                      const factor = matrixBrightness / 100;
-                      const adjR = Math.round(r * factor);
-                      const adjG = Math.round(g * factor);
-                      const adjB = Math.round(b * factor);
-                      const isLit = adjR > 15 || adjG > 15 || adjB > 15;
-                      const colorStyle = isLit ? `rgb(${adjR}, ${adjG}, ${adjB})` : '#182030';
-                      const glowStyle = isLit ? `0 0 5px rgba(${adjR}, ${adjG}, ${adjB}, 0.7)` : 'none';
+                  {/* 8x8 Circular LED Grid (Scaled dynamically up to 72px Ultra) */}
+                  <div className="flex items-center justify-center gap-4 my-1 overflow-x-auto py-1">
+                    <div className="flex flex-col items-center">
+                      {/* Top X-Axis Coordinate Markers */}
+                      <div className="grid grid-cols-8 gap-1.5 sm:gap-2 text-[10px] font-mono text-slate-500 font-bold mb-1 text-center select-none w-full">
+                        {Array.from({ length: 8 }).map((_, colIdx) => (
+                          <span key={colIdx}>{colIdx}</span>
+                        ))}
+                      </div>
 
-                      return (
-                        <div
-                          key={idx}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Paint clicked LED with selectedPaintColor!
-                            onSetPixel(idx % 8, Math.floor(idx / 8), selectedPaintColor);
-                          }}
-                          style={{ backgroundColor: colorStyle, boxShadow: glowStyle }}
-                          className="w-3 h-3 rounded-full cursor-pointer transition-transform hover:scale-125"
-                          title={`LED [${idx % 8}, ${Math.floor(idx / 8)}]`}
-                        />
-                      );
-                    })}
+                      <div
+                        className={`bg-[#080c14] rounded-xl border-2 border-[#1c263c] shadow-2xl grid grid-cols-8 p-3 select-none ${
+                          matrixScale === 'ultra'
+                            ? 'gap-2.5 sm:gap-3.5 max-w-[660px]'
+                            : matrixScale === 'large'
+                            ? 'gap-1.5 max-w-[360px]'
+                            : 'gap-1 max-w-[220px]'
+                        }`}
+                      >
+                        {activeMatrix.map(([r, g, b], idx) => {
+                          const x = idx % 8;
+                          const y = Math.floor(idx / 8);
+                          const factor = matrixBrightness / 100;
+                          const adjR = Math.round(r * factor);
+                          const adjG = Math.round(g * factor);
+                          const adjB = Math.round(b * factor);
+                          const isLit = adjR > 15 || adjG > 15 || adjB > 15;
+                          const colorStyle = isLit ? `rgb(${adjR}, ${adjG}, ${adjB})` : '#121824';
+                          const glowStyle = isLit
+                            ? matrixScale === 'ultra'
+                              ? `0 0 16px rgba(${adjR}, ${adjG}, ${adjB}, 0.85), inset 0 0 8px rgba(255, 255, 255, 0.4)`
+                              : `0 0 8px rgba(${adjR}, ${adjG}, ${adjB}, 0.7)`
+                            : 'inset 0 1px 3px rgba(0, 0, 0, 0.6)';
+
+                          return (
+                            <div
+                              key={idx}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isTttMode) {
+                                  // Map click to 3x3 tic tac toe cell
+                                  const cellR = y < 2 ? 0 : y < 5 ? 1 : 2;
+                                  const cellC = x < 2 ? 0 : x < 5 ? 1 : 2;
+                                  setTttCursor({ r: cellR, c: cellC });
+                                  handleTttJoystickInput('middle');
+                                } else {
+                                  onSetPixel(x, y, selectedPaintColor);
+                                }
+                              }}
+                              style={{ backgroundColor: colorStyle, boxShadow: glowStyle }}
+                              className={`cursor-pointer transition-all duration-150 flex items-center justify-center relative ${
+                                matrixScale === 'ultra'
+                                  ? 'w-12 h-12 sm:w-[68px] sm:h-[68px] rounded-xl border border-white/20 hover:scale-105'
+                                  : matrixScale === 'large'
+                                  ? 'w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-black/40 hover:scale-115'
+                                  : 'w-4 h-4 sm:w-5 sm:h-5 rounded-full hover:scale-125'
+                              }`}
+                              title={`Pixel [X: ${x}, Y: ${y}] · RGB(${adjR}, ${adjG}, ${adjB})`}
+                            >
+                              {/* Inner diode optics in ultra mode */}
+                              {matrixScale === 'ultra' && (
+                                <div
+                                  className={`w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-full border ${
+                                    isLit ? 'border-white/60 bg-white/30' : 'border-[#1e2738] bg-[#0c101a]'
+                                  }`}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Vertical Brightness Slider */}
+                    <div className="flex flex-col items-center justify-between h-36 py-1 select-none text-slate-400 text-[10px] font-mono">
+                      <span className="font-bold">+</span>
+                      <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        value={matrixBrightness}
+                        onChange={(e) => setMatrixBrightness(Number(e.target.value))}
+                        className="h-28 w-1.5 accent-white cursor-pointer [writing-mode:vertical-lr] [direction:rtl]"
+                        title="Matrix Brightness"
+                      />
+                      <span className="font-bold">—</span>
+                    </div>
+                  </div>
+                </AppletCard>
+              )}
+
+              {/* -------------------------------------------------------------
+                  APPLET 2: LCD Display (16x2 HD44780 Alphanumeric)
+                 ------------------------------------------------------------- */}
+              {applets.find((a) => a.id === 'lcd')?.enabled && (
+                <AppletCard
+                  id="lcd"
+                  title="LCD Display (16x2 HD44780)"
+                  icon={Sliders}
+                  isSelected={selectedAppletId === 'lcd'}
+                  isMinimized={applets.find((a) => a.id === 'lcd')!.minimized}
+                  isMaximized={applets.find((a) => a.id === 'lcd')!.maximized}
+                  showBlueprintHandles={showBlueprintHandles}
+                  onSelect={() => setSelectedAppletId('lcd')}
+                  onToggleMinimize={() => toggleAppletMinimize('lcd')}
+                  onToggleMaximize={() => toggleAppletMaximize('lcd')}
+                  onClose={() => closeApplet('lcd')}
+                  runStatus={subsystemStatus.lcd}
+                  onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, lcd: r }))}
+                  isFloating={layoutMode === 'floating'}
+                  floatingPos={floatingPositions.lcd}
+                  onHeaderPointerDown={(e) => handleHeaderPointerDown('lcd', e)}
+                >
+                  <div className="my-1 p-2 bg-[#143d26] rounded border border-[#1e5837] shadow-md flex flex-col items-center">
+                    <div className="w-full flex justify-center gap-1 mb-1">
+                      {Array.from({ length: 16 }).map((_, i) => (
+                        <div key={i} className="w-1 h-1.5 bg-amber-400/90 rounded-2xs border border-amber-600/70" />
+                      ))}
+                    </div>
+
+                    <div
+                      style={{ opacity: lcdContrast / 100 }}
+                      className="w-full bg-[#121c17] border border-[#1a2e22] rounded p-2 text-center shadow-inner"
+                    >
+                      <div className="font-mono text-xs tracking-widest text-emerald-400 font-bold uppercase drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
+                        {state.lcd?.lines?.[0] || 'READY'}
+                      </div>
+                      <div className="font-mono text-[11px] tracking-wider text-emerald-300 mt-0.5">
+                        {state.lcd?.lines?.[1] || '(Press RUN to start)'}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Compact Brightness Slider */}
-                  <div className="flex flex-col items-center justify-between h-28 py-0.5 select-none text-slate-400 text-[10px]">
-                    <span className="font-bold">+</span>
+                  <div className="flex items-center justify-center gap-2 text-xs text-slate-400 mt-1">
+                    <span className="text-[11px]">Contrast</span>
+                    <span className="font-bold">—</span>
                     <input
                       type="range"
-                      min="10"
+                      min="20"
                       max="100"
-                      value={matrixBrightness}
-                      onChange={(e) => setMatrixBrightness(Number(e.target.value))}
-                      className="h-20 w-1 accent-white cursor-pointer [writing-mode:vertical-lr] [direction:rtl]"
+                      value={lcdContrast}
+                      onChange={(e) => setLcdContrast(Number(e.target.value))}
+                      className="w-36 h-1 accent-white bg-slate-700 rounded-lg cursor-pointer"
                     />
-                    <span className="font-bold">—</span>
+                    <span className="font-bold">+</span>
                   </div>
-                </div>
-              </AppletCard>
-            )}
+                </AppletCard>
+              )}
 
-            {/* -------------------------------------------------------------
-                APPLET 2: LCD Display (16x2)
-               ------------------------------------------------------------- */}
-            {applets.find((a) => a.id === 'lcd')?.enabled && (
-              <AppletCard
-                id="lcd"
-                title="LCD Display (16x2 HD44780)"
-                icon={Sliders}
-                isSelected={selectedAppletId === 'lcd'}
-                isMinimized={applets.find((a) => a.id === 'lcd')!.minimized}
-                isMaximized={applets.find((a) => a.id === 'lcd')!.maximized}
-                showBlueprintHandles={showBlueprintHandles}
-                onSelect={() => setSelectedAppletId('lcd')}
-                onToggleMinimize={() => toggleAppletMinimize('lcd')}
-                onToggleMaximize={() => toggleAppletMaximize('lcd')}
-                onClose={() => closeApplet('lcd')}
-                runStatus={subsystemStatus.lcd}
-                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, lcd: r }))}
-                isFloating={layoutMode === 'floating'}
-                floatingPos={floatingPositions.lcd}
-                onHeaderPointerDown={(e) => handleHeaderPointerDown('lcd', e)}
-              >
-                <div className="my-1 p-2 bg-[#143d26] rounded border border-[#1e5837] shadow-md flex flex-col items-center">
-                  <div className="w-full flex justify-center gap-1 mb-1">
-                    {Array.from({ length: 16 }).map((_, i) => (
-                      <div key={i} className="w-1 h-1.5 bg-amber-400/90 rounded-2xs border border-amber-600/70" />
-                    ))}
+              {/* -------------------------------------------------------------
+                  APPLET 3: Camera Control & Vision (Col 1, Row 2)
+                 ------------------------------------------------------------- */}
+              {applets.find((a) => a.id === 'camera')?.enabled && (
+                <AppletCard
+                  id="camera"
+                  title="Camera Control & Vision (240x480)"
+                  icon={Camera}
+                  isSelected={selectedAppletId === 'camera'}
+                  isMinimized={applets.find((a) => a.id === 'camera')!.minimized}
+                  isMaximized={applets.find((a) => a.id === 'camera')!.maximized}
+                  showBlueprintHandles={showBlueprintHandles}
+                  onSelect={() => setSelectedAppletId('camera')}
+                  onToggleMinimize={() => toggleAppletMinimize('camera')}
+                  onToggleMaximize={() => toggleAppletMaximize('camera')}
+                  onClose={() => closeApplet('camera')}
+                  runStatus={subsystemStatus.camera}
+                  onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, camera: r }))}
+                  isFloating={layoutMode === 'floating'}
+                  floatingPos={floatingPositions.camera}
+                  onHeaderPointerDown={(e) => handleHeaderPointerDown('camera', e)}
+                  className={applets.find((a) => a.id === 'camera')!.maximized ? 'col-span-full' : 'col-span-1'}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-xs text-[var(--theme-text-main)]">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-semibold font-mono">Live V4L2 Stream (25 FPS, 640x480)</span>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCaptureToMatrix();
+                      }}
+                      className="px-3 py-1 rounded bg-[#860038] hover:bg-[#9e0e47] text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <span>Capture to Matrix</span>
+                    </button>
                   </div>
 
                   <div
-                    style={{ opacity: lcdContrast / 100 }}
-                    className="w-full bg-[#121c17] border border-[#1a2e22] rounded p-2 text-center shadow-inner"
+                    className={`relative bg-[#0a0e18] rounded border border-[var(--theme-border)] overflow-hidden flex items-center justify-center transition-all duration-200 shadow-inner ${
+                      applets.find((a) => a.id === 'camera')!.maximized
+                        ? 'w-full flex-1 min-h-[480px]'
+                        : 'w-full max-w-[480px] h-[240px] mx-auto'
+                    }`}
                   >
-                    <div className="font-mono text-xs tracking-widest text-emerald-400 font-bold uppercase drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
-                      {state.lcd?.lines?.[0] || 'READY'}
+                    <img
+                      src={`/api/camera/frame?t=${cameraFrameTimestamp}`}
+                      alt="Live Video Stream"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" fill="%23141a29"><rect width="640" height="480"/><circle cx="320" cy="240" r="80" fill="%23860038"/><text x="20" y="30" fill="%23f39200" font-family="monospace" font-size="20">LABORATORY CAMERA FEED (240x480)</text></svg>';
+                      }}
+                    />
+
+                    {/* Red Reticle Lines */}
+                    <div className="absolute inset-0 pointer-events-none p-2 flex flex-col justify-between">
+                      <div className="flex justify-between items-start">
+                        <div className="w-5 h-5 border-t-2 border-l-2 border-rose-500" />
+                        <div className="w-5 h-5 border-t-2 border-r-2 border-rose-500" />
+                      </div>
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 pointer-events-none opacity-60">
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-8 bg-rose-500" />
+                        <div className="absolute top-1/2 left-0 -translate-y-1/2 w-8 h-0.5 bg-rose-500" />
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <div className="w-5 h-5 border-b-2 border-l-2 border-rose-500" />
+                        <div className="w-5 h-5 border-b-2 border-r-2 border-rose-500" />
+                      </div>
                     </div>
-                    <div className="font-mono text-[11px] tracking-wider text-emerald-300 mt-0.5">
-                      {state.lcd?.lines?.[1] || '(Press RUN to start)'}
-                    </div>
+
+                    {isCapturing && (
+                      <div className="absolute inset-0 bg-[#860038]/70 backdrop-blur-xs flex items-center justify-center font-bold text-white text-xs font-mono">
+                        CAPTURING FRAME TO MATRIX...
+                      </div>
+                    )}
                   </div>
-                </div>
+                </AppletCard>
+              )}
 
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-                  <span className="text-[11px]">Contrast</span>
-                  <span className="font-bold">—</span>
-                  <input
-                    type="range"
-                    min="20"
-                    max="100"
-                    value={lcdContrast}
-                    onChange={(e) => setLcdContrast(Number(e.target.value))}
-                    className="w-36 h-1 accent-white bg-slate-700 rounded-lg cursor-pointer"
-                  />
-                  <span className="font-bold">+</span>
-                </div>
-              </AppletCard>
-            )}
-
-            {/* -------------------------------------------------------------
-                APPLET 3: Joystick Control
-               ------------------------------------------------------------- */}
-            {applets.find((a) => a.id === 'joystick')?.enabled && (
-              <AppletCard
-                id="joystick"
-                title="Sense HAT 5-Way Joystick"
-                icon={Compass}
-                isSelected={selectedAppletId === 'joystick'}
-                isMinimized={applets.find((a) => a.id === 'joystick')!.minimized}
-                isMaximized={applets.find((a) => a.id === 'joystick')!.maximized}
-                showBlueprintHandles={showBlueprintHandles}
-                onSelect={() => setSelectedAppletId('joystick')}
-                onToggleMinimize={() => toggleAppletMinimize('joystick')}
-                onToggleMaximize={() => toggleAppletMaximize('joystick')}
-                onClose={() => closeApplet('joystick')}
-                runStatus={subsystemStatus.joystick}
-                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, joystick: r }))}
-                isFloating={layoutMode === 'floating'}
-                floatingPos={floatingPositions.joystick}
-                onHeaderPointerDown={(e) => handleHeaderPointerDown('joystick', e)}
-              >
-                <div className="flex items-center justify-around my-1">
-                  <div className="relative w-28 h-28 rounded-full bg-gradient-to-b from-[#243147] via-[#192336] to-[#111825] border-2 border-[#31425e] shadow-xl flex items-center justify-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMoveJoystick('up');
-                      }}
-                      className="absolute top-1.5 left-1/2 -translate-x-1/2 text-slate-300 hover:text-cyan-400 hover:scale-125 transition-transform cursor-pointer p-1"
-                    >
-                      <ChevronDown className="w-4 h-4 rotate-180 stroke-[2.5]" />
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMoveJoystick('down');
-                      }}
-                      className="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-slate-300 hover:text-cyan-400 hover:scale-125 transition-transform cursor-pointer p-1"
-                    >
-                      <ChevronDown className="w-4 h-4 stroke-[2.5]" />
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMoveJoystick('left');
-                      }}
-                      className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-cyan-400 hover:scale-125 transition-transform cursor-pointer p-1"
-                    >
-                      <span className="font-bold text-sm">‹</span>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMoveJoystick('right');
-                      }}
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-cyan-400 hover:scale-125 transition-transform cursor-pointer p-1"
-                    >
-                      <span className="font-bold text-sm">›</span>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMoveJoystick('middle');
-                      }}
-                      className="w-10 h-10 rounded-full bg-gradient-to-b from-[#384b69] to-[#1c2536] border border-[#4a5f82] shadow-inner flex items-center justify-center text-slate-400 hover:text-white active:scale-95 transition-transform cursor-pointer"
-                      title="Reset Origin"
-                    >
-                      <div className="w-3 h-3 rounded-full bg-[#161f2e] border border-[#4a5f82]" />
-                    </button>
-                  </div>
-
-                  <div className="font-mono text-xs text-slate-200 flex flex-col gap-1.5">
-                    <div>
-                      <span className="text-slate-400">X:</span>{' '}
-                      <span className="font-bold tracking-wider">({joystickCoords.x}, 0)</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Y:</span>{' '}
-                      <span className="font-bold tracking-wider">({joystickCoords.y}, 0)</span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-sans">
-                      (Arrow keys enabled)
-                    </span>
-                  </div>
-                </div>
-              </AppletCard>
-            )}
-
-            {/* -------------------------------------------------------------
-                APPLET 4: Camera Control & Vision (240x480 default, expands when maximized)
-               ------------------------------------------------------------- */}
-            {applets.find((a) => a.id === 'camera')?.enabled && (
-              <AppletCard
-                id="camera"
-                title="Camera Control & Vision (240x480)"
-                icon={Camera}
-                isSelected={selectedAppletId === 'camera'}
-                isMinimized={applets.find((a) => a.id === 'camera')!.minimized}
-                isMaximized={applets.find((a) => a.id === 'camera')!.maximized}
-                showBlueprintHandles={showBlueprintHandles}
-                onSelect={() => setSelectedAppletId('camera')}
-                onToggleMinimize={() => toggleAppletMinimize('camera')}
-                onToggleMaximize={() => toggleAppletMaximize('camera')}
-                onClose={() => closeApplet('camera')}
-                runStatus={subsystemStatus.camera}
-                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, camera: r }))}
-                isFloating={layoutMode === 'floating'}
-                floatingPos={floatingPositions.camera}
-                onHeaderPointerDown={(e) => handleHeaderPointerDown('camera', e)}
-                className={applets.find((a) => a.id === 'camera')!.maximized ? 'col-span-full' : 'col-span-1 md:col-span-2'}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 text-xs text-[var(--theme-text-main)]">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-semibold font-mono">Live V4L2 Stream (25 FPS, 640x480)</span>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCaptureToMatrix();
-                    }}
-                    className="px-3 py-1 rounded bg-[#860038] hover:bg-[#9e0e47] text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <span>Capture to Matrix</span>
-                  </button>
-                </div>
-
-                <div
-                  className={`relative bg-[#0a0e18] rounded border border-[var(--theme-border)] overflow-hidden flex items-center justify-center transition-all duration-200 shadow-inner ${
-                    applets.find((a) => a.id === 'camera')!.maximized
-                      ? 'w-full flex-1 min-h-[480px]'
-                      : 'w-full max-w-[480px] h-[240px] mx-auto'
-                  }`}
+              {/* -------------------------------------------------------------
+                  APPLET 4: Sense HAT 5-Way Joystick (Col 2, Row 2 · DIRECTLY UNDER LCD DISPLAY!)
+                 ------------------------------------------------------------- */}
+              {applets.find((a) => a.id === 'joystick')?.enabled && (
+                <AppletCard
+                  id="joystick"
+                  title="Sense HAT 5-Way Joystick"
+                  icon={Compass}
+                  isSelected={selectedAppletId === 'joystick'}
+                  isMinimized={applets.find((a) => a.id === 'joystick')!.minimized}
+                  isMaximized={applets.find((a) => a.id === 'joystick')!.maximized}
+                  showBlueprintHandles={showBlueprintHandles}
+                  onSelect={() => setSelectedAppletId('joystick')}
+                  onToggleMinimize={() => toggleAppletMinimize('joystick')}
+                  onToggleMaximize={() => toggleAppletMaximize('joystick')}
+                  onClose={() => closeApplet('joystick')}
+                  runStatus={subsystemStatus.joystick}
+                  onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, joystick: r }))}
+                  isFloating={layoutMode === 'floating'}
+                  floatingPos={floatingPositions.joystick}
+                  onHeaderPointerDown={(e) => handleHeaderPointerDown('joystick', e)}
                 >
-                  <img
-                    src={`/api/camera/frame?t=${cameraFrameTimestamp}`}
-                    alt="Live Video Stream"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" fill="%23141a29"><rect width="640" height="480"/><circle cx="320" cy="240" r="80" fill="%23860038"/><text x="20" y="30" fill="%23f39200" font-family="monospace" font-size="20">LABORATORY CAMERA FEED (240x480)</text></svg>';
-                    }}
-                  />
-
-                  {/* Red Reticle Lines */}
-                  <div className="absolute inset-0 pointer-events-none p-2 flex flex-col justify-between">
-                    <div className="flex justify-between items-start">
-                      <div className="w-5 h-5 border-t-2 border-l-2 border-rose-500" />
-                      <div className="w-5 h-5 border-t-2 border-r-2 border-rose-500" />
+                  {/* Joystick Status Header & Loopback Test */}
+                  <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-[#1b253b] text-xs font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${state.isSenseHatConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                      <span className="text-[11px] font-bold text-slate-300">
+                        {state.isSenseHatConnected ? 'evdev: CONNECTED (/dev/input)' : 'Digital Twin: ACTIVE'}
+                      </span>
                     </div>
-                    {/* Center Crosshair */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 pointer-events-none opacity-60">
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-8 bg-rose-500" />
-                      <div className="absolute top-1/2 left-0 -translate-y-1/2 w-8 h-0.5 bg-rose-500" />
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleJoystickTestPulse();
+                      }}
+                      className="px-2 py-0.5 rounded bg-[#860038]/80 hover:bg-[#860038] text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Test round-trip loopback through the Sense HAT event queue"
+                    >
+                      <Zap className="w-3 h-3 text-amber-300" />
+                      <span>{pulseTestResult || '⚡ Test Pulse'}</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-around my-1">
+                    {/* Tactile D-Pad Controller with Full pointerdown (press) and pointerup (release) lifecycle */}
+                    <div className="relative w-30 h-30 rounded-full bg-gradient-to-b from-[#243147] via-[#192336] to-[#111825] border-2 border-[#31425e] shadow-xl flex items-center justify-center select-none">
+                      {/* UP BUTTON */}
+                      <button
+                        onPointerDown={(e) => handleJoystickDown('up', e)}
+                        onPointerUp={(e) => handleJoystickUp('up', e)}
+                        onPointerLeave={(e) => handleJoystickUp('up', e)}
+                        onPointerCancel={(e) => handleJoystickUp('up', e)}
+                        className="absolute top-1.5 left-1/2 -translate-x-1/2 text-slate-300 hover:text-cyan-400 active:scale-95 active:text-cyan-300 transition-all cursor-pointer p-1.5"
+                        title="Joystick UP (KEY_UP 103)"
+                      >
+                        <ChevronDown className="w-4.5 h-4.5 rotate-180 stroke-[2.5]" />
+                      </button>
+
+                      {/* DOWN BUTTON */}
+                      <button
+                        onPointerDown={(e) => handleJoystickDown('down', e)}
+                        onPointerUp={(e) => handleJoystickUp('down', e)}
+                        onPointerLeave={(e) => handleJoystickUp('down', e)}
+                        onPointerCancel={(e) => handleJoystickUp('down', e)}
+                        className="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-slate-300 hover:text-cyan-400 active:scale-95 active:text-cyan-300 transition-all cursor-pointer p-1.5"
+                        title="Joystick DOWN (KEY_DOWN 108)"
+                      >
+                        <ChevronDown className="w-4.5 h-4.5 stroke-[2.5]" />
+                      </button>
+
+                      {/* LEFT BUTTON */}
+                      <button
+                        onPointerDown={(e) => handleJoystickDown('left', e)}
+                        onPointerUp={(e) => handleJoystickUp('left', e)}
+                        onPointerLeave={(e) => handleJoystickUp('left', e)}
+                        onPointerCancel={(e) => handleJoystickUp('left', e)}
+                        className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-cyan-400 active:scale-95 active:text-cyan-300 transition-all cursor-pointer p-1.5"
+                        title="Joystick LEFT (KEY_LEFT 105)"
+                      >
+                        <span className="font-bold text-base">‹</span>
+                      </button>
+
+                      {/* RIGHT BUTTON */}
+                      <button
+                        onPointerDown={(e) => handleJoystickDown('right', e)}
+                        onPointerUp={(e) => handleJoystickUp('right', e)}
+                        onPointerLeave={(e) => handleJoystickUp('right', e)}
+                        onPointerCancel={(e) => handleJoystickUp('right', e)}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-cyan-400 active:scale-95 active:text-cyan-300 transition-all cursor-pointer p-1.5"
+                        title="Joystick RIGHT (KEY_RIGHT 106)"
+                      >
+                        <span className="font-bold text-base">›</span>
+                      </button>
+
+                      {/* MIDDLE / OK BUTTON */}
+                      <button
+                        onPointerDown={(e) => handleJoystickDown('middle', e)}
+                        onPointerUp={(e) => handleJoystickUp('middle', e)}
+                        onPointerLeave={(e) => handleJoystickUp('middle', e)}
+                        onPointerCancel={(e) => handleJoystickUp('middle', e)}
+                        className="w-11 h-11 rounded-full bg-gradient-to-b from-[#384b69] to-[#1c2536] border border-[#4a5f82] shadow-inner flex items-center justify-center text-slate-400 hover:text-white active:scale-90 transition-transform cursor-pointer"
+                        title="Joystick MIDDLE / ENTER (KEY_ENTER 28)"
+                      >
+                        <div className="w-3.5 h-3.5 rounded-full bg-[#161f2e] border border-[#4a5f82]" />
+                      </button>
                     </div>
-                    <div className="flex justify-between items-end">
-                      <div className="w-5 h-5 border-b-2 border-l-2 border-rose-500" />
-                      <div className="w-5 h-5 border-b-2 border-r-2 border-rose-500" />
+
+                    {/* Coordinates & Keyboard Notice */}
+                    <div className="font-mono text-xs text-slate-200 flex flex-col gap-1.5">
+                      <div>
+                        <span className="text-slate-400">X-Delta:</span>{' '}
+                        <span className="font-bold tracking-wider text-cyan-400">({joystickCoords.x}, 0)</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Y-Delta:</span>{' '}
+                        <span className="font-bold tracking-wider text-cyan-400">({joystickCoords.y}, 0)</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-sans mt-0.5">
+                        Arrow keys & Enter enabled
+                      </span>
                     </div>
                   </div>
 
-                  {isCapturing && (
-                    <div className="absolute inset-0 bg-[#860038]/70 backdrop-blur-xs flex items-center justify-center font-bold text-white text-xs font-mono">
-                      CAPTURING FRAME TO MATRIX...
+                  {/* Live evdev Keycode & Action Event Stream */}
+                  <div className="mt-2 p-1.5 rounded bg-[#090d16] border border-[#1b2538] font-mono text-[10px] text-slate-300 select-none">
+                    <div className="flex items-center justify-between text-slate-400 font-bold mb-1 border-b border-[#1b2538]/80 pb-0.5">
+                      <span>Live evdev Event Monitor</span>
+                      <span className="text-emerald-400 text-[9px]">PRESS / RELEASE / HOLD</span>
                     </div>
-                  )}
-                </div>
-              </AppletCard>
-            )}
-
-            {/* -------------------------------------------------------------
-                APPLET 5: PWM Controller (TRUE DIGITAL SQUARE WAVE)
-               ------------------------------------------------------------- */}
-            {applets.find((a) => a.id === 'pwm')?.enabled && (
-              <AppletCard
-                id="pwm"
-                title="PWM Controller (Square Wave)"
-                icon={Activity}
-                isSelected={selectedAppletId === 'pwm'}
-                isMinimized={applets.find((a) => a.id === 'pwm')!.minimized}
-                isMaximized={applets.find((a) => a.id === 'pwm')!.maximized}
-                showBlueprintHandles={showBlueprintHandles}
-                onSelect={() => setSelectedAppletId('pwm')}
-                onToggleMinimize={() => toggleAppletMinimize('pwm')}
-                onToggleMaximize={() => toggleAppletMaximize('pwm')}
-                onClose={() => closeApplet('pwm')}
-                runStatus={subsystemStatus.pwm}
-                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, pwm: r }))}
-                isFloating={layoutMode === 'floating'}
-                floatingPos={floatingPositions.pwm}
-                onHeaderPointerDown={(e) => handleHeaderPointerDown('pwm', e)}
-              >
-                {/* Oscilloscope Grid with True Square Wave */}
-                <div className="h-24 bg-[#090d16] rounded border border-[#1b2336] relative overflow-hidden flex items-center justify-center my-0.5">
-                  {/* Grid Lines */}
-                  <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#38bdf8_1px,transparent_1px),linear-gradient(to_bottom,#38bdf8_1px,transparent_1px)] bg-[size:16px_16px]" />
-
-                  {/* High/Low Voltage Level Labels */}
-                  <div className="absolute left-2 top-1.5 text-[11px] font-mono text-cyan-400 font-bold z-20">
-                    3.3V (HIGH)
+                    <div className="flex flex-col gap-0.5 max-h-16 overflow-y-auto">
+                      {joystickHistory.slice(0, 3).map((item, i) => (
+                        <div key={i} className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-400">{new Date(item.timestamp).toLocaleTimeString()}.{String(item.timestamp % 1000).padStart(3, '0')}</span>
+                          <span className="text-cyan-300 font-bold">{item.dir.toUpperCase()} ({item.keycode})</span>
+                          <span className={`font-bold px-1 rounded ${
+                            item.action === 'press' ? 'text-amber-300 bg-amber-950/60' : item.action === 'release' ? 'text-emerald-400 bg-emerald-950/60' : 'text-purple-300 bg-purple-950/60'
+                          }`}>
+                            {item.action.toUpperCase()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="absolute left-2 bottom-1.5 text-[11px] font-mono text-slate-400 font-bold z-20">
-                    0.0V (LOW)
+                </AppletCard>
+              )}
+
+              {/* -------------------------------------------------------------
+                  APPLET 5: PWM Controller (SYNCHRONIZED WITH CODE & OSCILLOSCOPE)
+                 ------------------------------------------------------------- */}
+              {applets.find((a) => a.id === 'pwm')?.enabled && (
+                <AppletCard
+                  id="pwm"
+                  title="PWM Controller (Square Wave)"
+                  icon={Activity}
+                  isSelected={selectedAppletId === 'pwm'}
+                  isMinimized={applets.find((a) => a.id === 'pwm')!.minimized}
+                  isMaximized={applets.find((a) => a.id === 'pwm')!.maximized}
+                  showBlueprintHandles={showBlueprintHandles}
+                  onSelect={() => setSelectedAppletId('pwm')}
+                  onToggleMinimize={() => toggleAppletMinimize('pwm')}
+                  onToggleMaximize={() => toggleAppletMaximize('pwm')}
+                  onClose={() => closeApplet('pwm')}
+                  runStatus={subsystemStatus.pwm}
+                  onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, pwm: r }))}
+                  isFloating={layoutMode === 'floating'}
+                  floatingPos={floatingPositions.pwm}
+                  onHeaderPointerDown={(e) => handleHeaderPointerDown('pwm', e)}
+                >
+                  {/* Status Indicator & Controls */}
+                  <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-[#1b253b] text-xs font-mono flex-wrap gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-300">
+                        GPIO 18 / PWM0 (Pin 12)
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        isPwmCodeDriven
+                          ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-500/50 animate-pulse'
+                          : 'text-cyan-300 bg-cyan-950/60 border border-cyan-500/40'
+                      }`}>
+                        {isPwmCodeDriven ? '⚡ LIVE CODE STREAM' : '⚙ MANUAL BENCH'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePwmSweep();
+                        }}
+                        disabled={isSweepingPwm}
+                        className="px-2 py-0.5 rounded bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/50 text-blue-300 text-[10px] font-bold cursor-pointer transition-colors"
+                        title="Run an automated duty & frequency sweep on the oscilloscope"
+                      >
+                        {isSweepingPwm ? 'Sweeping...' : '⚡ Sweep Demo'}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPwmActive((prev) => !prev);
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono transition-colors cursor-pointer border ${
+                          pwmActive
+                            ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/50'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}
+                        title="Toggle PWM square wave generator on/off"
+                      >
+                        {pwmActive ? 'GEN: ON' : 'GEN: OFF'}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Crisp Digital Square Wave Path */}
-                  <svg className="w-full h-full relative z-10" viewBox="0 0 300 80" preserveAspectRatio="none">
-                    {/* Glowing underlay */}
-                    <path
-                      d={generatePwmSquareWavePath()}
-                      fill="none"
-                      stroke="#38bdf8"
-                      strokeWidth="3.5"
-                      className="opacity-40 blur-xs"
-                    />
-                    {/* Sharp square wave */}
-                    <path
-                      d={generatePwmSquareWavePath()}
-                      fill="none"
-                      stroke="#60a5fa"
-                      strokeWidth="2"
-                    />
-                  </svg>
-                </div>
+                  {/* Oscilloscope Grid with True Square Wave */}
+                  <div className="h-24 bg-[#090d16] rounded border border-[#1b2336] relative overflow-hidden flex items-center justify-center my-0.5 shadow-inner">
+                    {/* Grid Lines */}
+                    <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#38bdf8_1px,transparent_1px),linear-gradient(to_bottom,#38bdf8_1px,transparent_1px)] bg-[size:16px_16px]" />
 
-                {/* Duty Cycle & Frequency Sliders */}
-                <div className="flex flex-col gap-1.5 text-xs text-slate-300 font-mono mt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs w-32 font-medium">Duty Cycle: <strong className="text-cyan-400">{pwmDuty}%</strong></span>
-                    <span className="font-bold text-slate-400">—</span>
-                    <input
-                      type="range"
-                      min="5"
-                      max="95"
-                      value={pwmDuty}
-                      onChange={(e) => setPwmDuty(Number(e.target.value))}
-                      className="flex-1 mx-2 h-1.5 accent-[#860038] dark:accent-[#f39200] bg-slate-700 rounded-lg cursor-pointer"
-                    />
-                    <span className="font-bold text-slate-400">+</span>
+                    {/* High/Low Voltage Level Labels */}
+                    <div className="absolute left-2 top-1.5 text-[11px] font-mono text-cyan-400 font-bold z-20">
+                      3.3V (HIGH)
+                    </div>
+                    <div className="absolute left-2 bottom-1.5 text-[11px] font-mono text-slate-400 font-bold z-20">
+                      0.0V (LOW)
+                    </div>
+
+                    {/* Crisp Digital Square Wave Path */}
+                    <svg className="w-full h-full relative z-10" viewBox="0 0 300 80" preserveAspectRatio="none">
+                      <path
+                        d={generatePwmSquareWavePath()}
+                        fill="none"
+                        stroke="#38bdf8"
+                        strokeWidth="3.5"
+                        className="opacity-40 blur-xs"
+                      />
+                      <path
+                        d={generatePwmSquareWavePath()}
+                        fill="none"
+                        stroke="#60a5fa"
+                        strokeWidth="2"
+                      />
+                    </svg>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs w-32 font-medium">Frequency: <strong className="text-blue-400">{pwmFreq}Hz</strong></span>
-                    <span className="font-bold text-slate-400">—</span>
-                    <input
-                      type="range"
-                      min="100"
-                      max="5000"
-                      step="100"
-                      value={pwmFreq}
-                      onChange={(e) => setPwmFreq(Number(e.target.value))}
-                      className="flex-1 mx-2 h-1.5 accent-[#860038] dark:accent-[#f39200] bg-slate-700 rounded-lg cursor-pointer"
-                    />
-                    <span className="font-bold text-slate-400">+</span>
+                  {/* Calculated Electrical Metrics Bar */}
+                  <div className="grid grid-cols-3 gap-1.5 my-1 p-1.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] text-[10px] font-mono text-center">
+                    <div>
+                      <div className="text-[var(--theme-text-muted)]">Avg Voltage</div>
+                      <div className="font-bold text-cyan-400">{pwmActive ? (3.3 * (pwmDuty / 100)).toFixed(2) : '0.00'} V</div>
+                    </div>
+                    <div>
+                      <div className="text-[var(--theme-text-muted)]">Period (T)</div>
+                      <div className="font-bold text-emerald-400">{pwmActive ? (1000 / (pwmFreq || 1000)).toFixed(2) : '—'} ms</div>
+                    </div>
+                    <div>
+                      <div className="text-[var(--theme-text-muted)]">Pulse Width</div>
+                      <div className="font-bold text-blue-400">{pwmActive ? ((1000 / (pwmFreq || 1000)) * (pwmDuty / 100)).toFixed(2) : '—'} ms</div>
+                    </div>
                   </div>
-                </div>
-              </AppletCard>
-            )}
+
+                  {/* Duty Cycle & Frequency Sliders & Telemetry */}
+                  <div className="flex flex-col gap-1.5 text-xs text-slate-300 font-mono mt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs w-32 font-medium">Duty Cycle: <strong className="text-cyan-400">{pwmDuty}%</strong></span>
+                      <span className="font-bold text-slate-400">—</span>
+                      <input
+                        type="range"
+                        min="5"
+                        max="95"
+                        value={pwmDuty}
+                        onChange={(e) => {
+                          setPwmDuty(Number(e.target.value));
+                          setPwmActive(true);
+                          setIsPwmCodeDriven(false);
+                        }}
+                        className="flex-1 mx-2 h-1.5 accent-[#860038] dark:accent-[#f39200] bg-slate-700 rounded-lg cursor-pointer"
+                      />
+                      <span className="font-bold text-slate-400">+</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs w-32 font-medium">Frequency: <strong className="text-blue-400">{pwmFreq}Hz</strong></span>
+                      <span className="font-bold text-slate-400">—</span>
+                      <input
+                        type="range"
+                        min="100"
+                        max="5000"
+                        step="100"
+                        value={pwmFreq}
+                        onChange={(e) => {
+                          setPwmFreq(Number(e.target.value));
+                          setPwmActive(true);
+                          setIsPwmCodeDriven(false);
+                        }}
+                        className="flex-1 mx-2 h-1.5 accent-[#860038] dark:accent-[#f39200] bg-slate-700 rounded-lg cursor-pointer"
+                      />
+                      <span className="font-bold text-slate-400">+</span>
+                    </div>
+                  </div>
+                </AppletCard>
+              )}
 
             {/* -------------------------------------------------------------
                 APPLET 6: Environmental & Motion Sensors

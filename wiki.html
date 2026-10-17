@@ -91,8 +91,11 @@
         <li class="toc-item">
           <a href="#architecture">D. Architecture &amp; Features</a>
           <ul class="toc-sublist">
+            <li><a href="#arch-twin-files">Dual pi_twin / py_twin Architecture</a></li>
             <li><a href="#arch-fb">Sense HAT /dev/fb1 Framebuffer</a></li>
             <li><a href="#arch-i2c">I2C Sensor Bus (HTS221/LPS25H)</a></li>
+            <li><a href="#arch-joystick">5-Way Joystick &amp; Tic-Tac-Toe</a></li>
+            <li><a href="#arch-pwm">Hardware PWM &amp; Oscilloscope</a></li>
             <li><a href="#arch-gpio">40-Pin Header &amp; /dev/gpiomem</a></li>
             <li><a href="#arch-lcd">16x2 HD44780 Character LCD</a></li>
             <li><a href="#arch-ipc">Daemon IPC &amp; WebSockets</a></li>
@@ -468,9 +471,11 @@ int main(void) {
 │   │   ├── hardware_probe.py    # Interactive I2C bus scanner and register prober
 │   │   ├── install-pi.sh        # Turnkey Raspberry Pi OS installer script
 │   │   └── pi-digit.service     # Systemd unit definition for auto-boot
-│   ├── pi_emulator.py           # Core Sense HAT & GPIO emulation engine
-│   ├── pi_twin.py               # Unified Python digital twin API
-│   ├── pi_twin.h                # C header bindings for Sense HAT & GPIO
+│   ├── pi_emulator.py           # Core Sense HAT, GPIO & PWM hardware virtualization engine
+│   ├── pi_twin.py               # Primary unified Python digital twin API library
+│   ├── py_twin.py               # Compatibility import alias module (from pi_twin import *)
+│   ├── py_twin/                 # Package directory alias (__init__.py) for legacy curricula
+│   ├── pi_twin.h                # Native C header bindings for Sense HAT, GPIO & Hardware PWM
 │   └── App.tsx                  # Main React application shell
 ├── test-codes/                  # Automated hardware verification test suite
 │   ├── run_all_tests.py         # Master automated verification runner
@@ -487,6 +492,29 @@ int main(void) {
 ├── wiki.html                    # Technical architecture & reference documentation
 ├── package.json                 # Project dependencies & npm run scripts
 └── tsconfig.json                # TypeScript configuration</code></pre>
+        </div>
+
+        <h3 id="arch-twin-files">1.1 Why Two pi_twin / py_twin Files? (Twin Architecture Explained)</h3>
+        <p>
+          Students and educators often ask why the repository contains both <code>pi_twin.py</code> and <code>py_twin.py</code> (as well as <code>pi_twin.h</code>). This intentional dual-naming design solves historical curriculum compatibility across computer science laboratories:
+        </p>
+        <div class="callout callout-info">
+          <div class="callout-icon">&bull;</div>
+          <div>
+            <strong>1. <code>src/pi_twin.py</code> (The Authoritative Core Library):</strong> This is the primary implementation file containing the production wrappers for <code>SenseHat</code>, <code>GPIO</code>, <code>PWM</code>, <code>LCD</code>, and <code>System</code>. It seamlessly bridges Python calls directly to physical Linux kernel device drivers (<code>/dev/fb1</code>, <code>/dev/i2c-1</code>, <code>evdev</code>, <code>/sys/class/pwm</code>) when running on physical Raspberry Pi hardware, and outputs structured IPC event payloads (<code>__PI_TWIN_EVENT__</code>) for the browser digital twin.
+          </div>
+        </div>
+        <div class="callout callout-info" style="margin-top: 10px;">
+          <div class="callout-icon">&bull;</div>
+          <div>
+            <strong>2. <code>src/py_twin.py</code> &amp; <code>src/py_twin/__init__.py</code> (The Compatibility Aliases):</strong> Earlier iterations of university assignments, external lab manuals, and student projects referenced <code>import py_twin</code> (shorthand for <em>Python Twin</em>), whereas official documentation and newer examples reference <code>import pi_twin</code> (shorthand for <em>Raspberry Pi Twin</em>). To guarantee that 100% of student code and legacy project submissions execute cleanly without encountering a breaking <code>ModuleNotFoundError</code>, <code>src/py_twin.py</code> and the <code>py_twin/</code> package re-export all symbols from <code>pi_twin</code>. Both imports are completely interchangeable.
+          </div>
+        </div>
+        <div class="callout callout-info" style="margin-top: 10px;">
+          <div class="callout-icon">&bull;</div>
+          <div>
+            <strong>3. <code>src/pi_twin.h</code> (Embedded C Interface):</strong> Provides native C function prototypes (e.g. <code>twin_init()</code>, <code>twin_set_pixel()</code>, <code>twin_gpio_write()</code>, <code>twin_pwm_start()</code>) so students compiling C programs with <code>gcc</code> can link against the identical hardware and digital twin environment without writing custom boilerplate.
+          </div>
         </div>
 
         <h3 id="arch-fb">2. Sense HAT 8&times;8 LED Matrix &amp; /dev/fb1</h3>
@@ -515,14 +543,28 @@ Memory Access  : Direct binary stream seek(y * 8 + x) * 2; write(rgb565)</code><
           <li><strong>LSM9DS1 (0x6A &amp; 0x1C):</strong> 3D accelerometer, 3D gyroscope, and 3D magnetometer producing 9 degrees of freedom inertial telemetry.</li>
         </ul>
 
-        <h3 id="arch-joystick">4. 5-Way Joystick &amp; Linux evdev Subsystem</h3>
+        <h3 id="arch-joystick">4. 5-Way Joystick Subsystem, evdev Verification &amp; Tic-Tac-Toe Game Architecture</h3>
         <p>
           The 5-way navigation switch on the Sense HAT is exposed in the Linux kernel as an evdev input event device (typically <code>/dev/input/event*</code> under the device name <em>Raspberry Pi Sense HAT Joystick</em>):
         </p>
         <ul>
-          <li><strong>Keycodes:</strong> <code>KEY_UP (103)</code>, <code>KEY_DOWN (108)</code>, <code>KEY_LEFT (105)</code>, <code>KEY_RIGHT (106)</code>, and <code>KEY_ENTER (28) / KEY_OK (352)</code> (Middle Click).</li>
-          <li><strong>Action Events:</strong> Value <code>1</code> (Press / Pressed), Value <code>2</code> (Hold / Held), Value <code>0</code> (Release / Released).</li>
-          <li>Both the physical hardware daemon and the Web UI digital twin support the complete press-hold-release lifecycle with visual indicator badges and event queues so no quick clicks or holds are dropped.</li>
+          <li><strong>Linux Kernel Keycodes:</strong> <code>KEY_UP (103)</code>, <code>KEY_DOWN (108)</code>, <code>KEY_LEFT (105)</code>, <code>KEY_RIGHT (106)</code>, and <code>KEY_ENTER (28) / KEY_OK (352)</code> (Middle Click).</li>
+          <li><strong>Tri-State Action Events:</strong> Value <code>1</code> (Press / Pressed), Value <code>2</code> (Hold / Held), Value <code>0</code> (Release / Released). Both physical and virtual events are normalized to ensure zero dropped events.</li>
+          <li><strong>Three-Point Physical Connection Verification:</strong>
+            <ol>
+              <li><em>Hardware Status Badge:</em> Live indicator in the joystick applet header displays <code>evdev: CONNECTED (/dev/input)</code> when running on physical Raspberry Pi hardware, or <code>Digital Twin: ACTIVE</code> in virtual simulation.</li>
+              <li><em>Live Keycode Event Monitor:</em> Real-time rolling diagnostic table displaying the exact direction, event action (<code>press</code>, <code>hold</code>, <code>release</code>), kernel keycode, and millisecond timestamp.</li>
+              <li><em>Round-Trip Loopback Test Pulse (<code>⚡ Test Pulse</code>):</em> Sends a synthetic down-up event pair through the kernel event queue and measures round-trip latency (typically &lt;95ms).</li>
+            </ol>
+          </li>
+          <li><strong>Interactive Tic-Tac-Toe Game Architecture (<code>examples/python/12_tictactoe.py</code> &amp; Built-in Arena):</strong>
+            <ul>
+              <li>Dual execution model: Can run either natively from Python (<code>python3 12_tictactoe.py</code>) or directly inside the 8&times;8 Matrix applet by toggling <code>🎮 Tic-Tac-Toe</code>.</li>
+              <li>3&times;3 board mapping: Each of the 9 cells maps to a 2&times;2 pixel cluster on the 8&times;8 matrix with dark separation grid lines at rows/columns 2 and 5.</li>
+              <li>Player 1 uses <strong>Cyan X</strong> (<code>#00dcff</code>) and AI Player 2 uses <strong>Amber O</strong> (<code>#ff8c00</code>).</li>
+              <li>Features minimax AI strategy, active cursor navigation with 250ms flashing cursor, winning line flashing animations, and live scoreboard synchronization.</li>
+            </ul>
+          </li>
         </ul>
 
         <h3 id="arch-lcd">5. 16&times;2 HD44780 Alphanumeric LCD (Hardware Distinction Note)</h3>
@@ -605,7 +647,37 @@ python3 test-codes/test_pwm.py         # Hardware PWM0 on GPIO 18
 python3 test-codes/test_lcd.py         # 16x2 I2C Character LCD viewport
 python3 test-codes/test_examples_and_structure.py # Examples compilation &amp; structure test
 python3 src/scripts/hardware_diagnose.py # Comprehensive hardware self-test</code></pre>
+        <h3 id="arch-pwm">11. Hardware PWM Signal Generator &amp; Real-Time Oscilloscope Visualizer</h3>
+        <p>
+          Pulse-Width Modulation (PWM) on the Raspberry Pi 4 BCM2711 SoC utilizes dedicated hardware timers on <strong>GPIO 18 (PWM0 / Physical Pin 12)</strong>. The digital twin couples physical register manipulation with a zero-latency SVG square-wave oscilloscope:
+        </p>
+        <div class="code-box">
+          <div class="code-box-header">
+            <span>Hardware PWM Architecture Flow</span>
+          </div>
+          <pre><code>Python (RPi.GPIO / pi_twin.PWM) OR C (twin_pwm_*)
+       │
+       ▼
+1. Linux Kernel Driver (/sys/class/pwm/pwmchip0)
+   - Configures period_ns = 1,000,000,000 / freq_hz
+   - Sets duty_cycle_ns = period_ns * (duty / 100)
+   - Enables hardware clock output
+       │
+       ▼
+2. IPC Event Stream (__PI_TWIN_EVENT__:{"type": "pwm", ...})
+   - Captured by server.ts execution engine
+   - Broadcasts 'pwm.update' payload over WebSocket
+       │
+       ▼
+3. Web Oscilloscope Visualizer (React SVG Engine)
+   - Renders live 3.3V / 0V digital square waveform
+   - Computes: V_avg = 3.3V * (Duty / 100)
+   - Computes: Period T = 1000 / freq (ms)
+   - Computes: Pulse Width = T * (Duty / 100) (ms)</code></pre>
         </div>
+        <p>
+          <strong>Why was the PWM not working previously?</strong> In earlier iterations, PWM state was decoupled between the subprocess and the UI: the web app did not maintain continuous wave persistence once student scripts completed, and manual slider adjustments did not toggle the generator's active power flag. The updated architecture provides bidirectional synchronization: student code dynamically drives frequency and duty cycle in real time, manual adjustments immediately activate the generator, and calculated electrical metrics give students concrete feedback on their waveforms.
+        </p>
       </section>
 
       <!-- SECTION E: INSTALLATION, UPDATES, AND UNINSTALLATION -->

@@ -7,15 +7,24 @@ import {
   Wrench,
   Cpu,
   RotateCcw,
+  LayoutGrid,
+  Move,
+  PanelLeft,
+  LayoutTemplate,
+  Check,
 } from 'lucide-react';
 import { FullHardwareState } from '../types/digitalTwin';
 import { ThemeId } from '../types/theme';
 import { ThemeSelector } from './ThemeSelector';
 
+export type WorkspaceLayout = 'grid' | 'floating' | 'studio-focus' | 'bench';
+
 interface HeaderRibbonProps {
   state: FullHardwareState | null;
   activeView: 'workspace' | 'camera' | 'help';
   setActiveView: (view: 'workspace' | 'camera' | 'help') => void;
+  layoutMode?: WorkspaceLayout;
+  onSelectLayout?: (layout: WorkspaceLayout) => void;
   selectedMode?: 'simulation' | 'emulation';
   onSetMode?: (mode: 'simulation' | 'emulation') => void;
   onConnectHardware?: () => void;
@@ -31,6 +40,8 @@ interface HeaderRibbonProps {
 export function HeaderRibbon({
   activeView,
   setActiveView,
+  layoutMode = 'grid',
+  onSelectLayout,
   onConnectHardware,
   onOpenDiagnostics,
   onRestoreDefaultView,
@@ -40,13 +51,18 @@ export function HeaderRibbon({
   onSelectTheme,
 }: HeaderRibbonProps) {
   const [viewsMenuOpen, setViewsMenuOpen] = useState(false);
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const viewsRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
 
-  // Close views menu when clicked outside
+  // Close menus when clicked outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (viewsRef.current && !viewsRef.current.contains(event.target as Node)) {
         setViewsMenuOpen(false);
+      }
+      if (layoutRef.current && !layoutRef.current.contains(event.target as Node)) {
+        setLayoutMenuOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -133,6 +149,118 @@ export function HeaderRibbon({
             <span>Help & Manual</span>
           </button>
         </div>
+
+        {/* Layout Selection Top-Down Dropdown Menu (Beside Workspace Controls) */}
+        {activeView === 'workspace' && onSelectLayout && (
+          <div className="relative" ref={layoutRef}>
+            <button
+              onClick={() => setLayoutMenuOpen((prev) => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--theme-bg-subtle)] hover:bg-[var(--theme-border)] border border-[var(--theme-border)] text-sm font-semibold transition-all cursor-pointer shadow-xs"
+              title="Workspace Layout Selection"
+            >
+              {layoutMode === 'floating' && <Move className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
+              {layoutMode === 'grid' && <LayoutGrid className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
+              {layoutMode === 'studio-focus' && <PanelLeft className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
+              {layoutMode === 'bench' && <LayoutTemplate className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
+              <span className="hidden xl:inline text-xs font-mono uppercase text-[var(--theme-text-muted)]">Layout:</span>
+              <span className="text-xs font-bold text-[var(--theme-text-main)]">
+                {layoutMode === 'floating'
+                  ? 'Floating'
+                  : layoutMode === 'grid'
+                  ? '2-Col Grid'
+                  : layoutMode === 'studio-focus'
+                  ? 'Studio Focus'
+                  : 'Hardware Bench'}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[var(--theme-text-muted)]" />
+            </button>
+
+            {layoutMenuOpen && (
+              <div className="absolute left-0 mt-1.5 w-64 bg-[var(--theme-bg-card)] border border-[var(--theme-border)] rounded-md shadow-2xl py-1.5 z-50 text-xs font-medium text-[var(--theme-text-main)] divide-y divide-[var(--theme-border)]">
+                <div className="px-3 py-1 text-[10px] font-mono uppercase text-[var(--theme-text-muted)] font-bold">
+                  Select Workspace Layout
+                </div>
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      onSelectLayout('grid');
+                      setLayoutMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left transition-colors ${
+                      layoutMode === 'grid' ? 'text-[#860038] dark:text-[#f39200] font-bold bg-[var(--theme-bg-subtle)]/80' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <LayoutGrid className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />
+                      <div>
+                        <div className="font-semibold text-xs">2-Column Grid</div>
+                        <div className="text-[10px] text-[var(--theme-text-muted)] font-normal">Docked split: Code Studio & Peripherals</div>
+                      </div>
+                    </div>
+                    {layoutMode === 'grid' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onSelectLayout('floating');
+                      setLayoutMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left transition-colors ${
+                      layoutMode === 'floating' ? 'text-[#860038] dark:text-[#f39200] font-bold bg-[var(--theme-bg-subtle)]/80' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Move className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />
+                      <div>
+                        <div className="font-semibold text-xs">Floating Windows</div>
+                        <div className="text-[10px] text-[var(--theme-text-muted)] font-normal">Drag, layer & reposition applets freely</div>
+                      </div>
+                    </div>
+                    {layoutMode === 'floating' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onSelectLayout('studio-focus');
+                      setLayoutMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left transition-colors ${
+                      layoutMode === 'studio-focus' ? 'text-[#860038] dark:text-[#f39200] font-bold bg-[var(--theme-bg-subtle)]/80' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <PanelLeft className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />
+                      <div>
+                        <div className="font-semibold text-xs">Studio Focus</div>
+                        <div className="text-[10px] text-[var(--theme-text-muted)] font-normal">Expanded 74% width code editor & terminal</div>
+                      </div>
+                    </div>
+                    {layoutMode === 'studio-focus' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onSelectLayout('bench');
+                      setLayoutMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left transition-colors ${
+                      layoutMode === 'bench' ? 'text-[#860038] dark:text-[#f39200] font-bold bg-[var(--theme-bg-subtle)]/80' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <LayoutTemplate className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />
+                      <div>
+                        <div className="font-semibold text-xs">Hardware Bench</div>
+                        <div className="text-[10px] text-[var(--theme-text-muted)] font-normal">Prioritize peripherals & full monitoring canvas</div>
+                      </div>
+                    </div>
+                    {layoutMode === 'bench' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Mobile View Dropdown (Visible on small screens) */}
         <div className="md:hidden relative" ref={viewsRef}>
