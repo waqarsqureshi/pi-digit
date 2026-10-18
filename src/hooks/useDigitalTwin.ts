@@ -300,6 +300,7 @@ export function useDigitalTwin() {
     ws.onclose = () => {
       setIsConnected(false);
       wsRef.current = null;
+      flushPendingTerminalOutputs();
       reconnectTimeoutRef.current = setTimeout(connectWs, 2000);
     };
 
