@@ -1678,37 +1678,36 @@ export function UnifiedWorkspace({
     const width = 300;
     const highY = 16;  // 3.3V HIGH
     const lowY = 62;   // 0.0V LOW
-    const period = Math.max(20, Math.min(80, Math.round(5000 / (pwmFreq || 1000) * 8)));
-    const dutyFrac = Math.max(0.05, Math.min(0.95, pwmDuty / 100));
-    const points: string[] = [];
+    const safeFreq = Math.max(1, pwmFreq || 1);
+    const visibleCycles = Math.max(3, Math.min(8, Math.round(5000 / safeFreq) + 2));
+    const cycleWidth = width / visibleCycles;
+    const highWidth = Math.max(2, cycleWidth * (pwmDuty / 100));
+    const phaseOffset = pwmPhase * cycleWidth;
+    const points: string[] = [`M 0 ${lowY}`];
 
-    let currentX = 0;
-    const startOffset = Math.round(pwmPhase * period);
+    for (let cycleStart = -phaseOffset; cycleStart <= width + cycleWidth; cycleStart += cycleWidth) {
+      const riseX = Math.max(0, Math.min(width, cycleStart));
+      const fallX = Math.max(0, Math.min(width, cycleStart + highWidth));
+      const endX = Math.max(0, Math.min(width, cycleStart + cycleWidth));
 
-    while (currentX < width) {
-      const highWidth = Math.round(period * dutyFrac);
-      const lowWidth = period - highWidth;
+      if (endX <= 0 || riseX >= width) continue;
 
-      // Start of HIGH pulse
-      const x1 = Math.max(0, currentX - startOffset);
-      const x2 = Math.min(width, x1 + highWidth);
-      const x3 = Math.min(width, x2 + lowWidth);
-
-      if (points.length === 0) {
-        points.push(`M ${x1} ${highY}`);
-      } else {
-        points.push(`L ${x1} ${highY}`);
-      }
-
-      points.push(`L ${x2} ${highY}`);
-      points.push(`L ${x2} ${lowY}`);
-      points.push(`L ${x3} ${lowY}`);
-      points.push(`L ${x3} ${highY}`);
-
-      currentX += period;
+      points.push(`L ${riseX} ${lowY}`);
+      points.push(`L ${riseX} ${highY}`);
+      points.push(`L ${fallX} ${highY}`);
+      points.push(`L ${fallX} ${lowY}`);
+      points.push(`L ${endX} ${lowY}`);
     }
+
     return points.join(' ');
   };
+
+  const safePwmFreq = Math.max(1, pwmFreq || 1);
+  const pwmPeriodMs = 1000 / safePwmFreq;
+  const pwmHighMs = pwmPeriodMs * (pwmDuty / 100);
+  const pwmLowMs = pwmPeriodMs - pwmHighMs;
+  const pwmWindowMs = Math.max(3, Math.min(8, Math.round(5000 / safePwmFreq) + 2)) * pwmPeriodMs;
+  const pwmScanX = Math.round(((pwmPhase % 1) + 1) % 1 * 300);
 
   const activeMatrix = state.matrix?.length === 64 ? state.matrix : DEFAULT_RGB_MATRIX;
 
@@ -2984,9 +2983,13 @@ export function UnifiedWorkspace({
                     <div className="absolute left-2 bottom-1.5 text-[11px] font-mono text-slate-400 font-bold z-20">
                       0.0V (LOW)
                     </div>
+                    <div className="absolute right-2 top-1.5 text-[10px] font-mono text-amber-300 font-bold z-20">
+                      Window: {pwmWindowMs.toFixed(2)} ms
+                    </div>
 
                     {/* Crisp Digital Square Wave Path */}
                     <svg className="w-full h-full relative z-10" viewBox="0 0 300 80" preserveAspectRatio="none">
+                      <line x1={pwmScanX} y1="0" x2={pwmScanX} y2="80" stroke="#f59e0b" strokeWidth="1.2" strokeDasharray="3 2" opacity="0.8" />
                       <path
                         d={generatePwmSquareWavePath()}
                         fill="none"
@@ -3003,19 +3006,31 @@ export function UnifiedWorkspace({
                     </svg>
                   </div>
 
+                  {/* Duty split bar */}
+                  <div className="h-2 rounded bg-[#0d1a2e] border border-[#1b2336] overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500"
+                      style={{ width: `${Math.max(0, Math.min(100, pwmDuty))}%` }}
+                    />
+                  </div>
+
                   {/* Calculated Electrical Metrics Bar */}
-                  <div className="grid grid-cols-3 gap-1.5 my-1 p-1.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] text-[10px] font-mono text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 my-1 p-1.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] text-[10px] font-mono text-center">
                     <div>
                       <div className="text-[var(--theme-text-muted)]">Avg Voltage</div>
                       <div className="font-bold text-cyan-400">{pwmActive ? (3.3 * (pwmDuty / 100)).toFixed(2) : '0.00'} V</div>
                     </div>
                     <div>
                       <div className="text-[var(--theme-text-muted)]">Period (T)</div>
-                      <div className="font-bold text-emerald-400">{pwmActive ? (1000 / (pwmFreq || 1000)).toFixed(2) : '—'} ms</div>
+                      <div className="font-bold text-emerald-400">{pwmActive ? pwmPeriodMs.toFixed(2) : '—'} ms</div>
                     </div>
                     <div>
-                      <div className="text-[var(--theme-text-muted)]">Pulse Width</div>
-                      <div className="font-bold text-blue-400">{pwmActive ? ((1000 / (pwmFreq || 1000)) * (pwmDuty / 100)).toFixed(2) : '—'} ms</div>
+                      <div className="text-[var(--theme-text-muted)]">T_HIGH</div>
+                      <div className="font-bold text-blue-400">{pwmActive ? pwmHighMs.toFixed(2) : '—'} ms</div>
+                    </div>
+                    <div>
+                      <div className="text-[var(--theme-text-muted)]">T_LOW</div>
+                      <div className="font-bold text-violet-400">{pwmActive ? pwmLowMs.toFixed(2) : '—'} ms</div>
                     </div>
                   </div>
 

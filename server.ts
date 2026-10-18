@@ -478,6 +478,7 @@ let timelineTraces: TimelineTrace[] = [
 let telemetryHistory: TelemetryRecord[] = [];
 let executionTimer: NodeJS.Timeout | null = null;
 let activeProgramAbort = false;
+let terminalWorkingDirectory = process.cwd();
 
 // Create Express and HTTP Server
 const app = express();
@@ -1611,7 +1612,8 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
         `  pinout      - Display Raspberry Pi 40-pin GPIO header diagram\n` +
         `  whoami      - Print current user\n` +
         `  clear       - Clear terminal window\n` +
-        `  python3 <file.py> - Execute Python program directly on Pi`
+        `  python3 <file.py> - Execute Python program directly on Pi\n` +
+        `  <file.py|file.sh|file.c> [args] - Run file directly by name`
     });
   }
 
@@ -1639,56 +1641,83 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
     return res.json({ output: 'raspberrypi' });
   }
 
-  if (trimmed === 'pwd') {
-    return res.json({ output: '/home/pi/pi-digit' });
+  if (trimmed === 'cd' || trimmed.startsWith('cd ')) {
+    const rawTarget = trimmed === 'cd' ? '~' : trimmed.slice(2).trim();
+    const homeDir = os.homedir();
+    const expandedTarget = rawTarget === '~'
+      ? homeDir
+      : rawTarget.startsWith('~/') || rawTarget.startsWith('~\\')
+        ? path.join(homeDir, rawTarget.slice(2))
+        : rawTarget;
+    const nextDir = path.isAbsolute(expandedTarget)
+      ? path.normalize(expandedTarget)
+      : path.resolve(terminalWorkingDirectory, expandedTarget);
+
+    if (!fs.existsSync(nextDir)) {
+      return res.json({ output: `bash: cd: ${rawTarget}: No such file or directory` });
+    }
+    try {
+      const stat = fs.statSync(nextDir);
+      if (!stat.isDirectory()) {
+        return res.json({ output: `bash: cd: ${rawTarget}: Not a directory` });
+      }
+      terminalWorkingDirectory = nextDir;
+      return res.json({ output: terminalWorkingDirectory });
+    } catch {
+      return res.json({ output: `bash: cd: ${rawTarget}: Permission denied` });
+    }
   }
 
-  // Handle Python script execution with Hardware IPC capture
-  if (trimmed.startsWith('python3 ') || trimmed.startsWith('python ')) {
-    if (!pythonRuntimeEnabled) {
-      return res.json({
-        output: 'Python runtime is disabled on this host. This cloud deployment serves the marketing frontend and simulation view only. Use a Raspberry Pi install for Python execution.',
-      });
-    }
+  if (trimmed === 'pwd') {
+    return res.json({ output: terminalWorkingDirectory });
+  }
 
-    const parts = trimmed.split(' ');
-    const script = parts[1] || '01_hello.py';
-    const scriptArgs = parts.length > 2 ? ' ' + parts.slice(2).join(' ') : '';
-    let resolvedScript = script;
-    let execCmd = `${PYTHON_CMD!} ${resolvedScript}${scriptArgs}`;
-    // Auto-resolve script in examples/python, examples/scripts, src, or example-codes if not found in root
-    if (parts[1] && !fs.existsSync(path.join(process.cwd(), parts[1]))) {
-      const candidates = [
-        path.join('examples', 'python', parts[1]),
-        path.join('examples', 'scripts', parts[1]),
-        path.join('examples', 'c', parts[1]),
-        path.join('examples', parts[1]),
-        path.join('src', 'scripts', parts[1]),
-        path.join('src', parts[1]),
-        path.join('scripts', parts[1]),
-      ];
-      for (const rel of candidates) {
-        if (fs.existsSync(path.join(process.cwd(), rel))) {
-          resolvedScript = rel;
-          execCmd = `${PYTHON_CMD!} ${resolvedScript}${scriptArgs}`;
-          break;
-        }
-      }
+  const resolveTerminalFile = (inputPath: string): string | null => {
+    const homeDir = os.homedir();
+    const expandedInput = inputPath === '~'
+      ? homeDir
+      : inputPath.startsWith('~/') || inputPath.startsWith('~\\')
+        ? path.join(homeDir, inputPath.slice(2))
+        : inputPath;
+
+    const directCandidate = path.isAbsolute(expandedInput)
+      ? path.normalize(expandedInput)
+      : path.resolve(terminalWorkingDirectory, expandedInput);
+
+    if (fs.existsSync(directCandidate)) return directCandidate;
+    if (path.isAbsolute(expandedInput)) return null;
+
+    const relCandidates = [
+      path.join('examples', 'python', expandedInput),
+      path.join('examples', 'scripts', expandedInput),
+      path.join('examples', 'c', expandedInput),
+      path.join('examples', expandedInput),
+      path.join('src', 'scripts', expandedInput),
+      path.join('src', expandedInput),
+      path.join('scripts', expandedInput),
+      expandedInput,
+    ];
+    for (const rel of relCandidates) {
+      const abs = path.join(terminalWorkingDirectory, rel);
+      if (fs.existsSync(abs)) return abs;
     }
+    return null;
+  };
+
+  const executeManagedCommand = (execCmd: string) => {
     syncFilesToTmp();
-
     return new Promise<void>((resolve) => {
       exec(
         execCmd,
         {
-          cwd: process.cwd(),
+          cwd: terminalWorkingDirectory,
           timeout: 10000,
           env: {
             ...process.env,
             PYTHONPATH: [
-              path.join(process.cwd(), 'src'),
-              path.join(process.cwd(), 'src', 'py_twin'),
-              process.cwd(),
+              path.join(terminalWorkingDirectory, 'src'),
+              path.join(terminalWorkingDirectory, 'src', 'py_twin'),
+              terminalWorkingDirectory,
             ].join(path.delimiter),
             PYTHONUNBUFFERED: '1',
           },
@@ -1744,15 +1773,66 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
               cleanLines.push(line);
             }
           }
-          res.json({ output: cleanLines.join('\n').trim() || (error ? `bash: ${error.message}` : `[Completed execution of ${script}]`) });
+          res.json({ output: cleanLines.join('\n').trim() || (error ? `bash: ${error.message}` : '[Completed execution]') });
           resolve();
         }
       );
     });
+  };
+
+  // Handle Python script execution with Hardware IPC capture
+  if (trimmed.startsWith('python3 ') || trimmed.startsWith('python ')) {
+    if (!pythonRuntimeEnabled) {
+      return res.json({
+        output: 'Python runtime is disabled on this host. This cloud deployment serves the marketing frontend and simulation view only. Use a Raspberry Pi install for Python execution.',
+      });
+    }
+
+    const parts = trimmed.split(' ');
+    const script = parts[1] || '01_hello.py';
+    const scriptArgs = parts.length > 2 ? ' ' + parts.slice(2).join(' ') : '';
+    const resolvedScript = parts[1] ? resolveTerminalFile(parts[1]) : null;
+    const scriptPath = resolvedScript || path.resolve(terminalWorkingDirectory, script);
+    const execCmd = `${PYTHON_CMD!} "${scriptPath}"${scriptArgs}`;
+    return executeManagedCommand(execCmd);
+  }
+
+  const fileToken = trimmed.split(/\s+/)[0];
+  const fileArgs = trimmed.slice(fileToken.length).trim();
+  const ext = path.extname(fileToken).toLowerCase();
+  const supportedDirectExtensions = new Set(['.py', '.sh', '.c']);
+
+  if (supportedDirectExtensions.has(ext)) {
+    if ((ext === '.py' || ext === '.sh') && !pythonRuntimeEnabled && ext === '.py') {
+      return res.json({
+        output: 'Python runtime is disabled on this host. This cloud deployment serves the marketing frontend and simulation view only. Use a Raspberry Pi install for Python execution.',
+      });
+    }
+
+    const resolvedFile = resolveTerminalFile(fileToken);
+    if (!resolvedFile) {
+      return res.json({ output: `bash: ${fileToken}: No such file or directory` });
+    }
+
+    if (ext === '.py') {
+      const cmd = `${PYTHON_CMD!} "${resolvedFile}"${fileArgs ? ` ${fileArgs}` : ''}`;
+      return executeManagedCommand(cmd);
+    }
+
+    if (ext === '.sh') {
+      const cmd = `bash "${resolvedFile}"${fileArgs ? ` ${fileArgs}` : ''}`;
+      return executeManagedCommand(cmd);
+    }
+
+    if (ext === '.c') {
+      const binPath = path.join(os.tmpdir(), `pi_digit_run_${Date.now()}_${path.basename(resolvedFile, '.c')}`);
+      const cmd = `gcc "${resolvedFile}" -o "${binPath}" && "${binPath}"${fileArgs ? ` ${fileArgs}` : ''}`;
+      return executeManagedCommand(cmd);
+    }
   }
 
   // Standard Bash Execution (reports "command not found" for invalid commands like 'hi')
-  exec(trimmed, { shell: '/bin/bash', cwd: process.cwd(), timeout: 6000 }, (error, stdout, stderr) => {
+  exec(trimmed, { shell: '/bin/bash', cwd: terminalWorkingDirectory, timeout: 6000 }, (error, stdout, stderr) => {
     if (error || stderr) {
       const errOut = (stderr || error?.message || '').trim();
       const cleanErr = errOut
