@@ -322,6 +322,7 @@ def run_service(single_shot=False, filter_mode="none"):
 
     print(f"[Camera Service] Initialized. Physical: {is_physical} | Backend: {active_backend} | Target: {FRAME_PATH}")
 
+    consecutive_cam_errors = 0
     while frame_count < max_frames:
         frame_count += 1
         written = False
@@ -344,6 +345,7 @@ def run_service(single_shot=False, filter_mode="none"):
             try:
                 ret, frame = cv2_cap.read()
                 if ret and frame is not None:
+                    consecutive_cam_errors = 0
                     # Apply Morphological and computer vision filters
                     if filter_mode in ("sobel", "edges"):
                         gray = cv2_module.cvtColor(frame, cv2_module.COLOR_BGR2GRAY)
@@ -371,9 +373,17 @@ def run_service(single_shot=False, filter_mode="none"):
                     cv2_module.imwrite(out_tmp, frame, [int(cv2_module.IMWRITE_JPEG_QUALITY), 80])
                     os.replace(out_tmp, FRAME_PATH)
                     written = True
+                else:
+                    consecutive_cam_errors += 1
             except Exception as e:
-                print(f"[Camera Service] cv2 frame capture failed: {e}")
-                cv2_cap = None
+                consecutive_cam_errors += 1
+                if consecutive_cam_errors > 8:
+                    print(f"[Camera Service] cv2 capture error threshold reached: {e}")
+                    try:
+                        cv2_cap.release()
+                    except Exception:
+                        pass
+                    cv2_cap = None
 
         # 2. Raspberry Pi Camera Module via libcamera/rpicam CSI-2 pipeline
         if not written and hw_info["has_libcam"]:
@@ -383,13 +393,20 @@ def run_service(single_shot=False, filter_mode="none"):
         if not written and hw_info["has_v4l2"]:
             written = capture_v4l2_ffmpeg(hw_info.get("v4l2_dev", "/dev/video0"), filter_mode)
 
-        # 4. High-Speed Synthetic Generation (Smooth digital twin simulator)
-        if not written:
-            written = generate_cv2_synthetic_frame(640, 480, filter_mode, frame_count)
+        # 4. In physical mode, NEVER fall through to synthetic demo frames!
+        if is_physical:
+            # If physical frame read was momentarily delayed or dropped, retain the last frame without flickering!
+            if not written and not os.path.exists(FRAME_PATH):
+                # Only on initial startup before first physical frame has landed
+                generate_fallback_synthetic_frame(640, 480, filter_mode, frame_count)
+        else:
+            # Pure synthetic digital twin simulation mode only
             if not written:
-                written = generate_pil_jpeg_frame(640, 480, filter_mode, frame_count)
-            if not written:
-                written = generate_fallback_synthetic_frame(640, 480, filter_mode, frame_count)
+                written = generate_cv2_synthetic_frame(640, 480, filter_mode, frame_count)
+                if not written:
+                    written = generate_pil_jpeg_frame(640, 480, filter_mode, frame_count)
+                if not written:
+                    written = generate_fallback_synthetic_frame(640, 480, filter_mode, frame_count)
 
         # In single shot mode (used by pre-boot diagnostic test)
         if single_shot:

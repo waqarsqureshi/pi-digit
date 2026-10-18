@@ -13,6 +13,7 @@ import {
   Trash2,
   Check,
   Code2,
+  HelpCircle,
 } from 'lucide-react';
 import { CURRICULUM_EXAMPLES } from '../data/curriculumExamples';
 import {
@@ -375,6 +376,16 @@ export function CodeStudio({
                 <span>Run</span>
               </button>
             )}
+
+            <a
+              href="/wiki.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-300 hover:text-white border border-[#3e3e42] transition-colors flex items-center justify-center cursor-pointer"
+              title="Open Official Documentation & Architecture Wiki"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+            </a>
           </div>
         </div>
 

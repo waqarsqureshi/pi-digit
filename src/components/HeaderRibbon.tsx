@@ -12,6 +12,7 @@ import {
   PanelLeft,
   LayoutTemplate,
   Check,
+  ExternalLink,
 } from 'lucide-react';
 import { FullHardwareState } from '../types/digitalTwin';
 import { ThemeId } from '../types/theme';
@@ -72,36 +73,30 @@ export function HeaderRibbon({
   return (
     <header className="w-full bg-[var(--theme-bg-card)] text-[var(--theme-text-main)] shadow-xs sticky top-0 z-40 border-b border-[var(--theme-border)] transition-colors duration-150">
       <div className="w-full px-4 sm:px-6 h-15 flex items-center justify-between gap-4">
-        {/* Brand Zone - Authoritative University of Galway & Raspberry Pi Identity */}
+        {/* Brand Zone - Raspberry Pi Digital Twin Studio */}
         <div className="flex items-center gap-3.5 shrink-0">
           <a
             href="/"
             className="flex items-center gap-3 text-inherit no-underline group hover:opacity-95 transition-opacity"
-            title="University of Galway · Raspberry Pi Digital Twin Studio"
+            title="Raspberry Pi Digital Twin Studio"
           >
-            {/* University of Galway OIP Crest & Raspberry Pi Insignia */}
-            <div className="h-10 px-2.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] flex items-center justify-center gap-2 shadow-xs">
-              <img
-                src="/assets/images/OIP.svg"
-                alt="University of Galway (OÉ Gaillimh) Crest"
-                className="h-8 w-auto object-contain"
-              />
-              <div className="w-[1px] h-5 bg-[var(--theme-border)]" />
+            {/* Raspberry Pi Insignia */}
+            <div className="h-10 w-10 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] flex items-center justify-center shadow-xs">
               <img
                 src="/assets/images/pi-logo.svg"
                 alt="Raspberry Pi"
-                className="w-5.5 h-5.5 object-contain"
+                className="w-6 h-6 object-contain"
               />
             </div>
             
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold tracking-wider text-[#860038] uppercase font-mono">
-                  University of Galway
+                <span className="text-xs font-bold tracking-wider text-[#c51a4a] dark:text-[#f39200] uppercase font-mono">
+                  Raspberry Pi 4
                 </span>
-                <span className="inline-block w-1 h-1 rounded-full bg-[#f39200]" />
-                <span className="text-[11px] font-bold text-[#f39200] font-mono uppercase">
-                  OÉ Gaillimh
+                <span className="inline-block w-1 h-1 rounded-full bg-emerald-500" />
+                <span className="text-[11px] font-bold text-[var(--theme-text-muted)] font-mono uppercase">
+                  Physical Computing
                 </span>
               </div>
               <span className="text-base sm:text-lg font-bold tracking-tight leading-snug text-[var(--theme-text-main)] font-sans">
@@ -137,17 +132,17 @@ export function HeaderRibbon({
             <span>Pi Camera & CV</span>
           </button>
 
-          <button
-            onClick={() => setActiveView('help')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer ${
-              activeView === 'help'
-                ? 'bg-[var(--theme-bg-card)] text-[#860038] dark:text-[#f39200] shadow-xs font-bold'
-                : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
-            }`}
+          <a
+            href="/wiki.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] hover:bg-[var(--theme-bg-subtle)]"
+            title="Open Complete Documentation & Hardware Architecture Wiki"
           >
-            <BookOpen className="w-4 h-4 shrink-0" />
-            <span>Help & Manual</span>
-          </button>
+            <BookOpen className="w-4 h-4 shrink-0 text-[#860038] dark:text-[#f39200]" />
+            <span>Help &amp; Wiki</span>
+            <ExternalLink className="w-3 h-3 opacity-60" />
+          </a>
         </div>
 
         {/* Layout Selection Top-Down Dropdown Menu (Beside Workspace Controls) */}
@@ -297,16 +292,19 @@ export function HeaderRibbon({
                 <Camera className="w-4 h-4 text-[#f39200]" />
                 <span>Pi Camera & CV</span>
               </button>
-              <button
-                onClick={() => {
-                  setActiveView('help');
-                  setViewsMenuOpen(false);
-                }}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
+              <a
+                href="/wiki.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setViewsMenuOpen(false)}
+                className="w-full flex items-center justify-between px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left text-inherit no-underline"
               >
-                <BookOpen className="w-4 h-4 text-[#860038]" />
-                <span>Help & Manual</span>
-              </button>
+                <div className="flex items-center gap-2.5">
+                  <BookOpen className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />
+                  <span>Documentation &amp; Wiki</span>
+                </div>
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+              </a>
             </div>
           )}
         </div>
@@ -327,17 +325,18 @@ export function HeaderRibbon({
           )}
 
           {/* Promoted "Emulator Wiki" Action Button */}
-          {onOpenWiki && (
-            <button
-              onClick={onOpenWiki}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded bg-[#860038] hover:bg-[#9e0e47] text-white text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
-              title="Open Interactive Emulator Wiki & Python API Reference"
-            >
-              <BookOpen className="w-4 h-4 text-white shrink-0" />
-              <span className="hidden sm:inline">Emulator Wiki</span>
-              <span className="sm:hidden">Wiki</span>
-            </button>
-          )}
+          <a
+            href="/wiki.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded bg-[#860038] hover:bg-[#9e0e47] text-white text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95 no-underline"
+            title="Open Interactive Technical Documentation, Hardware Architecture & API Manual"
+          >
+            <BookOpen className="w-4 h-4 text-white shrink-0" />
+            <span className="hidden sm:inline">Emulator Wiki</span>
+            <span className="sm:hidden">Wiki</span>
+            <ExternalLink className="w-3 h-3 text-white/80 shrink-0" />
+          </a>
 
           {/* Connect Hardware Probe */}
           {onConnectHardware && (

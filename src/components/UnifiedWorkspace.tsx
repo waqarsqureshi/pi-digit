@@ -45,6 +45,8 @@ import {
   RefreshCw,
   FolderOpen,
   Gamepad2,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 import {
   FullHardwareState,
@@ -141,33 +143,173 @@ const INITIAL_FILES = [
   {
     name: '12_tictactoe.py',
     lang: 'python' as ProgramLanguage,
-    code: `# 12. Sense HAT Tic-Tac-Toe Game
+    code: `#!/usr/bin/env python3
+"""
+12. Sense HAT Tic-Tac-Toe Game with 5-Way Joystick
+Navigate with Joystick UP/DOWN/LEFT/RIGHT, place X with MIDDLE press (or Enter/Space).
+Plays against smart computer AI (O) with score display on 16x2 LCD!
+"""
 from sense_hat import SenseHat
 import time
+import random
 
 sense = SenseHat()
 sense.clear()
-print("Starting Tic-Tac-Toe...")
 
-# Color Palettes
-O = [0, 0, 0]
-R = [255, 0, 0]      # Player 1
-B = [0, 100, 255]    # Player 2
-G = [50, 50, 50]     # Grid Lines
+print("=" * 60)
+print("  Sense HAT Tic-Tac-Toe Game (Interactive 5-Way Joystick)")
+print("=" * 60)
+print("Controls:")
+print("  - Move Cursor   : Joystick UP / DOWN / LEFT / RIGHT")
+print("  - Place Mark (X): Joystick MIDDLE press (or Enter / Space)")
+print("  - AI Opponent   : Plays O automatically")
+print("=" * 60)
 
-grid = [
-  O, O, G, O, O, G, O, O,
-  O, O, G, O, O, G, O, O,
-  G, G, G, G, G, G, G, G,
-  O, O, G, O, O, G, O, O,
-  O, O, G, O, O, G, O, O,
-  G, G, G, G, G, G, G, G,
-  O, O, G, O, O, G, O, O,
-  O, O, G, O, O, G, O, O,
+# Colors
+GRID_COLOR = [30, 45, 60]       # Divider grid
+P1_COLOR   = [0, 220, 255]      # Player 1 (X) - Cyan
+P2_COLOR   = [255, 140, 0]      # AI (O) - Amber Gold
+CURSOR_ON  = [255, 255, 255]    # White blinking cursor
+EMPTY      = [0, 0, 0]
+
+CELL_COORDS = [
+    [(0,0),(1,0),(0,1),(1,1)], [(3,0),(4,0),(3,1),(4,1)], [(6,0),(7,0),(6,1),(7,1)],
+    [(0,3),(1,3),(0,4),(1,4)], [(3,3),(4,3),(3,4),(4,4)], [(6,3),(7,3),(6,4),(7,4)],
+    [(0,6),(1,6),(0,7),(1,7)], [(3,6),(4,6),(3,7),(4,7)], [(6,6),(7,6),(6,7),(7,7)]
 ]
 
-sense.set_pixels(grid)
-print("Grid rendered. Use Joystick to select tiles.")
+board = [0] * 9  # 0=empty, 1=Player (X), 2=AI (O)
+cur_r, cur_c = 1, 1
+
+def check_winner(b):
+    lines = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+    for p in (1, 2):
+        for line in lines:
+            if b[line[0]] == p and b[line[1]] == p and b[line[2]] == p:
+                return p, line
+    if all(x != 0 for x in b): return 3, None
+    return 0, None
+
+def draw_board(cursor_blink=True):
+    pixels = [EMPTY for _ in range(64)]
+    # Draw dividers
+    for i in range(8):
+        pixels[i * 8 + 2] = GRID_COLOR
+        pixels[i * 8 + 5] = GRID_COLOR
+        pixels[2 * 8 + i] = GRID_COLOR
+        pixels[5 * 8 + i] = GRID_COLOR
+    # Draw cells
+    for idx, val in enumerate(board):
+        c = P1_COLOR if val == 1 else (P2_COLOR if val == 2 else None)
+        if c:
+            for (cx, cy) in CELL_COORDS[idx]: pixels[cy * 8 + cx] = c
+    # Draw cursor
+    cur_idx = cur_r * 3 + cur_c
+    if cursor_blink and board[cur_idx] == 0:
+        for (cx, cy) in CELL_COORDS[cur_idx]: pixels[cy * 8 + cx] = CURSOR_ON
+    sense.set_pixels(pixels)
+
+def ai_move():
+    # 1. Win if possible
+    for i in range(9):
+        if board[i] == 0:
+            board[i] = 2
+            w, _ = check_winner(board)
+            if w == 2: return i
+            board[i] = 0
+    # 2. Block player win
+    for i in range(9):
+        if board[i] == 0:
+            board[i] = 1
+            w, _ = check_winner(board)
+            if w == 1:
+                board[i] = 2
+                return i
+            board[i] = 0
+    # 3. Take center or random
+    if board[4] == 0:
+        board[4] = 2
+        return 4
+    empty = [i for i in range(9) if board[i] == 0]
+    if empty:
+        chosen = random.choice(empty)
+        board[chosen] = 2
+        return chosen
+    return None
+
+draw_board(True)
+last_blink = time.time()
+blink_state = True
+game_over = False
+
+print("Game loop running! Use joystick to move and middle press to select.")
+
+while not game_over:
+    now = time.time()
+    if now - last_blink > 0.25:
+        blink_state = not blink_state
+        last_blink = now
+        draw_board(blink_state)
+
+    for ev in sense.stick.get_events():
+        act = str(ev.action).lower()
+        if act in ('pressed', 'press'):
+            d = str(ev.direction).lower()
+            if d in ('up', 'u'):
+                cur_r = max(0, cur_r - 1)
+                print(f"Cursor -> Row {cur_r}, Col {cur_c}")
+                draw_board(True)
+            elif d in ('down', 'd'):
+                cur_r = min(2, cur_r + 1)
+                print(f"Cursor -> Row {cur_r}, Col {cur_c}")
+                draw_board(True)
+            elif d in ('left', 'l'):
+                cur_c = max(0, cur_c - 1)
+                print(f"Cursor -> Row {cur_r}, Col {cur_c}")
+                draw_board(True)
+            elif d in ('right', 'r'):
+                cur_c = min(2, cur_c + 1)
+                print(f"Cursor -> Row {cur_r}, Col {cur_c}")
+                draw_board(True)
+            elif d in ('middle', 'centre', 'center', 'enter', 'select', 'ok', 'space'):
+                target_idx = cur_r * 3 + cur_c
+                if board[target_idx] == 0:
+                    board[target_idx] = 1
+                    print(f"-> Player placed X at cell ({cur_r}, {cur_c})")
+                    draw_board(False)
+                    w, line = check_winner(board)
+                    if w == 1:
+                        print("*** YOU WIN! Congratulations! ***")
+                        sense.show_message("WIN!", text_colour=[0, 255, 120])
+                        game_over = True
+                        break
+                    elif w == 3:
+                        print("*** GAME DRAW / TIE ***")
+                        sense.show_message("TIE!")
+                        game_over = True
+                        break
+
+                    time.sleep(0.3)
+                    ai_c = ai_move()
+                    if ai_c is not None:
+                        print(f"-> Computer AI placed O at cell ({ai_c // 3}, {ai_c % 3})")
+                        draw_board(True)
+                    w, line = check_winner(board)
+                    if w == 2:
+                        print("*** AI WINS! Better luck next time! ***")
+                        sense.show_message("AI!", text_colour=[255, 60, 60])
+                        game_over = True
+                        break
+                    elif w == 3:
+                        print("*** GAME DRAW / TIE ***")
+                        sense.show_message("TIE!")
+                        game_over = True
+                        break
+
+    time.sleep(0.04)
+
+print("Game match ended.")
+sense.clear()
 `,
   },
   {
@@ -461,6 +603,7 @@ export function UnifiedWorkspace({
   onOpenDiagnostics,
   onOpenHelp,
   isProbingHardware = false,
+  setIsWikiOpen,
 }: UnifiedWorkspaceProps) {
   // Applet Configurations with LocalStorage Persistence
   const [applets, setApplets] = useState<AppletConfig[]>(() => {
@@ -595,7 +738,11 @@ export function UnifiedWorkspace({
       restoreDefaultLayout();
     };
     const handleWiki = () => {
-      setIsWikiOpen(true);
+      if (setIsWikiOpen) {
+        setIsWikiOpen(true);
+      } else {
+        window.open('/wiki.html', '_blank');
+      }
     };
     window.addEventListener('restore-default-applets', handleRestore);
     window.addEventListener('open-emulator-wiki', handleWiki);
@@ -612,12 +759,60 @@ export function UnifiedWorkspace({
   // View Settings
   const [showBlueprintHandles, setShowBlueprintHandles] = useState(true);
   const [selectedAppletId, setSelectedAppletId] = useState<AppletId>('matrix');
-  const [isWikiOpen, setIsWikiOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Save Code Action
+  // Save Code Action (Persists file in state & localStorage)
   const handleSaveCode = () => {
+    setFiles((prev) =>
+      prev.map((f, i) => (i === activeFileIndex ? { ...f, code: currentFile.code } : f))
+    );
+    try {
+      localStorage.setItem(`pi_code_${currentFile.name}`, currentFile.code);
+    } catch {}
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 2000);
+  };
+
+  // Download Code to local machine
+  const handleDownloadCode = () => {
+    const blob = new Blob([currentFile.code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = currentFile.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 2000);
+  };
+
+  // Open file from local computer
+  const handleOpenFileFromDisk = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (typeof content === 'string') {
+        const lang: ProgramLanguage = file.name.endsWith('.c') || file.name.endsWith('.h') ? 'c' : 'python';
+        const existingIdx = files.findIndex((f) => f.name === file.name);
+        if (existingIdx >= 0) {
+          setFiles((prev) =>
+            prev.map((f, idx) => (idx === existingIdx ? { ...f, code: content } : f))
+          );
+          setActiveFileIndex(existingIdx);
+        } else {
+          setFiles((prev) => [...prev, { name: file.name, lang, code: content }]);
+          setActiveFileIndex(files.length);
+        }
+        setSavedToast(true);
+        setTimeout(() => setSavedToast(false), 2000);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // VS Code Tabs & Files
@@ -819,6 +1014,45 @@ export function UnifiedWorkspace({
     onClearMatrix([0, 0, 0]);
   };
 
+  const hslToRgb = (h: number, s: number, l: number): RgbColor => {
+    s /= 100;
+    l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+  };
+
+  const loadPresetPattern = (type: 'raspberry' | 'smiley' | 'rainbow') => {
+    if (isTttMode) setIsTttMode(false);
+    if (type === 'raspberry') {
+      const p: RgbColor[] = Array(64).fill([0, 0, 0]);
+      const r: RgbColor = [200, 20, 60];
+      const g: RgbColor = [40, 160, 40];
+      [2, 5, 10, 13].forEach((i) => (p[i] = g));
+      [18, 19, 20, 21, 26, 27, 28, 29, 34, 35, 36, 37, 43, 44, 51, 52].forEach((i) => (p[i] = r));
+      if (onSetMatrixPattern) onSetMatrixPattern(p);
+    } else if (type === 'smiley') {
+      const p: RgbColor[] = Array(64).fill([0, 0, 0]);
+      const y: RgbColor = [255, 200, 0];
+      const b: RgbColor = [0, 0, 0];
+      for (let i = 0; i < 64; i++) p[i] = y;
+      p[18] = b;
+      p[21] = b;
+      [41, 46, 50, 51, 52, 53].forEach((i) => (p[i] = b));
+      if (onSetMatrixPattern) onSetMatrixPattern(p);
+    } else if (type === 'rainbow') {
+      const p: RgbColor[] = [];
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+          const hue = ((x + y) / 14) * 360;
+          p.push(hslToRgb(hue, 100, 50));
+        }
+      }
+      if (onSetMatrixPattern) onSetMatrixPattern(p);
+    }
+  };
+
   // LCD Contrast State
   const [lcdContrast, setLcdContrast] = useState<number>(85);
 
@@ -996,16 +1230,8 @@ export function UnifiedWorkspace({
     setTimeout(() => setPulseTestResult(null), 3000);
   };
 
-  // Camera Capture and Frame Timestamp
-  const [cameraFrameTimestamp, setCameraFrameTimestamp] = useState<number>(Date.now());
+  // Camera Capture State
   const [isCapturing, setIsCapturing] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCameraFrameTimestamp(Date.now());
-    }, 2000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleCaptureToMatrix = async () => {
     setIsCapturing(true);
@@ -1310,7 +1536,7 @@ export function UnifiedWorkspace({
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
     'Linux raspberrypi 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 12 (bookworm) aarch64',
     'Raspberry Pi 4 Model B Rev 1.4 · 4GB RAM · BCM2711 Quad-Core',
-    'Physical Computing & Digital Twin Lab · University of Galway',
+    'Raspberry Pi 4 Physical Computing & Digital Twin Lab',
     'Interactive Bash Terminal: ACTIVE · Host: 127.0.0.1:3000',
     "Type 'help' for lab commands or run any bash command (ls, cat, python3, gcc).",
     'pi@raspberrypi:~$ ',
@@ -1463,18 +1689,27 @@ export function UnifiedWorkspace({
           style={{ width: isStudioExpanded ? '74%' : `${studioWidth}%` }}
           className="min-w-[480px] max-w-[85vw] border-r border-[var(--theme-border)] bg-[var(--theme-bg-card)] flex flex-col shrink-0 transition-all duration-150 relative"
         >
-          {/* Top Bar with Examples Dropdown, Save, Run, Abort, and Expand */}
+          {/* Top Bar with Examples Dropdown, Open, Save, Run, Abort, and Expand */}
           <div className="h-10 border-b border-[var(--theme-border)] px-3 flex items-center justify-between bg-[var(--theme-bg-subtle)] gap-2 shrink-0">
+            {/* Hidden local file input for opening custom files */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleOpenFileFromDisk}
+              accept=".py,.c,.h,.sh,.txt,.json"
+              className="hidden"
+            />
+
             <div className="flex items-center gap-2">
-              {/* Examples from Pi ▾ Dropdown (Full Curriculum from src/data/curriculumExamples.ts) */}
+              {/* Examples from Pi / Folder Example Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setExamplesMenuOpen((prev) => !prev)}
-                  className="px-3 py-1.5 rounded text-xs font-mono font-bold border border-[#860038]/40 bg-[#860038]/10 text-[#860038] dark:text-[#f39200] hover:bg-[#860038]/20 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Browse all 28 Python & C curriculum examples"
+                  className="px-2.5 py-1.5 rounded text-xs font-mono font-bold border border-[#860038]/40 bg-[#860038]/10 text-[#860038] dark:text-[#f39200] hover:bg-[#860038]/20 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Open code examples from the examples/ folder"
                 >
-                  <FolderOpen className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />
-                  <span>Examples from Pi ({CURRICULUM_EXAMPLES.length})</span>
+                  <FolderOpen className="w-4 h-4 text-amber-500" />
+                  <span>Open Example ({CURRICULUM_EXAMPLES.length})</span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${examplesMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
@@ -1591,15 +1826,33 @@ export function UnifiedWorkspace({
               </div>
             </div>
 
-            {/* Run, Abort (Ctrl+X), Save, and Expand Studio Controls */}
+            {/* Actions: Open File, Save, Download, Run, Abort (Ctrl+X), and Expand */}
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2.5 py-1 rounded bg-[var(--theme-bg-card)] hover:bg-[var(--theme-border)] text-[var(--theme-text-main)] border border-[var(--theme-border)] text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
+                title="Open a .py or .c file from your local disk"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
+                <span className="hidden md:inline">Open File</span>
+              </button>
+
               <button
                 onClick={handleSaveCode}
                 className="px-2.5 py-1 rounded bg-[var(--theme-bg-card)] hover:bg-[var(--theme-border)] text-[var(--theme-text-main)] border border-[var(--theme-border)] text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
                 title="Save Code"
               >
-                {savedToast ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Save className="w-3.5 h-3.5" />}
+                {savedToast ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Save className="w-3.5 h-3.5 text-blue-500" />}
                 <span className="hidden sm:inline">Save</span>
+              </button>
+
+              <button
+                onClick={handleDownloadCode}
+                className="px-2 py-1 rounded bg-[var(--theme-bg-card)] hover:bg-[var(--theme-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] border border-[var(--theme-border)] text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
+                title="Download current file to computer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Download</span>
               </button>
 
               <button
@@ -1696,9 +1949,15 @@ export function UnifiedWorkspace({
                   <RotateCcw className="w-4 h-4" />
                 </button>
 
-                <button onClick={() => setIsWikiOpen(true)} className="p-1.5 hover:text-[var(--theme-text-main)] cursor-pointer" title="Emulator Wiki">
+                <a
+                  href="/wiki.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 text-[var(--theme-text-muted)] hover:text-[#860038] dark:hover:text-[#f39200] transition-colors cursor-pointer flex items-center justify-center"
+                  title="Official Documentation & Architecture Wiki (/wiki.html)"
+                >
                   <BookOpen className="w-4 h-4" />
-                </button>
+                </a>
               </div>
             </div>
 
@@ -2268,28 +2527,64 @@ export function UnifiedWorkspace({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* Compact Palette */}
+                      {/* Presets & Compact Palette */}
                       {!isTttMode && (
-                        <div className="flex items-center gap-1">
-                          {PALETTE_COLORS.slice(0, 5).map((p) => (
+                        <div className="flex items-center gap-1.5">
+                          {/* Pre-programmed Patterns */}
+                          <div className="flex items-center bg-[var(--theme-bg-subtle)] p-0.5 rounded border border-[var(--theme-border)] text-[10px] font-mono">
                             <button
-                              key={p.name}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedPaintColor(p.color);
-                                setCustomHex(p.hex);
+                                loadPresetPattern('raspberry');
                               }}
-                              style={{ backgroundColor: p.hex }}
-                              className={`w-3.5 h-3.5 rounded-full border transition-transform cursor-pointer ${
-                                selectedPaintColor[0] === p.color[0] &&
-                                selectedPaintColor[1] === p.color[1] &&
-                                selectedPaintColor[2] === p.color[2]
-                                  ? 'scale-125 border-white shadow-xs'
-                                  : 'border-black/50 hover:scale-110'
-                              }`}
-                              title={`Select ${p.name}`}
-                            />
-                          ))}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-rose-500 hover:text-white hover:bg-rose-900/60 cursor-pointer transition-colors"
+                              title="Raspberry Pi Logo Preset"
+                            >
+                              Pi
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadPresetPattern('rainbow');
+                              }}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-500 hover:text-white hover:bg-amber-900/60 cursor-pointer transition-colors"
+                              title="Rainbow Spectrum Preset"
+                            >
+                              Rainbow
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadPresetPattern('smiley');
+                              }}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-emerald-500 hover:text-white hover:bg-emerald-900/60 cursor-pointer transition-colors"
+                              title="Smiley Face Preset"
+                            >
+                              Smile
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {PALETTE_COLORS.slice(0, 5).map((p) => (
+                              <button
+                                key={p.name}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPaintColor(p.color);
+                                  setCustomHex(p.hex);
+                                }}
+                                style={{ backgroundColor: p.hex }}
+                                className={`w-3.5 h-3.5 rounded-full border transition-transform cursor-pointer ${
+                                  selectedPaintColor[0] === p.color[0] &&
+                                  selectedPaintColor[1] === p.color[1] &&
+                                  selectedPaintColor[2] === p.color[2]
+                                    ? 'scale-125 border-white shadow-xs'
+                                    : 'border-black/50 hover:scale-110'
+                                }`}
+                                title={`Select ${p.name}`}
+                              />
+                            ))}
+                          </div>
                         </div>
                       )}
 
@@ -2516,12 +2811,12 @@ export function UnifiedWorkspace({
                     }`}
                   >
                     <img
-                      src={`/api/camera/frame?t=${cameraFrameTimestamp}`}
+                      src="/api/camera/stream"
                       alt="Live Video Stream"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" fill="%23141a29"><rect width="640" height="480"/><circle cx="320" cy="240" r="80" fill="%23860038"/><text x="20" y="30" fill="%23f39200" font-family="monospace" font-size="20">LABORATORY CAMERA FEED (240x480)</text></svg>';
+                        const target = e.target as HTMLImageElement;
+                        target.src = `/api/camera/frame?t=${Date.now()}`;
                       }}
                     />
 
@@ -3048,116 +3343,6 @@ export function UnifiedWorkspace({
           )}
         </div>
       </div>
-
-      {/* =========================================================================
-          EMULATOR WIKI & USER GUIDE MODAL
-         ========================================================================= */}
-      {isWikiOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl max-h-[85vh] bg-[var(--theme-bg-card)] border border-[var(--theme-border)] rounded shadow-2xl flex flex-col overflow-hidden text-[var(--theme-text-main)]">
-            {/* Modal Header */}
-            <div className="h-12 px-5 bg-[var(--theme-bg-subtle)] border-b border-[var(--theme-border)] flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <BookOpen className="w-5 h-5 text-[#860038] dark:text-[#f39200]" />
-                <span className="font-bold text-base text-[var(--theme-text-main)] font-sans">
-                  University of Galway · Pi-Digit Emulator Wiki & User Guide
-                </span>
-              </div>
-              <button
-                onClick={() => setIsWikiOpen(false)}
-                className="p-1.5 text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] rounded cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto space-y-6 text-xs font-mono leading-relaxed text-[var(--theme-text-main)] bg-[var(--theme-bg-app)]">
-              <section className="space-y-2 p-4 rounded bg-[var(--theme-bg-card)] border border-[var(--theme-border)]">
-                <h3 className="text-sm font-bold text-[#860038] dark:text-[#f39200] uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                  <Grid className="w-4 h-4" /> 1. 8x8 RGB LED Matrix Subsystem
-                </h3>
-                <p>
-                  The Sense HAT LED matrix features 64 individually addressable RGB LEDs linked to <code className="text-[#860038] dark:text-[#f39200] font-bold">/dev/fb1</code> on real hardware. In the digital twin, you can:
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-[var(--theme-text-muted)]">
-                  <li>Click any color swatch in the palette menu and click any LED to paint directly.</li>
-                  <li>Use the vertical slider on the right to scale display brightness.</li>
-                  <li>In Python: <code className="text-purple-600 dark:text-purple-300">from sense_hat import SenseHat; s = SenseHat(); s.set_pixel(x, y, [r, g, b])</code>.</li>
-                </ul>
-              </section>
-
-              <section className="space-y-2 p-4 rounded bg-[var(--theme-bg-card)] border border-[var(--theme-border)]">
-                <h3 className="text-sm font-bold text-[#860038] dark:text-[#f39200] uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                  <Compass className="w-4 h-4" /> 2. 5-Way Joystick Control
-                </h3>
-                <p>
-                  The 5-way joystick triggers event interrupts on the Raspberry Pi input bus (<code className="text-[#860038] dark:text-[#f39200] font-bold">/dev/input/event*</code>).
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-[var(--theme-text-muted)]">
-                  <li>Use the on-screen metallic D-Pad or your keyboard <strong>Arrow Keys</strong> and <strong>Enter</strong> to trigger directions (UP, DOWN, LEFT, RIGHT, MIDDLE).</li>
-                  <li>In Python: <code className="text-purple-600 dark:text-purple-300">for event in sense.stick.get_events(): print(event.direction, event.action)</code>.</li>
-                </ul>
-              </section>
-
-              <section className="space-y-2 p-4 rounded bg-[var(--theme-bg-card)] border border-[var(--theme-border)]">
-                <h3 className="text-sm font-bold text-[#860038] dark:text-[#f39200] uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                  <Activity className="w-4 h-4" /> 3. Hardware PWM0 Signal Generator
-                </h3>
-                <p>
-                  Generates true digital square waves on GPIO Pin 18 (BCM 18 / Physical Pin 12).
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-[var(--theme-text-muted)]">
-                  <li>Adjust the <strong>Duty Cycle</strong> slider to modulate pulse width (HIGH time vs LOW time).</li>
-                  <li>Adjust the <strong>Frequency</strong> slider (100 Hz - 5000 Hz) to vary the cycle period.</li>
-                  <li>Observe the real-time calibrated digital square wave oscilloscope visualization.</li>
-                </ul>
-              </section>
-
-              <section className="space-y-2 p-4 rounded bg-[var(--theme-bg-card)] border border-[var(--theme-border)]">
-                <h3 className="text-sm font-bold text-[#860038] dark:text-[#f39200] uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                  <StopCircle className="w-4 h-4 text-rose-600" /> 4. Terminating Infinite Loops (Ctrl+X)
-                </h3>
-                <p>
-                  If a user script enters a <code className="text-[#f39200] font-bold">while True:</code> loop, you can immediately terminate execution at any time by pressing <strong>Ctrl+X</strong> (or <strong>Ctrl+C</strong>) anywhere in the workspace or clicking the <strong>Stop ^X</strong> button in the terminal header.
-                </p>
-              </section>
-
-              <section className="space-y-2 p-4 rounded bg-[var(--theme-bg-card)] border border-[var(--theme-border)]">
-                <h3 className="text-sm font-bold text-[#860038] dark:text-[#f39200] uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                  <Camera className="w-4 h-4" /> 5. Pi Camera Module & Computer Vision (240x480)
-                </h3>
-                <p>
-                  Supports real CSI-2 camera modules, USB V4L2 webcams, and synthetic test frames calibrated to 240x480 in standard view and full expansion when maximized. Click <strong>Capture to Matrix</strong> to downsample the live frame to the 8x8 LED matrix.
-                </p>
-              </section>
-
-              <section className="space-y-2 p-4 rounded bg-[var(--theme-bg-card)] border border-[var(--theme-border)]">
-                <h3 className="text-sm font-bold text-[#860038] dark:text-[#f39200] uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                  <LayoutGrid className="w-4 h-4" /> 6. Managing Applets & Restoring Default View
-                </h3>
-                <p>
-                  If you close an applet using its top-right ✕ button, you can bring it back at any time:
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-[var(--theme-text-muted)]">
-                  <li><strong>Applets Side Menu:</strong> Click the <LayoutGrid className="w-3.5 h-3.5 inline text-[#860038] dark:text-[#f39200]" /> icon on the left Activity Rail to open the side drawer with all 8 applets and their status. Clicking anywhere outside dismisses the drawer.</li>
-                  <li><strong>Canvas Banner:</strong> When applets are closed, an alert banner appears above the canvas with one-click <code>+ Put Back</code> buttons.</li>
-                  <li><strong>Restore Default View:</strong> Click the <strong>↺ Restore Default View</strong> button in the top menu bar, side drawer, or canvas banner to immediately restore all 8 widgets to their default layout.</li>
-                </ul>
-              </section>
-            </div>
-
-            <div className="p-3.5 bg-[var(--theme-bg-subtle)] border-t border-[var(--theme-border)] flex justify-end">
-              <button
-                onClick={() => setIsWikiOpen(false)}
-                className="px-4 py-2 rounded bg-[#860038] hover:bg-[#9e0e47] text-white font-sans font-bold text-xs cursor-pointer shadow-xs"
-              >
-                Close Wiki
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

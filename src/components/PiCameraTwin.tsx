@@ -57,6 +57,7 @@ export function PiCameraTwin({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hardwareFrameRef = useRef<HTMLImageElement | null>(null);
+  const lastHwFrameDrawnRef = useRef<boolean>(false);
   const lastFrameTime = useRef<number>(performance.now());
   const frameCount = useRef<number>(0);
   const simAngle = useRef<number>(0);
@@ -196,12 +197,25 @@ export function PiCameraTwin({
           const hwImg = hardwareFrameRef.current;
           if (hwImg && hwImg.naturalWidth > 0) {
             ctx.drawImage(hwImg, 0, 0, width, height);
+            lastHwFrameDrawnRef.current = true;
+            if (displayMode === 'processed') {
+              applyClientMorphology(ctx, width, height, filter, threshold);
+            }
+          } else if (lastHwFrameDrawnRef.current) {
+            // Retain last valid camera frame — NEVER flicker to simulated demo
             if (displayMode === 'processed') {
               applyClientMorphology(ctx, width, height, filter, threshold);
             }
           } else {
-            renderSimulationFrame(ctx, width, height, simAngle.current, filter, threshold);
-            simAngle.current += 0.04;
+            // Dark camera sensor standby overlay
+            ctx.fillStyle = '#0a0e17';
+            ctx.fillRect(0, 0, width, height);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(40, 40, width - 80, height - 80);
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '12px monospace';
+            ctx.fillText('CONNECTING TO PI CAMERA STREAM...', width / 2 - 120, height / 2);
           }
         } else if (cameraSource === 'webcam' && videoRef.current && videoRef.current.readyState >= 2) {
           ctx.save();

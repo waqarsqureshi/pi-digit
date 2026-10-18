@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   Check,
@@ -126,9 +126,16 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
   };
 
   const handleOpenWiki = () => {
-    setActiveView('help');
-    window.dispatchEvent(new CustomEvent('open-emulator-wiki'));
+    window.open('/wiki.html', '_blank');
   };
+
+  // If help view requested, direct to the comprehensive wiki.html
+  useEffect(() => {
+    if (activeView === 'help') {
+      setActiveView('workspace');
+      window.open('/wiki.html', '_blank');
+    }
+  }, [activeView]);
 
   return (
     <div

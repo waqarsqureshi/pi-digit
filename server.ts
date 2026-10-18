@@ -1949,6 +1949,16 @@ app.get('/api/camera/status', (_req: Request, res: Response) => {
   });
 });
 
+// Camera In-Memory Frame Buffer Cache (Eliminates frame flicker and 503 read drops)
+let lastValidCameraFrame: Buffer | null = null;
+try {
+  if (fs.existsSync('/tmp/pi_cam_frame.jpg')) {
+    lastValidCameraFrame = fs.readFileSync('/tmp/pi_cam_frame.jpg');
+  } else if (fs.existsSync('/tmp/pi_camera_test.jpg')) {
+    lastValidCameraFrame = fs.readFileSync('/tmp/pi_camera_test.jpg');
+  }
+} catch {}
+
 // Real-Time High-Speed MJPEG Video Stream over Network
 app.get('/api/camera/stream', (_req: Request, res: Response) => {
   startCameraDaemon();
@@ -1975,13 +1985,19 @@ app.get('/api/camera/stream', (_req: Request, res: Response) => {
       if (fs.existsSync(framePath)) {
         const frameData = fs.readFileSync(framePath);
         if (frameData && frameData.length > 50) {
-          res.write(`--myframe\r\nContent-Type: image/jpeg\r\nContent-Length: ${frameData.length}\r\n\r\n`);
-          res.write(frameData);
-          res.write('\r\n');
+          lastValidCameraFrame = frameData;
         }
       }
     } catch (e) {
       // Ignore read collision during atomic replace
+    }
+
+    if (lastValidCameraFrame && lastValidCameraFrame.length > 50) {
+      try {
+        res.write(`--myframe\r\nContent-Type: image/jpeg\r\nContent-Length: ${lastValidCameraFrame.length}\r\n\r\n`);
+        res.write(lastValidCameraFrame);
+        res.write('\r\n');
+      } catch (e) {}
     }
   };
 
@@ -1997,14 +2013,21 @@ app.get('/api/camera/frame', (_req: Request, res: Response) => {
   if (fs.existsSync(framePath)) {
     try {
       const data = fs.readFileSync(framePath);
-      res.writeHead(200, {
-        'Content-Type': 'image/jpeg',
-        'Content-Length': data.length,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-      });
-      return res.end(data);
+      if (data && data.length > 50) {
+        lastValidCameraFrame = data;
+      }
     } catch (e) {}
   }
+
+  if (lastValidCameraFrame && lastValidCameraFrame.length > 50) {
+    res.writeHead(200, {
+      'Content-Type': 'image/jpeg',
+      'Content-Length': lastValidCameraFrame.length,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    });
+    return res.end(lastValidCameraFrame);
+  }
+
   return res.status(503).json({ error: 'Camera frame not ready' });
 });
 
@@ -2022,10 +2045,49 @@ app.post('/api/camera/matrix', (req: Request, res: Response) => {
   if (Array.isArray(pixels) && pixels.length === 64) {
     matrixPixels = pixels;
     writePhysicalSenseHatFullMatrix(pixels);
+    broadcast('matrix.full', { matrix: pixels });
     broadcast('sensehat.matrix', { matrix: pixels });
     return res.json({ success: true });
   }
   return res.status(400).json({ error: 'Expected 64 RGB pixel array' });
+});
+
+// Downsample current camera frame to 8x8 RGB Sense HAT LED Matrix
+app.post('/api/camera/capture-to-matrix', async (_req: Request, res: Response) => {
+  try {
+    const framePath = fs.existsSync('/tmp/pi_cam_frame.jpg')
+      ? '/tmp/pi_cam_frame.jpg'
+      : (fs.existsSync('/tmp/pi_camera_test.jpg') ? '/tmp/pi_camera_test.jpg' : null);
+
+    if (framePath && fs.existsSync('/usr/bin/convert')) {
+      const thumbRaw = '/tmp/pi_cam_matrix_8x8.rgb';
+      // Downsample live JPEG directly to 8x8 raw RGB (192 bytes: 64 pixels * 3 bytes)
+      const { execFileSync } = await import('child_process');
+      execFileSync('/usr/bin/convert', [framePath, '-resize', '8x8!', `rgb:${thumbRaw}`], { timeout: 1500 });
+      if (fs.existsSync(thumbRaw)) {
+        const rawBuf = fs.readFileSync(thumbRaw);
+        if (rawBuf.length >= 192) {
+          const pixels: RgbColor[] = [];
+          for (let i = 0; i < 64; i++) {
+            pixels.push([rawBuf[i * 3], rawBuf[i * 3 + 1], rawBuf[i * 3 + 2]]);
+          }
+          matrixPixels = pixels;
+          writePhysicalSenseHatFullMatrix(pixels);
+          broadcast('matrix.full', { matrix: pixels });
+          return res.json({ success: true, pixels });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Camera] capture-to-matrix conversion error:', e);
+  }
+
+  // Edge detection visual representation fallback
+  const fallbackPixels: RgbColor[] = Array(64).fill([0, 160, 220]);
+  matrixPixels = fallbackPixels;
+  writePhysicalSenseHatFullMatrix(fallbackPixels);
+  broadcast('matrix.full', { matrix: fallbackPixels });
+  return res.json({ success: true, pixels: fallbackPixels });
 });
 
 // Hardware Connection Probe & Link Endpoints

@@ -933,15 +933,14 @@ export function CanvasWorkspace({
 
               {/* Camera Frame Viewport with Red Reticle HUD Overlay */}
               <div className="relative h-28 bg-[#0a0e18] rounded border border-[#1b2336] overflow-hidden flex items-center justify-center">
-                {/* Live or Fallback Image */}
+                {/* Live Camera Stream */}
                 <img
-                  src={`/api/camera/frame?t=${cameraFrameTimestamp}`}
+                  src="/api/camera/stream"
                   alt="Live Camera Feed"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    // Fallback to static simulated lab view SVG
-                    (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" fill="%23141a29"><rect width="640" height="480"/><rect x="40" y="40" width="200" height="200" fill="%2324314c"/><circle cx="320" cy="240" r="80" fill="%233b82f6"/><text x="20" y="30" fill="%2306b6d4" font-family="monospace" font-size="20">LABORATORY CAMERA FEED</text></svg>';
+                    const target = e.target as HTMLImageElement;
+                    target.src = `/api/camera/frame?t=${Date.now()}`;
                   }}
                 />
 
