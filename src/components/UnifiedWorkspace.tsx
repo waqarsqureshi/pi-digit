@@ -480,9 +480,9 @@ function AppletCard({
     <div
       onClick={onSelect}
       style={floatingStyle}
-      className={`rounded bg-[var(--theme-bg-card)] border transition-all duration-150 flex flex-col shadow-sm ${
+      className={`relative rounded-xl bg-[var(--theme-bg-card)] border transition-all duration-150 flex flex-col shadow-md ${
         isSelected
-          ? 'border-[#860038] shadow-[0_0_14px_rgba(134,0,56,0.22)] ring-1 ring-[#860038]/30'
+          ? 'border-[var(--theme-accent)] shadow-lg ring-1 ring-[var(--theme-accent)]/20'
           : 'border-[var(--theme-border)] hover:border-[var(--theme-border-hover)]'
       } ${!isFloating && isMaximized ? 'col-span-full' : ''} ${className}`}
     >
@@ -508,7 +508,7 @@ function AppletCard({
           onSelect();
           onHeaderPointerDown?.(e);
         }}
-        className={`h-9 bg-[var(--theme-bg-subtle)] border-b border-[var(--theme-border)] px-3 flex items-center justify-between gap-2 select-none shrink-0 ${
+        className={`h-11 rounded-t-xl bg-[var(--theme-bg-subtle)] border-b border-[var(--theme-border)] px-4 flex items-center justify-between gap-2 select-none shrink-0 ${
           isFloating ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
       >
@@ -587,7 +587,7 @@ function AppletCard({
 
       {/* Body */}
       {!isMinimized && (
-        <div className="relative p-3.5 flex-1 flex flex-col justify-between overflow-auto bg-[var(--theme-bg-card)] text-[var(--theme-text-main)]">
+        <div className="relative rounded-b-xl p-4 flex-1 flex flex-col justify-between overflow-auto bg-[var(--theme-bg-card)] text-[var(--theme-text-main)]">
           {runStatus !== undefined && !runStatus && (
             <div className="absolute inset-0 bg-[#080d1a]/85 backdrop-blur-xs z-20 flex flex-col items-center justify-center p-4 text-center select-none">
               <div className="w-10 h-10 rounded-full bg-slate-800/90 border border-slate-700 flex items-center justify-center mb-2 shadow-inner">
@@ -1710,17 +1710,17 @@ export function UnifiedWorkspace({
   const activeMatrix = state.matrix?.length === 64 ? state.matrix : DEFAULT_RGB_MATRIX;
 
   return (
-    <div className="flex flex-col w-full h-[calc(100vh-3.75rem)] bg-[var(--theme-bg-app)] text-[var(--theme-text-main)] overflow-hidden font-sans select-none transition-colors duration-150 relative">
+    <div className="relative flex h-[calc(100vh-3.75rem)] w-full flex-col overflow-hidden bg-[var(--theme-bg-app)] font-sans text-[var(--theme-text-main)] transition-colors duration-150 select-none max-md:h-auto max-md:min-h-[calc(100vh-4rem)] max-md:overflow-visible">
       {/* =========================================================================
           MAIN LAYOUT: CODE STUDIO (LEFT) + APPLETS (RIGHT)
          ========================================================================= */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex flex-1 overflow-hidden max-md:flex-col max-md:overflow-visible">
         {/* =====================================================================
             LEFT COLUMN: VS CODE PROGRAMMING ENVIRONMENT
            ===================================================================== */}
         <div
           style={{ width: isStudioExpanded ? '74%' : `${studioWidth}%` }}
-          className="min-w-[480px] max-w-[85vw] border-r border-[var(--theme-border)] bg-[var(--theme-bg-card)] flex flex-col shrink-0 transition-all duration-150 relative"
+          className="relative flex shrink-0 flex-col border-r border-[var(--theme-border)] bg-[var(--theme-bg-card)] transition-all duration-150 max-md:!w-full max-md:min-w-0 max-md:max-w-full max-md:min-h-[70vh] max-md:border-r-0 max-md:border-b"
         >
           {/* Top Bar with Examples Dropdown, Open, Save, Run, Abort, and Expand */}
           <div className="h-10 border-b border-[var(--theme-border)] px-3 flex items-center justify-between bg-[var(--theme-bg-subtle)] gap-2 shrink-0">
@@ -2302,7 +2302,7 @@ export function UnifiedWorkspace({
         {/* =====================================================================
             RIGHT COLUMN: MOVABLE, RESIZABLE APPLETS
            ===================================================================== */}
-        <div className="flex-1 bg-[var(--theme-bg-app)] text-[var(--theme-text-main)] p-3 overflow-y-auto overflow-x-hidden relative flex flex-col">
+        <div className="relative flex-1 flex flex-col overflow-x-hidden overflow-y-auto bg-[var(--theme-bg-app)] p-4 text-[var(--theme-text-main)] max-md:min-h-[70vh] max-md:overflow-visible">
           {/* Smart Notification Banner when one or more applets are closed */}
           {closedApplets.length > 0 && enabledApplets.length > 0 && (
             <div className="w-full mb-3 px-3.5 py-2.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono shadow-xs shrink-0">
@@ -2385,7 +2385,7 @@ export function UnifiedWorkspace({
           ) : (
             <>
               {/* Canvas Mode & Arrangement Control Toolbar */}
-              <div className="w-full mb-3 px-3.5 py-2 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] flex flex-wrap items-center justify-between gap-3 text-sm shadow-xs shrink-0 select-none">
+              <div className="mb-4 flex w-full shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-card)] px-4 py-3 text-sm shadow-sm select-none">
                 <div className="flex items-center gap-2.5">
                   {/* Floating vs Grid Switcher */}
                   <div className="flex items-center bg-[var(--theme-bg-card)] p-0.5 rounded border border-[var(--theme-border)]">

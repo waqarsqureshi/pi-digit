@@ -39,6 +39,7 @@ interface HeaderRibbonProps {
 }
 
 export function HeaderRibbon({
+  state,
   activeView,
   setActiveView,
   layoutMode = 'grid',
@@ -55,6 +56,22 @@ export function HeaderRibbon({
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const viewsRef = useRef<HTMLDivElement>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
+  const systemStatus =
+    state?.systemMode === 'simulation'
+      ? 'Simulation'
+      : state?.hardwareLinkStatus === 'full'
+        ? 'Hardware connected'
+        : state?.hardwareLinkStatus === 'partial'
+          ? 'Partial connection'
+          : state
+            ? 'Ready'
+            : 'Connecting';
+  const statusColor =
+    state?.systemMode === 'simulation' || state?.hardwareLinkStatus === 'full'
+      ? 'bg-emerald-500'
+      : state?.hardwareLinkStatus === 'partial'
+        ? 'bg-amber-500'
+        : 'bg-slate-400';
 
   // Close menus when clicked outside
   useEffect(() => {
@@ -71,8 +88,8 @@ export function HeaderRibbon({
   }, []);
 
   return (
-    <header className="w-full bg-[var(--theme-bg-card)] text-[var(--theme-text-main)] shadow-xs sticky top-0 z-40 border-b border-[var(--theme-border)] transition-colors duration-150">
-      <div className="w-full px-4 sm:px-6 h-15 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 w-full border-b border-[var(--theme-border)] bg-[var(--header-bg)] text-[var(--header-text)] shadow-sm transition-colors duration-150">
+      <div className="flex min-h-16 w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 sm:px-6">
         {/* Brand Zone - Raspberry Pi Digital Twin Studio */}
         <div className="flex items-center gap-3.5 shrink-0">
           <a
@@ -81,7 +98,7 @@ export function HeaderRibbon({
             title="Raspberry Pi Digital Twin Studio"
           >
             {/* Raspberry Pi Insignia */}
-            <div className="h-10 w-10 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] flex items-center justify-center shadow-xs">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] shadow-sm">
               <img
                 src="/assets/images/pi-logo.svg"
                 alt="Raspberry Pi"
@@ -89,68 +106,72 @@ export function HeaderRibbon({
               />
             </div>
             
-            <div className="flex flex-col">
+            <div className="flex min-w-0 flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold tracking-wider text-[#c51a4a] dark:text-[#f39200] uppercase font-mono">
-                  Raspberry Pi 4
+                <span className="text-base font-bold tracking-tight text-[var(--header-text)] sm:text-lg">
+                  Pi-Digit
                 </span>
-                <span className="inline-block w-1 h-1 rounded-full bg-emerald-500" />
-                <span className="text-[11px] font-bold text-[var(--theme-text-muted)] font-mono uppercase">
-                  Physical Computing
+                <span className="hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--theme-text-muted)] sm:inline-flex">
+                  DIGITAL TWIN
                 </span>
               </div>
-              <span className="text-base sm:text-lg font-bold tracking-tight leading-snug text-[var(--theme-text-main)] font-sans">
-                Pi-Digit Digital Twin Studio
+              <span className="text-xs text-[var(--theme-text-muted)]">
+                Raspberry Pi hardware studio
               </span>
             </div>
           </a>
         </div>
 
         {/* Center Zone: Professional Segmented View Switcher */}
-        <div className="hidden md:flex items-center bg-[var(--theme-bg-subtle)] p-1 rounded border border-[var(--theme-border)] text-sm font-semibold">
+        <nav
+          aria-label="Main navigation"
+          className="hidden items-center gap-1 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] p-1 text-sm font-medium md:flex"
+        >
           <button
             onClick={() => setActiveView('workspace')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer ${
+            aria-current={activeView === 'workspace' ? 'page' : undefined}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all cursor-pointer ${
               activeView === 'workspace'
-                ? 'bg-[var(--theme-bg-card)] text-[#860038] dark:text-[#f39200] shadow-xs font-bold'
-                : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
+                ? 'bg-[var(--theme-bg-card)] text-[var(--theme-accent)] shadow-sm font-semibold'
+                : 'text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-card)]/70 hover:text-[var(--theme-text-main)]'
             }`}
           >
             <Layers className="w-4 h-4 shrink-0" />
-            <span>Workspace Studio</span>
+            <span>Workspace</span>
           </button>
 
           <button
             onClick={() => setActiveView('camera')}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer ${
+            aria-current={activeView === 'camera' ? 'page' : undefined}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all cursor-pointer ${
               activeView === 'camera'
-                ? 'bg-[var(--theme-bg-card)] text-[#860038] dark:text-[#f39200] shadow-xs font-bold'
-                : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
+                ? 'bg-[var(--theme-bg-card)] text-[var(--theme-accent)] shadow-sm font-semibold'
+                : 'text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-card)]/70 hover:text-[var(--theme-text-main)]'
             }`}
           >
             <Camera className="w-4 h-4 shrink-0" />
-            <span>Pi Camera & CV</span>
+            <span>Camera</span>
           </button>
 
           <a
             href="/wiki.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded transition-all cursor-pointer text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] hover:bg-[var(--theme-bg-subtle)]"
+            className="flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all cursor-pointer text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] hover:bg-[var(--theme-bg-card)]/70"
             title="Open Complete Documentation & Hardware Architecture Wiki"
           >
             <BookOpen className="w-4 h-4 shrink-0 text-[#860038] dark:text-[#f39200]" />
             <span>Help &amp; Wiki</span>
             <ExternalLink className="w-3 h-3 opacity-60" />
           </a>
-        </div>
+        </nav>
 
         {/* Layout Selection Top-Down Dropdown Menu (Beside Workspace Controls) */}
         {activeView === 'workspace' && onSelectLayout && (
           <div className="relative" ref={layoutRef}>
             <button
               onClick={() => setLayoutMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--theme-bg-subtle)] hover:bg-[var(--theme-border)] border border-[var(--theme-border)] text-sm font-semibold transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-3 py-2 text-sm font-semibold transition-colors hover:bg-[var(--theme-border)] cursor-pointer"
               title="Workspace Layout Selection"
             >
               {layoutMode === 'floating' && <Move className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
@@ -258,10 +279,10 @@ export function HeaderRibbon({
         )}
 
         {/* Mobile View Dropdown (Visible on small screens) */}
-        <div className="md:hidden relative" ref={viewsRef}>
+        <div className="relative md:hidden" ref={viewsRef}>
           <button
             onClick={() => setViewsMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] text-[var(--theme-text-main)] text-sm font-semibold cursor-pointer shadow-xs"
+            className="flex items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-3 py-2 text-sm font-semibold text-[var(--theme-text-main)] cursor-pointer"
           >
             {activeView === 'workspace' && <Layers className="w-4 h-4 text-[#860038]" />}
             {activeView === 'camera' && <Camera className="w-4 h-4 text-[#f39200]" />}
@@ -310,17 +331,24 @@ export function HeaderRibbon({
         </div>
 
         {/* Right Zone: Primary Actions, Restore Default View, Wiki, Themes & Diagnostics */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
+          <div
+            className="hidden items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-2.5 py-2 text-xs font-medium text-[var(--theme-text-sub)] lg:flex"
+            title={`System status: ${systemStatus}`}
+          >
+            <span className={`h-2 w-2 rounded-full ${statusColor}`} />
+            <span>{systemStatus}</span>
+          </div>
           {/* Promoted "Restore Default View" Action Button */}
           {onRestoreDefaultView && (
             <button
               onClick={onRestoreDefaultView}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded bg-[var(--theme-bg-subtle)] hover:bg-[var(--theme-border)] border border-[var(--theme-border)] text-[var(--theme-text-main)] text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+              className="flex items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-3 py-2 text-sm font-medium text-[var(--theme-text-main)] transition-colors hover:bg-[var(--theme-border)] cursor-pointer"
               title="Restore all 8 applets and reset to the default workspace view"
             >
               <RotateCcw className="w-4 h-4 text-[#f39200] shrink-0" />
-              <span className="hidden lg:inline">Restore Default View</span>
-              <span className="lg:hidden">Default View</span>
+              <span className="hidden xl:inline">Reset workspace</span>
+              <span className="xl:hidden">Reset</span>
             </button>
           )}
 
@@ -329,11 +357,11 @@ export function HeaderRibbon({
             href="/wiki.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded bg-[#860038] hover:bg-[#9e0e47] text-white text-sm font-semibold transition-all cursor-pointer shadow-xs active:scale-95 no-underline"
+            className="flex items-center gap-2 rounded-lg bg-[var(--theme-accent)] px-3 py-2 text-sm font-semibold text-[var(--theme-accent-text)] transition-colors hover:opacity-90 cursor-pointer no-underline"
             title="Open Interactive Technical Documentation, Hardware Architecture & API Manual"
           >
             <BookOpen className="w-4 h-4 text-white shrink-0" />
-            <span className="hidden sm:inline">Emulator Wiki</span>
+            <span className="hidden sm:inline">Documentation</span>
             <span className="sm:hidden">Wiki</span>
             <ExternalLink className="w-3 h-3 text-white/80 shrink-0" />
           </a>
@@ -343,7 +371,7 @@ export function HeaderRibbon({
             <button
               onClick={onConnectHardware}
               disabled={isProbingHardware}
-              className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 text-sm font-semibold cursor-pointer transition-colors"
+              className="hidden xl:flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-500/15 dark:text-emerald-300 cursor-pointer"
               title="Connect / Probe Physical Raspberry Pi Hardware"
             >
               <Cpu className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -358,7 +386,7 @@ export function HeaderRibbon({
           {onOpenDiagnostics && (
             <button
               onClick={onOpenDiagnostics}
-              className="p-2 rounded bg-[var(--theme-bg-subtle)] border border-[var(--theme-border)] hover:border-[#860038] text-[var(--theme-text-main)] cursor-pointer transition-colors shadow-xs"
+              className="rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] p-2 text-[var(--theme-text-main)] transition-colors hover:border-[var(--theme-accent)] cursor-pointer"
               title="System Diagnostics & Hardware Self-Test"
             >
               <Wrench className="w-4 h-4 text-[var(--theme-text-muted)]" />

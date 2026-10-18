@@ -1,4 +1,4 @@
-import { GpioPin } from '../types/digitalTwin';
+import { GpioPin } from '../types/digitalTwin.ts';
 
 /**
  * Authoritative 40-pin GPIO pinout for Raspberry Pi 4 Model B

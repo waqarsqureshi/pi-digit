@@ -8,7 +8,7 @@ import fs from 'fs';
 import os from 'os';
 import dns from 'dns';
 import { spawn, exec, ChildProcess } from 'child_process';
-import { INITIAL_GPIO_PINS } from './src/data/raspberryPiPinout';
+import { INITIAL_GPIO_PINS } from './src/data/raspberryPiPinout.ts';
 import {
   FullHardwareState,
   GpioPin,
@@ -24,7 +24,7 @@ import {
   LcdState,
   HardwareDiagnosticReport,
   NetworkInterfaceInfo,
-} from './src/types/digitalTwin';
+} from './src/types/digitalTwin.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

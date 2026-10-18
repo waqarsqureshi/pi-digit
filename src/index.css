@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 @layer base {
+  :focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: 2px;
+  }
+
   /* Default: University of Galway Academic Light Theme */
   :root,
   [data-theme="galway"] {
