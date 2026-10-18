@@ -1,26 +1,43 @@
-# 05. Temperature Sensor Polling
-# Queries the physical Sense HAT HTS221/LPS25H sensor
-import sys
+# 05. Sensor Telemetry Logger
+# Polls Sense HAT temperature, humidity, and pressure.
 import os
+import sys
 import time
 
-_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 try:
-    from py_twin import SenseHat
-except ImportError:
-    from pi_emulator import SenseHat
+    from sense_hat import SenseHat  # type: ignore
+    source_label = "sense_hat (hardware)"
+except Exception:
+    try:
+        from py_twin import SenseHat  # type: ignore
+        source_label = "py_twin (emulator bridge)"
+    except Exception:
+        from pi_twin import SenseHat  # type: ignore
+        source_label = "pi_twin fallback"
 
-sense = SenseHat()
-print("=== Sense HAT Live Temperature Polling ===")
-print("Reading temperature from physical sensors...")
 
-for i in range(1, 11):
-    temp_c = sense.get_temperature()
-    temp_f = (temp_c * 9/5) + 32
-    print(f"Reading #{i:02d} -> {temp_c:.2f}°C ({temp_f:.2f}°F)")
-    time.sleep(0.5)
+def main() -> None:
+    sense = SenseHat()
+    print("=== Sense HAT Live Telemetry Polling ===", flush=True)
+    print(f"Source: {source_label}", flush=True)
+    print("Sample | Temp (°C) | Humidity (%) | Pressure (hPa)", flush=True)
+    print("-" * 52, flush=True)
 
-print("Temperature polling finished.")
+    for i in range(1, 11):
+        t = float(sense.get_temperature())
+        h = float(sense.get_humidity())
+        p = float(sense.get_pressure())
+        print(f"{i:>4}   | {t:>8.2f} | {h:>11.2f} | {p:>14.2f}", flush=True)
+        time.sleep(0.5)
+
+    print("Telemetry collection nominal.", flush=True)
+
+
+if __name__ == "__main__":
+    main()

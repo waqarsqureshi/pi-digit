@@ -1,31 +1,50 @@
-# 08. 9-DOF IMU Accelerometer & Motion Telemetry
-# Reads real-time acceleration and orientation from Sense HAT LSM9DS1
-import sys
+# 08. Motion / IMU telemetry stream
 import os
+import sys
 import time
 
-_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+SRC_DIR = os.path.join(PROJECT_ROOT, 'src')
+for p in (SRC_DIR, PROJECT_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 try:
-    from py_twin import SenseHat
-except ImportError:
-    from pi_emulator import SenseHat
+    from sense_hat import SenseHat  # type: ignore
+    source_label = "sense_hat (hardware)"
+except Exception:
+    try:
+        from py_twin import SenseHat  # type: ignore
+        source_label = "py_twin (emulator bridge)"
+    except Exception:
+        from pi_twin import SenseHat  # type: ignore
+        source_label = "pi_twin fallback"
 
-sense = SenseHat()
-print("=== 9-DOF IMU Accelerometer Motion Stream ===")
-print("Move or tilt your Raspberry Pi 4 to observe dynamic acceleration changes!")
-print("-" * 60)
-print(f"{'Sample':<8} | {'Accel X (g)':<12} {'Accel Y (g)':<12} {'Accel Z (g)':<12} | {'Heading':<8}")
-print("-" * 60)
 
-for i in range(1, 16):
-    accel = sense.get_accelerometer_raw()
-    orient = sense.get_orientation()
-    heading = orient.get('yaw', 0.0)
-    print(f"#{i:<7} | {accel['x']:>10.3f}   {accel['y']:>10.3f}   {accel['z']:>10.3f}   | {heading:>6.1f}°")
-    time.sleep(0.4)
+def main() -> None:
+    sense = SenseHat()
+    print("=== 9-DOF IMU Motion Stream ===", flush=True)
+    print(f"Source: {source_label}", flush=True)
+    print("Sample | Accel X  Accel Y  Accel Z | Yaw", flush=True)
+    print("-" * 52, flush=True)
 
-print("-" * 60)
-print("Motion streaming complete.")
+    for i in range(1, 16):
+        accel = sense.get_accelerometer_raw()
+        try:
+            yaw = float(sense.get_compass())
+        except Exception:
+            orient = sense.get_orientation()
+            yaw = float(orient.get('yaw', 0.0))
+
+        print(
+            f"{i:>4}   | {accel['x']:>7.3f}  {accel['y']:>7.3f}  {accel['z']:>7.3f} | {yaw:>6.1f}°",
+            flush=True,
+        )
+        time.sleep(0.4)
+
+    print("-" * 52, flush=True)
+    print("Motion streaming complete.", flush=True)
+
+
+if __name__ == "__main__":
+    main()
