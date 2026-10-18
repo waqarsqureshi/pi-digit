@@ -883,12 +883,28 @@ export function UnifiedWorkspace({
   const [tttGameOver, setTttGameOver] = useState<boolean>(false);
   const [tttStatus, setTttStatus] = useState<string>('Your Turn (X) — Use Joystick to move, OK to place');
   const [tttScores, setTttScores] = useState({ player: 0, ai: 0, ties: 0 });
+  const tttBoardRef = useRef<number[]>(Array(9).fill(0));
+  const tttCursorRef = useRef<{ r: number; c: number }>({ r: 1, c: 1 });
+  const tttGameOverRef = useRef<boolean>(false);
+  const lastLocalTttInputRef = useRef<{ dir: JoystickDirection; ts: number } | null>(null);
 
   const TTT_CELLS = [
     [[0,0],[1,0],[0,1],[1,1]], [[3,0],[4,0],[3,1],[4,1]], [[6,0],[7,0],[6,1],[7,1]],
     [[0,3],[1,3],[0,4],[1,4]], [[3,3],[4,3],[3,4],[4,4]], [[6,3],[7,3],[6,4],[7,4]],
     [[0,6],[1,6],[0,7],[1,7]], [[3,6],[4,6],[3,7],[4,7]], [[6,6],[7,6],[6,7],[7,7]]
   ];
+
+  useEffect(() => {
+    tttBoardRef.current = tttBoard;
+  }, [tttBoard]);
+
+  useEffect(() => {
+    tttCursorRef.current = tttCursor;
+  }, [tttCursor]);
+
+  useEffect(() => {
+    tttGameOverRef.current = tttGameOver;
+  }, [tttGameOver]);
 
   const checkTttWinner = (b: number[]): { winner: number; line: number[] | null } => {
     const lines = [
@@ -938,41 +954,58 @@ export function UnifiedWorkspace({
     if (onSetMatrixPattern) onSetMatrixPattern(p);
   };
 
-  const handleTttJoystickInput = (dir: JoystickDirection) => {
-    if (tttGameOver) return;
+  const handleTttJoystickInput = (dir: JoystickDirection, source: 'ui' | 'hardware' = 'ui') => {
+    if (tttGameOverRef.current) return;
+    if (
+      source === 'hardware' &&
+      lastLocalTttInputRef.current &&
+      lastLocalTttInputRef.current.dir === dir &&
+      Date.now() - lastLocalTttInputRef.current.ts < 200
+    ) {
+      return;
+    }
+    const board = tttBoardRef.current;
+    const cursor = tttCursorRef.current;
     if (dir === 'up') {
-      const nextR = Math.max(0, tttCursor.r - 1);
-      setTttCursor((prev) => ({ ...prev, r: nextR }));
-      renderTttMatrix(tttBoard, { r: nextR, c: tttCursor.c });
+      const nextCursor = { r: Math.max(0, cursor.r - 1), c: cursor.c };
+      tttCursorRef.current = nextCursor;
+      setTttCursor(nextCursor);
+      renderTttMatrix(board, nextCursor);
     } else if (dir === 'down') {
-      const nextR = Math.min(2, tttCursor.r + 1);
-      setTttCursor((prev) => ({ ...prev, r: nextR }));
-      renderTttMatrix(tttBoard, { r: nextR, c: tttCursor.c });
+      const nextCursor = { r: Math.min(2, cursor.r + 1), c: cursor.c };
+      tttCursorRef.current = nextCursor;
+      setTttCursor(nextCursor);
+      renderTttMatrix(board, nextCursor);
     } else if (dir === 'left') {
-      const nextC = Math.max(0, tttCursor.c - 1);
-      setTttCursor((prev) => ({ ...prev, c: nextC }));
-      renderTttMatrix(tttBoard, { r: tttCursor.r, c: nextC });
+      const nextCursor = { r: cursor.r, c: Math.max(0, cursor.c - 1) };
+      tttCursorRef.current = nextCursor;
+      setTttCursor(nextCursor);
+      renderTttMatrix(board, nextCursor);
     } else if (dir === 'right') {
-      const nextC = Math.min(2, tttCursor.c + 1);
-      setTttCursor((prev) => ({ ...prev, c: nextC }));
-      renderTttMatrix(tttBoard, { r: tttCursor.r, c: nextC });
+      const nextCursor = { r: cursor.r, c: Math.min(2, cursor.c + 1) };
+      tttCursorRef.current = nextCursor;
+      setTttCursor(nextCursor);
+      renderTttMatrix(board, nextCursor);
     } else if (dir === 'middle' || dir === 'centre') {
-      const targetIdx = tttCursor.r * 3 + tttCursor.c;
-      if (tttBoard[targetIdx] === 0) {
-        const nextBoard = [...tttBoard];
+      const targetIdx = cursor.r * 3 + cursor.c;
+      if (board[targetIdx] === 0) {
+        const nextBoard = [...board];
         nextBoard[targetIdx] = 1; // Player mark X
+        tttBoardRef.current = nextBoard;
         setTttBoard(nextBoard);
-        renderTttMatrix(nextBoard, tttCursor);
+        renderTttMatrix(nextBoard, cursor);
 
         const res = checkTttWinner(nextBoard);
         if (res.winner === 1) {
           setTttScores((prev) => ({ ...prev, player: prev.player + 1 }));
           setTttStatus('🎉 YOU WIN! Awesome match!');
+          tttGameOverRef.current = true;
           setTttGameOver(true);
           return;
         } else if (res.winner === 3) {
           setTttScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
           setTttStatus('🤝 Game Over: It is a Tie!');
+          tttGameOverRef.current = true;
           setTttGameOver(true);
           return;
         }
@@ -1004,17 +1037,20 @@ export function UnifiedWorkspace({
             if (aiPick === -1) aiPick = empty[Math.floor(Math.random() * empty.length)];
 
             nextBoard[aiPick] = 2;
+            tttBoardRef.current = nextBoard;
             setTttBoard(nextBoard);
-            renderTttMatrix(nextBoard, tttCursor);
+            renderTttMatrix(nextBoard, tttCursorRef.current);
 
             const aiRes = checkTttWinner(nextBoard);
             if (aiRes.winner === 2) {
               setTttScores((prev) => ({ ...prev, ai: prev.ai + 1 }));
               setTttStatus('🤖 AI Wins! Play again to beat the machine!');
+              tttGameOverRef.current = true;
               setTttGameOver(true);
             } else if (aiRes.winner === 3) {
               setTttScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
               setTttStatus('🤝 Game Over: It is a Tie!');
+              tttGameOverRef.current = true;
               setTttGameOver(true);
             } else {
               setTttStatus('Your Turn (X) — Move cursor & press OK');
@@ -1028,8 +1064,11 @@ export function UnifiedWorkspace({
   const handleStartTtt = () => {
     setIsTttMode(true);
     const clean = Array(9).fill(0);
+    tttBoardRef.current = clean;
     setTttBoard(clean);
-    setTttCursor({ r: 1, c: 1 });
+    tttCursorRef.current = { r: 1, c: 1 };
+    setTttCursor(tttCursorRef.current);
+    tttGameOverRef.current = false;
     setTttGameOver(false);
     setTttStatus('Your Turn (X) — Use Joystick, Press OK to Place');
     renderTttMatrix(clean, { r: 1, c: 1 });
@@ -1037,8 +1076,11 @@ export function UnifiedWorkspace({
 
   const handleResetTtt = () => {
     const clean = Array(9).fill(0);
+    tttBoardRef.current = clean;
     setTttBoard(clean);
-    setTttCursor({ r: 1, c: 1 });
+    tttCursorRef.current = { r: 1, c: 1 };
+    setTttCursor(tttCursorRef.current);
+    tttGameOverRef.current = false;
     setTttGameOver(false);
     setTttStatus('Your Turn (X) — Use Joystick, Press OK to Place');
     renderTttMatrix(clean, { r: 1, c: 1 });
@@ -1137,7 +1179,8 @@ export function UnifiedWorkspace({
 
     // 3. Forward to Tic-Tac-Toe if active!
     if (isTttMode && !tttGameOver) {
-      handleTttJoystickInput(dir);
+      lastLocalTttInputRef.current = { dir, ts: Date.now() };
+      handleTttJoystickInput(dir, 'ui');
     }
 
     // 4. Hold state timer
@@ -1235,7 +1278,7 @@ export function UnifiedWorkspace({
       ]);
       // If event came from physical hardware, also advance interactive Tic-Tac-Toe
       if (source === 'hardware' && isTttMode && !tttGameOver) {
-        handleTttJoystickInput(direction);
+        handleTttJoystickInput(direction, 'hardware');
       }
     } else if (action === 'release') {
       setJoystickCoords({ x: 0, y: 0 });
@@ -2665,7 +2708,8 @@ export function UnifiedWorkspace({
                                   const cellR = y < 2 ? 0 : y < 5 ? 1 : 2;
                                   const cellC = x < 2 ? 0 : x < 5 ? 1 : 2;
                                   setTttCursor({ r: cellR, c: cellC });
-                                  handleTttJoystickInput('middle');
+                                  lastLocalTttInputRef.current = { dir: 'middle', ts: Date.now() };
+                                  handleTttJoystickInput('middle', 'ui');
                                 } else {
                                   onSetPixel(x, y, selectedPaintColor);
                                 }

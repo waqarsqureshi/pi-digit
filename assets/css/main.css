@@ -2,11 +2,12 @@
 
 .nav-brand--main {
   gap: 0.85rem;
+  color: #fff;
 }
 
 .uog-logo-nav {
-  width: 210px;
-  height: auto;
+  width: auto;
+  height: 52px;
   display: block;
 }
 
@@ -16,6 +17,43 @@
   font-weight: 700;
   padding-left: 0.4rem;
   border-left: 1px solid var(--slate-300);
+}
+
+.site-nav {
+  background: #840038;
+  border-bottom: 1px solid #6b002d;
+}
+
+.site-nav .nav-mobile-toggle {
+  color: #fff;
+}
+
+.site-nav .nav-links a {
+  color: #f8e6ee;
+}
+
+.site-nav .nav-links a:hover,
+.site-nav .nav-links a.active {
+  color: #fff;
+}
+
+.site-nav .nav-btn-primary {
+  background: #fff;
+  color: #840038 !important;
+}
+
+.site-nav .nav-btn-primary:hover {
+  background: #f7e7ef;
+}
+
+.site-nav .nav-btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.site-nav .nav-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .hero-section {
@@ -283,8 +321,8 @@
 }
 
 .uog-logo-footer {
-  width: 200px;
-  height: auto;
+  width: 42px;
+  height: 42px;
   display: block;
 }
 
@@ -301,11 +339,7 @@
 
 @media (max-width: 768px) {
   .uog-logo-nav {
-    width: 168px;
-  }
-
-  .nav-brand-text {
-    display: none;
+    height: 40px;
   }
 
   .hero-copy h1 {
