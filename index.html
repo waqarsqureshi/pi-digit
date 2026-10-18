@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Raspberry Pi Digital Twin | Hardware Emulator &amp; Remote Dashboard</title>
-  <meta name="description" content="High-fidelity Raspberry Pi Digital Twin emulator for Raspberry Pi 4/5 with Sense HAT, 40-pin GPIO, 16x2 LCD, and Python/C execution engine.">
+  <title>Pi-Local Digital Twin | Hardware Emulator &amp; Remote Dashboard</title>
+  <meta name="description" content="Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi 4 with Sense HAT, 40-pin GPIO, LCD, and Python/C execution engine.">
   
   <!-- OpenGraph Cards -->
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Pi-Digital Twin">
-  <meta property="og:title" content="Raspberry Pi Digital Twin | Hardware Emulator">
-  <meta property="og:description" content="Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi with Sense HAT, 40-pin GPIO, LCD, and Python/C engine.">
+  <meta property="og:site_name" content="Pi-Local Digital Twin">
+  <meta property="og:title" content="Pi-Local Digital Twin | Hardware Emulator">
+  <meta property="og:description" content="Real-time educational digital twin and remote monitoring dashboard for Raspberry Pi 4 with Sense HAT, 40-pin GPIO, LCD, and Python/C execution engine.">
   <meta property="og:image" content="/assets/images/sense-hat-diagram.svg">
   
   <!-- Favicon & Stylesheets -->
@@ -38,6 +38,12 @@
       </button>
 
       <div class="nav-links" id="primary-navigation">
+        <a href="/emulator" class="nav-btn-primary" style="background-color: #860038; color: #ffffff; padding: 0.45rem 1rem; border-radius: 6px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Launch Studio
+        </a>
         <a href="#features">Capabilities</a>
         <a href="#architecture">Architecture</a>
         <a href="#install">Install on Pi</a>
@@ -71,14 +77,14 @@
         </p>
 
         <div class="hero-actions">
-          <a href="#install" class="btn-large-primary">
-            <span>Install on Raspberry Pi &rarr;</span>
+          <a href="/emulator" class="btn-large-primary">
+            <span>Launch Live Digital Twin &rarr;</span>
+          </a>
+          <a href="#install" class="btn-large-secondary">
+            Install on Raspberry Pi
           </a>
           <a href="/wiki.html" class="btn-large-secondary">
             Architecture &amp; Wiki Docs
-          </a>
-          <a href="#architecture" class="btn-large-secondary">
-            System Architecture
           </a>
         </div>
 
@@ -102,15 +108,17 @@
           <span class="preview-card-title">raspberrypi: /dev/fb1 &amp; /dev/i2c-1</span>
         </div>
         <div class="preview-card-img-wrap">
-          <img src="/assets/images/sense-hat-diagram.svg" alt="Sense HAT 8x8 Matrix and Sensor Architecture" width="580" height="330">
+          <a href="/emulator" title="Open Live Studio">
+            <img src="/assets/images/sense-hat-diagram.svg" alt="Sense HAT 8x8 Matrix and Sensor Architecture" width="580" height="330">
+          </a>
         </div>
         <div class="preview-card-footer">
           <div class="status-indicator" id="live-hardware-status">
             <span class="status-dot"></span>
             <span>Live Emulation &amp; Telemetry Engine Active</span>
           </div>
-          <a href="#install" class="text-link">
-            Pi Setup Guide &rarr;
+          <a href="/emulator" class="text-link">
+            Launch Digital Twin Studio &rarr;
           </a>
         </div>
       </div>

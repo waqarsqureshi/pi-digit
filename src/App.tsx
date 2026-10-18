@@ -126,16 +126,8 @@ Recommendations: ${diagnostics?.recommendations?.join('; ') || 'sudo raspi-confi
   };
 
   const handleOpenWiki = () => {
-    window.open('/wiki.html', '_blank');
+    setActiveView('help');
   };
-
-  // If help view requested, direct to the comprehensive wiki.html
-  useEffect(() => {
-    if (activeView === 'help') {
-      setActiveView('workspace');
-      window.open('/wiki.html', '_blank');
-    }
-  }, [activeView]);
 
   return (
     <div
