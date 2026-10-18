@@ -89,7 +89,7 @@ export function HeaderRibbon({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[var(--theme-border)] bg-[var(--header-bg)] text-[var(--header-text)] shadow-sm transition-colors duration-150">
-      <div className="flex min-h-16 w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 sm:px-6">
+      <div className="flex min-h-[76px] w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-3 sm:px-6">
         {/* Brand Zone - Raspberry Pi Digital Twin Studio */}
         <div className="flex items-center gap-3.5 shrink-0">
           <a
@@ -98,11 +98,11 @@ export function HeaderRibbon({
             title="Raspberry Pi Digital Twin Studio"
           >
             {/* Raspberry Pi Insignia */}
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] shadow-sm">
               <img
                 src="/assets/images/pi-logo.svg"
                 alt="Raspberry Pi"
-                className="w-6 h-6 object-contain"
+                className="w-7 h-7 object-contain"
               />
             </div>
             

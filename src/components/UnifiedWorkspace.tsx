@@ -2387,37 +2387,11 @@ export function UnifiedWorkspace({
               {/* Canvas Mode & Arrangement Control Toolbar */}
               <div className="mb-4 flex w-full shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-card)] px-4 py-3 text-sm shadow-sm select-none">
                 <div className="flex items-center gap-2.5">
-                  {/* Floating vs Grid Switcher */}
-                  <div className="flex items-center bg-[var(--theme-bg-card)] p-0.5 rounded border border-[var(--theme-border)]">
-                    <button
-                      onClick={() => setLayoutMode('floating')}
-                      className={`px-3 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        layoutMode === 'floating'
-                          ? 'bg-[#860038] text-white shadow-xs font-bold'
-                          : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
-                      }`}
-                      title="Floating Windows: Drag, reposition, and layer applets freely"
-                    >
-                      <Move className="w-3.5 h-3.5" />
-                      <span>Floating Mode</span>
-                    </button>
-
-                    <button
-                      onClick={() => setLayoutMode('grid')}
-                      className={`px-3 py-1 rounded text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        layoutMode === 'grid'
-                          ? 'bg-[#860038] text-white shadow-xs font-bold'
-                          : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)]'
-                      }`}
-                      title="Tiled Grid: Standard multi-column docking grid"
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" />
-                      <span>Tiled Grid</span>
-                    </button>
-                  </div>
-
+                  <span className="inline-flex items-center rounded border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-2.5 py-1 text-xs font-mono text-[var(--theme-text-muted)]">
+                    Layout: <strong className="ml-1 text-[var(--theme-text-main)]">{layoutMode === 'floating' ? 'Floating' : 'Grid'}</strong>
+                  </span>
                   <span className="text-xs text-[var(--theme-text-muted)] font-mono hidden sm:inline">
-                    {layoutMode === 'floating' ? 'Drag header to move freely · Click to bring to front' : 'Fixed multi-column layout'}
+                    {layoutMode === 'floating' ? 'Drag applet headers to reposition windows' : 'Applets are arranged in a fixed multi-column grid'}
                   </span>
                 </div>
 

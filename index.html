@@ -3,30 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pi-Digital Twin | Raspberry Pi Landing &amp; Deployment Hub</title>
-  <meta name="description" content="Official Pi-Digital Twin landing page for installation, architecture overview, and access to the live Raspberry Pi emulator studio.">
-  
-  <!-- OpenGraph Cards -->
+  <title>University of Galway | Pi-Digit</title>
+  <meta name="description" content="University of Galway Pi-Digit landing page for Raspberry Pi digital twin access, installation, and documentation.">
+
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Pi-Digital Twin">
-  <meta property="og:title" content="Pi-Digital Twin | Raspberry Pi Landing &amp; Deployment Hub">
-  <meta property="og:description" content="Official Pi-Digital Twin landing page for installation, architecture overview, and access to the live Raspberry Pi emulator studio.">
-  <meta property="og:image" content="/assets/images/sense-hat-diagram.svg">
-  
-  <!-- Favicon & Stylesheets -->
-  <link rel="icon" type="image/svg+xml" href="/assets/images/pi-logo.svg">
+  <meta property="og:site_name" content="University of Galway | Pi-Digit">
+  <meta property="og:title" content="University of Galway | Pi-Digit">
+  <meta property="og:description" content="Launch the Raspberry Pi digital twin studio, install on hardware, and access full documentation.">
+  <meta property="og:image" content="/assets/images/University_Of_Galway_Logo__Positive_Landscape_Stacked.png">
+
+  <link rel="icon" type="image/png" href="/assets/images/University_Of_Galway_Logo__Positive_Portrait.png">
   <link rel="stylesheet" href="/assets/css/shared.css">
   <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
-
-  <!-- Navigation Bar -->
   <nav class="site-nav">
     <div class="container">
-      <a href="/" class="nav-brand">
-        <img src="/assets/images/University_Of_Galway_Logo__Positive_Portrait.png" alt="University of Galway logo" class="uog-logo-nav" width="40" height="40">
-        <span>Pi-Digital Twin</span>
-        <span class="nav-brand-badge">UNIVERSITY OF GALWAY</span>
+      <a href="/" class="nav-brand nav-brand--main">
+        <img
+          src="/assets/images/University_Of_Galway_Logo__Positive_Landscape_Stacked.png"
+          alt="University of Galway"
+          class="uog-logo-nav"
+          width="220"
+          height="52"
+        >
+        <span class="nav-brand-text">Pi-Digit</span>
       </a>
 
       <button class="nav-mobile-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="primary-navigation">
@@ -38,419 +39,148 @@
       </button>
 
       <div class="nav-links" id="primary-navigation">
-        <a href="/emulator" class="nav-btn-primary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          Launch Studio
-        </a>
-        <a href="#features">Capabilities</a>
-        <a href="#architecture">Architecture</a>
-        <a href="#install">Install on Pi</a>
-        <a href="#hardware">Supported Models</a>
-        <a href="/wiki.html">Documentation &amp; Wiki</a>
-        <a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer" class="nav-btn-secondary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path>
-          </svg>
-          GitHub
-        </a>
+        <a href="/emulator" class="nav-btn-primary">Open Emulator</a>
+        <a href="#overview">Overview</a>
+        <a href="#install">Install</a>
+        <a href="/wiki.html">Wiki</a>
+        <a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer" class="nav-btn-secondary">GitHub</a>
       </div>
     </div>
   </nav>
 
   <main>
-  <!-- Hero Section -->
-  <header class="hero-section">
-    <div class="hero-container">
-      <div class="hero-content">
-        <div class="hero-eyebrow">
-          <span>RASPBERRY PI HARDWARE EMULATOR</span>
-          <span aria-hidden="true">&middot;</span>
-          <span>UNIVERSITY OF GALWAY DIGITAL LAB</span>
-        </div>
-        <h1 class="hero-title">
-          The Interactive Digital Twin for <span class="accent">Raspberry Pi</span>
-        </h1>
-        <p class="hero-desc">
-          Run, inspect, and debug Sense HAT LED matrix displays, 40-pin GPIO logic, and environmental telemetry directly on your physical Raspberry Pi with real-time web telemetry and native Linux syscall integration.
-        </p>
-        <p class="hero-entry-note">
-          This page is the project landing and deployment guide. The interactive application is a separate runtime at <a href="/emulator"><code>/emulator</code></a>.
-        </p>
-
-        <div class="hero-actions">
-          <a href="/emulator" class="btn-large-primary">
-            <span>Launch Live Digital Twin &rarr;</span>
-          </a>
-          <a href="#install" class="btn-large-secondary">
-            Install on Raspberry Pi
-          </a>
-          <a href="/wiki.html" class="btn-large-secondary">
-            Architecture &amp; Wiki Docs
-          </a>
-        </div>
-
-        <!-- Quick Terminal Install Command Strip -->
-        <div class="quick-install-strip">
-          <span class="quick-install-code" id="quick-install-cmd">curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash</span>
-          <button class="btn-copy" data-copy-target="quick-install-cmd" aria-label="Copy install command">
-            <span>Copy</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Hero Visual Preview Card -->
-      <div class="hero-preview-card">
-        <div class="preview-card-header">
-          <div class="preview-card-dots">
-            <span class="preview-dot red"></span>
-            <span class="preview-dot yellow"></span>
-            <span class="preview-dot green"></span>
+    <header class="hero-section">
+      <div class="hero-container">
+        <div class="hero-copy">
+          <p class="hero-kicker">University of Galway · Embedded Systems Lab</p>
+          <h1>Raspberry Pi Digital Twin Platform</h1>
+          <p class="hero-lead">
+            Pi-Digit provides a professional web workspace for Raspberry Pi hardware training. Use it for matrix display work, GPIO workflows, and camera experiments.
+          </p>
+          <div class="hero-actions">
+            <a href="/emulator" class="btn-large-primary">Launch Emulator</a>
+            <a href="/wiki.html" class="btn-large-secondary">Open Wiki</a>
           </div>
-          <span class="preview-card-title">raspberrypi: /dev/fb1 &amp; /dev/i2c-1</span>
+
+          <div class="quick-install-strip">
+            <span class="quick-install-code" id="quick-install-cmd">curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash</span>
+            <button class="btn-copy" data-copy-target="quick-install-cmd" aria-label="Copy install command">
+              <span>Copy</span>
+            </button>
+          </div>
         </div>
-        <div class="preview-card-img-wrap">
-          <a href="/emulator" title="Open Live Studio">
-            <img src="/assets/images/sense-hat-diagram.svg" alt="Sense HAT 8x8 Matrix and Sensor Architecture" width="580" height="330">
+
+        <aside class="hero-card">
+          <div class="hero-card-top">
+            <img src="/assets/images/pi-logo.svg" alt="Pi-Digit emulator logo" class="pi-logo-hero" width="38" height="38">
+            <div>
+              <h2>Emulator Runtime</h2>
+              <p>Dedicated workspace with its own Pi logo and controls.</p>
+            </div>
+          </div>
+          <a href="/emulator" class="hero-card-link">
+            <img src="/assets/images/sense-hat-diagram.svg" alt="Sense HAT architecture preview" width="560" height="300">
           </a>
-        </div>
-        <div class="preview-card-footer">
           <div class="status-indicator" id="live-hardware-status">
             <span class="status-dot"></span>
-            <span>Live Emulation &amp; Telemetry Engine Active</span>
+            <span>Checking hardware status…</span>
           </div>
-          <a href="/emulator" class="text-link">
-            Launch Digital Twin Studio &rarr;
-          </a>
+        </aside>
+      </div>
+    </header>
+
+    <section id="overview" class="section-wrap">
+      <div class="section-container">
+        <div class="section-header">
+          <p class="section-kicker">Platform Overview</p>
+          <h2 class="section-title">Three clear project surfaces</h2>
+        </div>
+        <div class="overview-grid">
+          <article class="overview-card">
+            <h3>Main page</h3>
+            <p>University of Galway project entry point, deployment path, and onboarding links.</p>
+          </article>
+          <article class="overview-card">
+            <h3>Emulator</h3>
+            <p>Interactive studio at <code>/emulator</code> with Raspberry Pi branding and runtime controls.</p>
+          </article>
+          <article class="overview-card">
+            <h3>Wiki</h3>
+            <p>Detailed architecture, command guides, and troubleshooting references.</p>
+          </article>
         </div>
       </div>
-    </div>
-  </header>
+    </section>
 
-  <!-- Key Capabilities Section -->
-  <section id="features" class="section-wrap">
-    <div class="section-container">
-      <div class="section-header">
-        <div class="section-kicker">ENGINEERING CAPABILITIES</div>
-        <h2 class="section-title">Hardware-Accurate Emulation on Raspberry Pi</h2>
-        <p class="section-subtitle">
-          Engineered for embedded Linux education and industrial digital twins. Seamlessly bridges physical hardware interfaces with live web visualization.
-        </p>
-      </div>
-
-      <div class="features-grid">
-        <!-- Feature 1 -->
-        <div class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-          </div>
-          <h3 class="feature-title">8&times;8 RGB LED Matrix</h3>
-          <p class="feature-desc">
-            Directly binds to the Linux framebuffer driver at <code>/dev/fb1</code>. Renders 24-bit TrueColor gamma-corrected pixels with real-time feedback.
-          </p>
-          <div class="feature-meta">
-            <span>Kernel driver: rpi-sense-fb</span>
-            <span aria-hidden="true">&middot;</span>
-            <span>16-bit RGB565 /dev/fb1</span>
-          </div>
+    <section id="install" class="section-wrap section-wrap--alt">
+      <div class="section-container">
+        <div class="section-header">
+          <p class="section-kicker">Quick install</p>
+          <h2 class="section-title">Run on Raspberry Pi in minutes</h2>
         </div>
-
-        <!-- Feature 2 -->
-        <div class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-            </svg>
-          </div>
-          <h3 class="feature-title">40-Pin GPIO Expansion</h3>
-          <p class="feature-desc">
-            Interactive representation of all 40 physical header pins with pull-up/pull-down resistor states, PWM frequency modulation, and hardware interrupts via <code>/dev/gpiomem</code>.
-          </p>
-          <div class="feature-meta">
-            <span>RPi.GPIO &amp; libgpiod</span>
-            <span aria-hidden="true">&middot;</span>
-            <span>WiringPi compatible</span>
-          </div>
-        </div>
-
-        <!-- Feature 3 -->
-        <div class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path>
-            </svg>
-          </div>
-          <h3 class="feature-title">Environmental Telemetry</h3>
-          <p class="feature-desc">
-            Polls live I2C sensors including the HTS221 (Temperature &amp; Relative Humidity), LPS25H (Barometric Atmospheric Pressure), and LSM9DS1 (9-DoF Inertial IMU).
-          </p>
-          <div class="feature-meta">
-            <span>I2C Bus 1</span>
-            <span aria-hidden="true">&middot;</span>
-            <span>Addresses 0x5F, 0x5C, 0x6A</span>
-          </div>
-        </div>
-
-        <!-- Feature 4 -->
-        <div class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-              <line x1="6" y1="9" x2="18" y2="9"></line>
-              <line x1="6" y1="15" x2="14" y2="15"></line>
-            </svg>
-          </div>
-          <h3 class="feature-title">16&times;2 HD44780 LCD Display</h3>
-          <p class="feature-desc">
-            Dedicated 16&times;2 character alphanumeric LCD module with PCF8574 I2C backpack support (address 0x27) for industrial readout programs and curriculum labs.
-          </p>
-          <div class="feature-meta">
-            <span>Hitachi HD44780 controller</span>
-            <span aria-hidden="true">&middot;</span>
-            <span>I2C backpack 0x27</span>
-          </div>
-        </div>
-
-        <!-- Feature 5 -->
-        <div class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="4 17 10 11 4 5"></polyline>
-              <line x1="12" y1="19" x2="20" y2="19"></line>
-            </svg>
-          </div>
-          <h3 class="feature-title">Embedded Web Terminal &amp; IDE</h3>
-          <p class="feature-desc">
-            Live in-browser code editor with multi-tab support for Python and C, integrated with a real interactive Linux shell for compiling and executing code on the Pi.
-          </p>
-          <div class="feature-meta">
-            <span>Python 3 &amp; GCC C99</span>
-            <span aria-hidden="true">&middot;</span>
-            <span>Real-time bash stdout/stderr</span>
-          </div>
-        </div>
-
-        <!-- Feature 6 -->
-        <div class="feature-card">
-          <div class="feature-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-            </svg>
-          </div>
-          <h3 class="feature-title">Hardware Diagnostic Engine</h3>
-          <p class="feature-desc">
-            Self-healing diagnostic engine checks kernel overlays, i2cdetect buses, framebuffer paths, and group permissions, reporting precise terminal fix commands.
-          </p>
-          <div class="feature-meta">
-            <span>Automated sysfs probe</span>
-            <span aria-hidden="true">&middot;</span>
-            <span>One-click clipboard export</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Architecture Breakdown -->
-  <section id="architecture" class="section-wrap alt-bg">
-    <div class="section-container">
-      <div class="arch-grid">
-        <div>
-          <div class="section-kicker">SYSTEM ARCHITECTURE</div>
-          <h2 class="section-title">Clear Separation: Landing, Wiki, and Runtime</h2>
-          <p class="hero-desc">
-            Pi-Digit is intentionally split into three surfaces: a marketing/deployment landing page, a full technical wiki, and the live emulator runtime.
-          </p>
-
-          <div class="arch-steps">
-            <div class="arch-step-item">
-              <div class="arch-step-num">1</div>
-              <div class="arch-step-content">
-                <h3>Landing Page (<code>/</code>)</h3>
-                <p>Project overview, installation quick-start, and links for first-time users.</p>
-              </div>
-            </div>
-
-            <div class="arch-step-item">
-              <div class="arch-step-num">2</div>
-              <div class="arch-step-content">
-                <h3>Technical Documentation (<code>/wiki</code>)</h3>
-                <p>Detailed architecture, command references, hardware notes, and troubleshooting guidance.</p>
-              </div>
-            </div>
-
-            <div class="arch-step-item">
-              <div class="arch-step-num">3</div>
-              <div class="arch-step-content">
-                <h3>Emulator Runtime (<code>/emulator</code>)</h3>
-                <p>Interactive workspace for code execution, applets, diagnostics, and real-time digital twin behavior.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="code-box">
-            <div class="code-box-header">
-              <span>Where to find detailed technical content</span>
-            </div>
-            <pre><code>Use the Wiki for:
-- Full architecture and data-flow documentation
-- Complete installation and update procedures
-- Code execution and applet how-to guides
-- Hardware diagnostics and troubleshooting
-
-Open: /wiki.html</code></pre>
-            <div class="install-step-link">
-              <a href="/wiki.html" class="text-link">Open complete documentation &rarr;</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Installation Walkthrough Section -->
-  <section id="install" class="section-wrap">
-    <div class="section-container">
-      <div class="section-header">
-        <div class="section-kicker">QUICK START</div>
-        <h2 class="section-title">Deploy in Minutes</h2>
-        <p class="section-subtitle">
-          Use the one-command installer for Raspberry Pi. For full procedures and advanced setup options, continue to the wiki.
-        </p>
-      </div>
-
-      <div class="install-steps">
-        <article class="install-step">
-          <div class="install-step-heading">
-            <span class="install-step-number">FAST PATH</span>
-            <h3>Install and run on Raspberry Pi</h3>
-          </div>
-          <p class="install-step-copy">
-            Run this command on your Raspberry Pi terminal:
-          </p>
+        <div class="install-card">
+          <p>Run this on your Raspberry Pi terminal:</p>
           <div class="code-box">
             <div class="code-box-header">
               <span>Terminal</span>
-              <button class="btn-copy">Copy</button>
+              <button class="btn-copy" data-copy-text="curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash">Copy</button>
             </div>
             <pre><code>curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash</code></pre>
           </div>
-          <div class="install-step-link">
-            <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" class="text-link">
-              View emulator/install.sh on GitHub &rarr;
-            </a>
+          <div class="install-links">
+            <a href="/wiki.html#getting-started" class="text-link">Full installation guide</a>
+            <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" class="text-link">View installer script</a>
           </div>
-          <p class="install-step-copy">
-            Need step-by-step install, service setup, and troubleshooting? Use the full guide in the wiki:
-            <a href="/wiki.html#getting-started" class="text-link">Open Getting Started documentation</a>.
-          </p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- Hardware Compatibility Table -->
-  <section id="hardware" class="section-wrap alt-bg">
-    <div class="section-container">
-      <div class="section-header">
-        <div class="section-kicker">HARDWARE COMPATIBILITY</div>
-        <h2 class="section-title">Supported Raspberry Pi Platforms</h2>
-        <p class="section-subtitle">
-          Verified on Raspberry Pi 5, 4, 400, 3B+, and Zero 2 W with Raspberry Pi OS.
-        </p>
-      </div>
-
-      <div class="features-grid">
-        <div class="feature-card">
-          <h3 class="feature-title">Primary Targets</h3>
-          <p class="feature-desc">Raspberry Pi 5 and Raspberry Pi 4 Model B running Raspberry Pi OS (Bookworm/Bullseye).</p>
-        </div>
-        <div class="feature-card">
-          <h3 class="feature-title">Additional Boards</h3>
-          <p class="feature-desc">Raspberry Pi 400, Raspberry Pi 3B+, and Zero 2 W are supported for teaching and lab workflows.</p>
-        </div>
-        <div class="feature-card">
-          <h3 class="feature-title">Detailed Matrix</h3>
-          <p class="feature-desc">For board-by-board OS and driver details, use the full compatibility section in the wiki.</p>
-          <a href="/wiki.html#intro-requirements" class="text-link">Open hardware requirements &rarr;</a>
         </div>
       </div>
-
-      <!-- Call to Action Banner -->
-      <div class="cta-banner">
-        <h2>Ready to Explore the Pi Digital Twin?</h2>
-        <p>
-          Inspect real-time telemetry, execute Python and C code on hardware, or read our extensive wiki documentation.
-        </p>
-        <div class="actions">
-          <a href="#install" class="btn-large-primary">
-            Install on Raspberry Pi &rarr;
-          </a>
-          <a href="/wiki.html" class="btn-large-secondary btn-dark-secondary">
-            Browse Wiki &amp; Docs
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
-
+    </section>
   </main>
 
-  <!-- Footer -->
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
         <div class="footer-col">
-          <div class="footer-brand">
-            <img src="/assets/images/University_Of_Galway_Logo__Positive_Portrait.png" alt="University of Galway logo" class="uog-logo-footer" width="32" height="32">
-            <span>Pi-Digital Twin</span>
-          </div>
-          <p class="footer-description">
-            University of Galway aligned Raspberry Pi Digital Twin platform for hardware teaching, lab simulation, and remote telemetry workflows.
-          </p>
+          <a href="/" class="footer-brand-link">
+            <img
+              src="/assets/images/University_Of_Galway_Logo__Positive_Landscape_Stacked.png"
+              alt="University of Galway"
+              class="uog-logo-footer"
+              width="210"
+              height="50"
+            >
+          </a>
+          <p class="footer-description">Pi-Digit is a University of Galway aligned learning platform for Raspberry Pi practical labs.</p>
         </div>
 
         <div class="footer-col">
-          <h4>Navigation</h4>
+          <h4>Project</h4>
           <ul>
-            <li><a href="/">Home</a></li>
-            <li><a href="#install">Install on Pi</a></li>
-            <li><a href="/wiki.html">Documentation &amp; Wiki</a></li>
-            <li><a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+            <li><a href="/emulator">Emulator</a></li>
+            <li><a href="/wiki.html">Wiki</a></li>
+            <li><a href="#install">Install</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
-          <h4>Hardware Docs</h4>
+          <h4>Resources</h4>
           <ul>
-            <li><a href="/wiki.html#architecture">Sense HAT 8&times;8 Matrix</a></li>
-            <li><a href="/wiki.html#code-examples">HTS221 &amp; LPS25H I2C</a></li>
-            <li><a href="/wiki.html#architecture">40-Pin GPIO Layout</a></li>
-            <li><a href="/wiki.html#troubleshooting">Hardware Diagnostics</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-col">
-          <h4>Project Links</h4>
-          <ul>
-            <li><a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+            <li><a href="/wiki.html#troubleshooting">Troubleshooting</a></li>
+            <li><a href="/wiki.html#architecture">Architecture</a></li>
             <li><a href="https://github.com/waqarsqureshi/pi-digit/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Repository</h4>
+          <ul>
+            <li><a href="https://github.com/waqarsqureshi/pi-digit" target="_blank" rel="noopener noreferrer">GitHub</a></li>
             <li><a href="/LICENSE">MIT License</a></li>
           </ul>
         </div>
       </div>
-
       <div class="footer-bottom">
-        <div>&copy; 2026 Raspberry Pi Digital Twin Project &middot; Open Source under MIT License</div>
-        <div>Engineered for Raspberry Pi OS &middot; No Python required for website &amp; wiki</div>
+        <div>&copy; 2026 Pi-Digit · University of Galway</div>
+        <div>Main page uses University branding; emulator uses Pi logo branding.</div>
       </div>
     </div>
   </footer>

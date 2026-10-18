@@ -149,7 +149,13 @@ export function GpioHeaderTwin({
       <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg flex items-start gap-2.5 text-xs text-amber-950 font-sans">
         <Radio className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
         <div className="leading-relaxed text-[11px]">
-          <strong>Physical Architecture Notice:</strong> The Raspberry Pi Sense HAT sits directly upon the 40-pin GPIO header, utilizing I2C-1 (Pins 3 & 5) and SPI/framebuffer interfaces. Output display is provided on the <strong>8x8 RGB LED Matrix</strong>, while student inputs are handled via the <strong>5-way joystick</strong> and onboard sensors. Hardware PWM on GPIO 18 (PWM0 · Pin 12) is rendered live below.
+          <strong>What this 40-pin GPIO grid does:</strong>
+          <ul className="mt-1 list-disc pl-4 space-y-0.5">
+            <li>Shows each physical Raspberry Pi header pin, its function, and current logic level (HIGH/LOW).</li>
+            <li>Lets you inspect one pin at a time from the dropdown and toggle safe digital GPIO pins.</li>
+            <li>Highlights bus pins used by Sense HAT, especially I2C-1 on Pins 3 (SDA) and 5 (SCL).</li>
+            <li>Feeds PWM details to the live waveform viewer below for GPIO 18 (PWM0 · Pin 12).</li>
+          </ul>
         </div>
       </div>
 

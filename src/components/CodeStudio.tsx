@@ -4,15 +4,10 @@ import {
   Square,
   Upload,
   Download,
-  FolderCode,
   Terminal,
-  FileCode,
-  ChevronDown,
-  ChevronUp,
   Clock,
   Trash2,
   Check,
-  Code2,
   HelpCircle,
 } from 'lucide-react';
 import { CURRICULUM_EXAMPLES } from '../data/curriculumExamples';
@@ -92,7 +87,6 @@ export function CodeStudio({
   const [currentLanguage, setCurrentLanguage] = useState<ProgramLanguage>(CURRICULUM_EXAMPLES[0].language);
   const [currentFilename, setCurrentFilename] = useState<string>(CURRICULUM_EXAMPLES[0].filename);
   const [timeoutSeconds, setTimeoutSeconds] = useState<number>(10);
-  const [isExamplesMenuOpen, setIsExamplesMenuOpen] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // Bottom panel tab: 'output' vs 'terminal' (VS Code style)
@@ -151,7 +145,6 @@ export function CodeStudio({
       setCurrentCode(ex.code);
       setCurrentLanguage(ex.language);
       setCurrentFilename(ex.filename);
-      setIsExamplesMenuOpen(false);
     }
   };
 
@@ -267,7 +260,6 @@ export function CodeStudio({
     }
   };
 
-  const currentExample = CURRICULUM_EXAMPLES.find((e) => e.id === selectedExampleId);
   const lineCount = currentCode.split('\n').length;
   const isRunning = program.status === 'running';
 
@@ -288,34 +280,33 @@ export function CodeStudio({
       <div className="bg-[#1e1e1e] border border-slate-700/60 rounded-xl overflow-hidden shadow-xs flex flex-col">
         {/* Top IDE Toolbar */}
         <div className="px-3 py-2 bg-[#252526] border-b border-[#333333] flex flex-wrap items-center justify-between gap-2.5 text-xs">
-          {/* File Tab & Curriculum Selector */}
+          {/* Example Files Dropdown */}
           <div className="flex items-center gap-2 min-w-0">
-            {/* Active File Tab */}
-            <div className="flex items-center gap-2 px-2.5 py-1 bg-[#1e1e1e] border border-[#3e3e42] rounded-md text-slate-200 text-xs font-medium shadow-2xs">
-              <FileCode className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="font-mono text-slate-100 font-semibold truncate max-w-[150px] sm:max-w-[200px]">
-                {currentFilename}
-              </span>
-              <span className="text-[10px] text-slate-400 uppercase px-1 py-0.2 bg-white/5 rounded">
-                {currentLanguage === 'python' ? 'Python' : 'C'}
-              </span>
-            </div>
-
-            {/* Curriculum Labs Trigger */}
-            <button
-              onClick={() => setIsExamplesMenuOpen(!isExamplesMenuOpen)}
-              className="px-2.5 py-1 rounded-md bg-[#2d2d30] hover:bg-[#37373d] text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors border border-[#3e3e42] cursor-pointer"
-              title="Browse curriculum sample programs"
+            <label className="text-[11px] text-slate-400 font-mono">Example file:</label>
+            <select
+              value={selectedExampleId}
+              onChange={(e) => handleSelectExample(e.target.value)}
+              className="bg-[#1e1e1e] border border-[#3e3e42] rounded-md px-2.5 py-1 text-slate-200 text-xs font-mono focus:outline-none cursor-pointer min-w-[220px] max-w-[320px]"
+              title="Load an example file from the examples folder"
             >
-              <FolderCode className="w-3.5 h-3.5 text-rose-300" />
-              <span className="hidden sm:inline">Labs ({CURRICULUM_EXAMPLES.length})</span>
-              <span className="sm:hidden">Labs</span>
-              {isExamplesMenuOpen ? (
-                <ChevronUp className="w-3 h-3 text-slate-400" />
-              ) : (
-                <ChevronDown className="w-3 h-3 text-slate-400" />
-              )}
-            </button>
+              <optgroup label="Python examples">
+                {pythonExamples.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.filename}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="C examples">
+                {cExamples.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.filename}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+            <span className="text-[10px] text-slate-400 uppercase px-1.5 py-0.5 bg-white/5 rounded border border-[#3e3e42]">
+              {currentLanguage === 'python' ? 'Python' : 'C'}
+            </span>
 
             {saveStatus && (
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 flex items-center gap-1">
@@ -388,77 +379,6 @@ export function CodeStudio({
             </a>
           </div>
         </div>
-
-        {/* Retractable Examples Drawer */}
-        {isExamplesMenuOpen && (
-          <div className="p-3.5 bg-[#252526] border-b border-[#333333] grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs animate-in slide-in-from-top-1 duration-150">
-            {/* Python Examples */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between pb-1 border-b border-[#3c3c3c]">
-                <span className="font-semibold text-amber-300 flex items-center gap-1.5">
-                  <Code2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Python 3 Scripts ({pythonExamples.length})</span>
-                </span>
-                <span className="text-[10px] text-slate-400">Click to load</span>
-              </div>
-              <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
-                {pythonExamples.map((ex) => (
-                  <button
-                    key={ex.id}
-                    onClick={() => handleSelectExample(ex.id)}
-                    className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                      selectedExampleId === ex.id
-                        ? 'bg-[#840038] text-white font-medium shadow-2xs'
-                        : 'text-slate-300 hover:bg-[#333333] hover:text-white'
-                    }`}
-                  >
-                    <span className="truncate">{ex.title}</span>
-                    <span className="text-[10px] font-mono opacity-60 ml-1">.py</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* C Examples */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between pb-1 border-b border-[#3c3c3c]">
-                <span className="font-semibold text-cyan-300 flex items-center gap-1.5">
-                  <Code2 className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>GCC C Programs ({cExamples.length})</span>
-                </span>
-                <span className="text-[10px] text-slate-400">Click to load</span>
-              </div>
-              <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
-                {cExamples.map((ex) => (
-                  <button
-                    key={ex.id}
-                    onClick={() => handleSelectExample(ex.id)}
-                    className={`text-left px-2.5 py-1.5 rounded-md text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                      selectedExampleId === ex.id
-                        ? 'bg-[#840038] text-white font-medium shadow-2xs'
-                        : 'text-slate-300 hover:bg-[#333333] hover:text-white'
-                    }`}
-                  >
-                    <span className="truncate">{ex.title}</span>
-                    <span className="text-[10px] font-mono opacity-60 ml-1">.c</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="sm:col-span-2 pt-1.5 border-t border-[#3c3c3c] text-xs text-slate-400 flex items-center justify-between">
-              <span className="truncate text-slate-300 font-mono text-[11px]">
-                {currentExample?.description}
-              </span>
-              <button
-                onClick={() => setIsExamplesMenuOpen(false)}
-                className="text-amber-300 hover:text-amber-200 text-xs font-medium cursor-pointer ml-2 shrink-0"
-              >
-                Close Drawer ▲
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Code Editor Area with Real-Time Syntax Highlighting */}
         <div className="relative flex bg-[#1e1e1e] text-slate-100 overflow-hidden text-xs font-mono min-h-[300px] max-h-[360px]">
