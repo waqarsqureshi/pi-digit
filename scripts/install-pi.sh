@@ -53,9 +53,9 @@ $SUDO apt-get install -y sense-hat python3-sense-hat python3-rpi.gpio || {
 
 # 2. Check Node.js and npm (require Node 18+)
 echo -e "\n${CYAN}[2/5] Checking Node.js runtime...${NC}"
-if ! command -v node &> /dev/null || [ $(node -v | cut -d'v' -f2 | cut -d'.' -f1) -lt 18 ]; then
-  echo -e "${YELLOW}[*] Installing modern Node.js (v20 LTS)...${NC}"
-  curl -fsSL https://deb.nodesource.com/setup_20.x | $SUDO -E bash -
+if ! command -v node &> /dev/null || ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major === 20 && minor >= 19 || major === 22 && minor >= 12 || major > 22 ? 0 : 1)'; then
+  echo -e "${YELLOW}[*] Installing modern Node.js (v22 LTS)...${NC}"
+  curl -fsSL https://deb.nodesource.com/setup_22.x | $SUDO -E bash -
   $SUDO apt-get install -y nodejs
 fi
 
