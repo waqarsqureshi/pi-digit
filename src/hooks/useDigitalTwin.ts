@@ -12,6 +12,19 @@ import {
   HardwareDiagnosticReport,
 } from '../types/digitalTwin';
 
+function appendUniqueTerminalOutputs(
+  existing: TerminalOutput[],
+  incoming: TerminalOutput[]
+): TerminalOutput[] {
+  const knownIds = new Set(existing.map((output) => output.id));
+  const additions = incoming.filter((output) => {
+    if (knownIds.has(output.id)) return false;
+    knownIds.add(output.id);
+    return true;
+  });
+  return additions.length > 0 ? [...existing, ...additions].slice(-200) : existing;
+}
+
 export function useDigitalTwin() {
   const [state, setState] = useState<FullHardwareState | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -27,6 +40,7 @@ export function useDigitalTwin() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const terminalOutputSyncRef = useRef<{ liveOutputs: TerminalOutput[] } | null>(null);
 
   // Connect WebSocket
   const connectWs = useCallback(() => {
@@ -46,6 +60,31 @@ export function useDigitalTwin() {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+
+      const outputSync = { liveOutputs: [] as TerminalOutput[] };
+      terminalOutputSyncRef.current = outputSync;
+      fetch('/api/program/output')
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to load terminal output');
+          return res.json();
+        })
+        .then((backlog: TerminalOutput[]) => {
+          if (terminalOutputSyncRef.current !== outputSync) return;
+          terminalOutputSyncRef.current = null;
+          setTerminalOutputs((prev) =>
+            appendUniqueTerminalOutputs(
+              prev,
+              [...(Array.isArray(backlog) ? backlog : []), ...outputSync.liveOutputs]
+            )
+          );
+        })
+        .catch(() => {
+          if (terminalOutputSyncRef.current !== outputSync) return;
+          terminalOutputSyncRef.current = null;
+          setTerminalOutputs((prev) =>
+            appendUniqueTerminalOutputs(prev, outputSync.liveOutputs)
+          );
+        });
     };
 
     ws.onmessage = (event) => {
@@ -131,7 +170,11 @@ export function useDigitalTwin() {
             break;
 
           case 'program.output':
-            setTerminalOutputs((prev) => [...prev, msg.payload].slice(-200));
+            if (terminalOutputSyncRef.current) {
+              terminalOutputSyncRef.current.liveOutputs.push(msg.payload);
+            } else {
+              setTerminalOutputs((prev) => appendUniqueTerminalOutputs(prev, [msg.payload]));
+            }
             break;
 
           case 'timeline.trace':
@@ -154,6 +197,13 @@ export function useDigitalTwin() {
     ws.onclose = () => {
       setIsConnected(false);
       wsRef.current = null;
+      const outputSync = terminalOutputSyncRef.current;
+      if (outputSync) {
+        terminalOutputSyncRef.current = null;
+        setTerminalOutputs((prev) =>
+          appendUniqueTerminalOutputs(prev, outputSync.liveOutputs)
+        );
+      }
       reconnectTimeoutRef.current = setTimeout(connectWs, 2000);
     };
 
@@ -195,11 +245,7 @@ export function useDigitalTwin() {
         if (outRes.ok) {
           const freshOuts: TerminalOutput[] = await outRes.json();
           if (Array.isArray(freshOuts) && freshOuts.length > 0) {
-            setTerminalOutputs((prev) => {
-              const knownIds = new Set(prev.map((o) => o.id));
-              const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
-              return newItems.length > 0 ? [...prev, ...newItems].slice(-200) : prev;
-            });
+            setTerminalOutputs((prev) => appendUniqueTerminalOutputs(prev, freshOuts));
           }
         }
       } catch {
@@ -336,9 +382,7 @@ export function useDigitalTwin() {
             if (oRes.ok) {
               const freshOuts: TerminalOutput[] = await oRes.json();
               setTerminalOutputs((prev) => {
-                const knownIds = new Set(prev.map((o) => o.id));
-                const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
-                return newItems.length > 0 ? [...prev, ...newItems].slice(-200) : prev;
+                return appendUniqueTerminalOutputs(prev, freshOuts);
               });
             }
           } catch {}
