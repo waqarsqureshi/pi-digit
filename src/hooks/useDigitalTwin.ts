@@ -27,6 +27,19 @@ export function useDigitalTwin() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const consumedTerminalOutputIdsRef = useRef(new Set<string>());
+
+  const appendTerminalOutputs = useCallback((outputs: TerminalOutput[]) => {
+    const newOutputs: TerminalOutput[] = [];
+    outputs.forEach((output) => {
+      if (consumedTerminalOutputIdsRef.current.has(output.id)) return;
+      consumedTerminalOutputIdsRef.current.add(output.id);
+      newOutputs.push(output);
+    });
+    if (newOutputs.length === 0) return;
+
+    setTerminalOutputs((prev) => [...prev, ...newOutputs].slice(-200));
+  }, []);
 
   // Connect WebSocket
   const connectWs = useCallback(() => {
@@ -131,7 +144,7 @@ export function useDigitalTwin() {
             break;
 
           case 'program.output':
-            setTerminalOutputs((prev) => [...prev, msg.payload].slice(-200));
+            appendTerminalOutputs([msg.payload]);
             break;
 
           case 'timeline.trace':
@@ -160,7 +173,7 @@ export function useDigitalTwin() {
     ws.onerror = () => {
       ws.close();
     };
-  }, []);
+  }, [appendTerminalOutputs]);
 
   useEffect(() => {
     fetch('/api/state')
@@ -194,13 +207,7 @@ export function useDigitalTwin() {
         const outRes = await fetch('/api/program/output');
         if (outRes.ok) {
           const freshOuts: TerminalOutput[] = await outRes.json();
-          if (Array.isArray(freshOuts) && freshOuts.length > 0) {
-            setTerminalOutputs((prev) => {
-              const knownIds = new Set(prev.map((o) => o.id));
-              const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
-              return newItems.length > 0 ? [...prev, ...newItems].slice(-200) : prev;
-            });
-          }
+          if (Array.isArray(freshOuts)) appendTerminalOutputs(freshOuts);
         }
       } catch {
         // Ignore polling errors
@@ -214,7 +221,7 @@ export function useDigitalTwin() {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [connectWs]);
+  }, [appendTerminalOutputs, connectWs]);
 
   // Actions
   const toggleGpioPin = useCallback((pin: number) => {
@@ -335,17 +342,13 @@ export function useDigitalTwin() {
             }
             if (oRes.ok) {
               const freshOuts: TerminalOutput[] = await oRes.json();
-              setTerminalOutputs((prev) => {
-                const knownIds = new Set(prev.map((o) => o.id));
-                const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
-                return newItems.length > 0 ? [...prev, ...newItems].slice(-200) : prev;
-              });
+              if (Array.isArray(freshOuts)) appendTerminalOutputs(freshOuts);
             }
           } catch {}
         }, delay);
       }
     },
-    []
+    [appendTerminalOutputs]
   );
 
   const stopProgram = useCallback(async () => {
