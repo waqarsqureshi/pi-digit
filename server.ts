@@ -2059,9 +2059,37 @@ app.get('/api/camera/stream', (_req: Request, res: Response) => {
 });
 
 // Single Frame Snapshot endpoint
-app.get('/api/camera/frame', async (_req: Request, res: Response) => {
+const cameraFrameRateLimits = new Map<string, { windowStartedAt: number; requestCount: number }>();
+const CAMERA_FRAME_RATE_LIMIT = 30;
+const CAMERA_FRAME_RATE_WINDOW_MS = 1000;
+
+function allowCameraFrameRequest(clientId: string) {
+  const now = Date.now();
+  const currentWindow = cameraFrameRateLimits.get(clientId);
+
+  if (currentWindow && now - currentWindow.windowStartedAt < CAMERA_FRAME_RATE_WINDOW_MS) {
+    if (currentWindow.requestCount >= CAMERA_FRAME_RATE_LIMIT) return false;
+    currentWindow.requestCount++;
+    return true;
+  }
+
+  if (!currentWindow && cameraFrameRateLimits.size >= 1000) {
+    const oldestClient = cameraFrameRateLimits.keys().next().value;
+    if (oldestClient !== undefined) cameraFrameRateLimits.delete(oldestClient);
+  }
+
+  cameraFrameRateLimits.set(clientId, { windowStartedAt: now, requestCount: 1 });
+  return true;
+}
+
+app.get('/api/camera/frame', async (req: Request, res: Response) => {
   if (!cameraDaemonEnabled) {
     return res.status(503).json({ error: 'Camera is powered off' });
+  }
+  const clientId = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!allowCameraFrameRequest(clientId)) {
+    res.set('Retry-After', '1');
+    return res.status(429).json({ error: 'Camera frame request limit exceeded' });
   }
   const framePath = '/tmp/pi_cam_frame.jpg';
   try {
