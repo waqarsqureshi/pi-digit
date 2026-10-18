@@ -61,6 +61,8 @@ function mergeTerminalOutputSnapshot(snapshot: TerminalOutput[], current: Termin
   ];
 }
 
+const TERMINAL_OUTPUT_ID_HISTORY_LIMIT = 400;
+
 export function useDigitalTwin() {
   const [state, setState] = useState<FullHardwareState | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -77,17 +79,59 @@ export function useDigitalTwin() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const terminalOutputIdsRef = useRef(new Set(['init-term-1']));
+  const terminalOutputIdOrderRef = useRef(['init-term-1']);
+  const terminalSnapshotIdsRef = useRef(new Set(['init-term-1']));
+  const terminalSnapshotsInFlightRef = useRef(0);
+
+  const pruneTerminalOutputIds = useCallback(() => {
+    if (terminalSnapshotsInFlightRef.current > 0) return;
+    let index = 0;
+    while (
+      terminalOutputIdOrderRef.current.length > TERMINAL_OUTPUT_ID_HISTORY_LIMIT &&
+      index < terminalOutputIdOrderRef.current.length
+    ) {
+      const id = terminalOutputIdOrderRef.current[index];
+      if (terminalSnapshotIdsRef.current.has(id)) {
+        index++;
+        continue;
+      }
+      terminalOutputIdOrderRef.current.splice(index, 1);
+      terminalOutputIdsRef.current.delete(id);
+    }
+  }, []);
+
+  const rememberTerminalOutputId = useCallback((id: string) => {
+    if (terminalOutputIdsRef.current.has(id)) return false;
+    terminalOutputIdsRef.current.add(id);
+    terminalOutputIdOrderRef.current.push(id);
+    return true;
+  }, []);
 
   const appendTerminalOutput = useCallback((output: TerminalOutput) => {
-    if (terminalOutputIdsRef.current.has(output.id)) return;
-    terminalOutputIdsRef.current.add(output.id);
+    if (!rememberTerminalOutputId(output.id)) return;
     setTerminalOutputs((prev) => [...prev, output].slice(-200));
-  }, []);
+    pruneTerminalOutputIds();
+  }, [pruneTerminalOutputIds, rememberTerminalOutputId]);
 
   const reconcileTerminalOutputs = useCallback((snapshot: TerminalOutput[]) => {
-    snapshot.forEach((output) => terminalOutputIdsRef.current.add(output.id));
+    terminalSnapshotIdsRef.current = new Set(snapshot.map((output) => output.id));
+    snapshot.forEach((output) => rememberTerminalOutputId(output.id));
     setTerminalOutputs((prev) => mergeTerminalOutputSnapshot(snapshot, prev).slice(-200));
-  }, []);
+    pruneTerminalOutputIds();
+  }, [pruneTerminalOutputIds, rememberTerminalOutputId]);
+
+  const fetchTerminalOutputs = useCallback(async () => {
+    terminalSnapshotsInFlightRef.current++;
+    try {
+      const response = await fetch('/api/program/output');
+      if (!response.ok) return;
+      const snapshot: TerminalOutput[] = await response.json();
+      if (Array.isArray(snapshot)) reconcileTerminalOutputs(snapshot);
+    } finally {
+      terminalSnapshotsInFlightRef.current--;
+      pruneTerminalOutputIds();
+    }
+  }, [pruneTerminalOutputIds, reconcileTerminalOutputs]);
 
   // Connect WebSocket
   const connectWs = useCallback(() => {
@@ -115,13 +159,7 @@ export function useDigitalTwin() {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
-      fetch('/api/program/output')
-        .then((res) => (res.ok ? res.json() : []))
-        .then((outputs: TerminalOutput[]) => {
-          if (Array.isArray(outputs)) reconcileTerminalOutputs(outputs);
-          flushPendingTerminalOutputs();
-        })
-        .catch(flushPendingTerminalOutputs);
+      fetchTerminalOutputs().finally(flushPendingTerminalOutputs);
     };
 
     ws.onmessage = (event) => {
@@ -268,7 +306,7 @@ export function useDigitalTwin() {
     ws.onerror = () => {
       ws.close();
     };
-  }, [appendTerminalOutput, reconcileTerminalOutputs]);
+  }, [appendTerminalOutput, fetchTerminalOutputs]);
 
   useEffect(() => {
     fetch('/api/state')
@@ -299,13 +337,7 @@ export function useDigitalTwin() {
           setState(freshState);
         }
 
-        const outRes = await fetch('/api/program/output');
-        if (outRes.ok) {
-          const freshOuts: TerminalOutput[] = await outRes.json();
-          if (Array.isArray(freshOuts) && freshOuts.length > 0) {
-            reconcileTerminalOutputs(freshOuts);
-          }
-        }
+        await fetchTerminalOutputs();
       } catch {
         // Ignore polling errors
       } finally {
@@ -318,7 +350,7 @@ export function useDigitalTwin() {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [connectWs, reconcileTerminalOutputs]);
+  }, [connectWs, fetchTerminalOutputs]);
 
   // Actions
   const toggleGpioPin = useCallback((pin: number) => {
@@ -426,23 +458,19 @@ export function useDigitalTwin() {
       for (const delay of [150, 350, 700, 1200, 2000]) {
         setTimeout(async () => {
           try {
-            const [sRes, oRes] = await Promise.all([
+            const [sRes] = await Promise.all([
               fetch('/api/state'),
-              fetch('/api/program/output'),
+              fetchTerminalOutputs(),
             ]);
             if (sRes.ok) {
               const freshState = await sRes.json();
               setState(freshState);
             }
-            if (oRes.ok) {
-              const freshOuts: TerminalOutput[] = await oRes.json();
-              if (Array.isArray(freshOuts)) reconcileTerminalOutputs(freshOuts);
-            }
           } catch {}
         }, delay);
       }
     },
-    [appendTerminalOutput, reconcileTerminalOutputs]
+    [appendTerminalOutput, fetchTerminalOutputs]
   );
 
   const stopProgram = useCallback(async () => {
