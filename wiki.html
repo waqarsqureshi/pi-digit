@@ -55,8 +55,9 @@
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input type="text" id="wiki-search" class="wiki-search-input" placeholder="Search documentation...">
+        <input type="text" id="wiki-search" class="wiki-search-input" placeholder="Search documentation..." aria-label="Search documentation sections">
       </div>
+      <p id="wiki-search-empty" class="wiki-search-empty" hidden>No sections match your search.</p>
 
       <div class="toc-heading">TABLE OF CONTENTS</div>
       <ul class="toc-list" id="toc-container">
@@ -85,22 +86,24 @@
             <li><a href="#code-python">Python Sense HAT API</a></li>
             <li><a href="#code-gpio">C &amp; GPIO Programming</a></li>
             <li><a href="#code-bash">Shell Scripts &amp; Terminal</a></li>
-            <li><a href="#code-hardware-distinction">Physical vs Emulated Execution</a></li>
+            <li><a href="#code-hardware-distinction">Physical vs. Emulated Execution</a></li>
           </ul>
         </li>
         <li class="toc-item">
           <a href="#architecture">D. Architecture &amp; Features</a>
           <ul class="toc-sublist">
+            <li><a href="#arch-codebase">Codebase Structure &amp; Data Flow</a></li>
             <li><a href="#arch-twin-files">Dual pi_twin / py_twin Architecture</a></li>
             <li><a href="#arch-fb">Sense HAT /dev/fb1 Framebuffer</a></li>
             <li><a href="#arch-i2c">I2C Sensor Bus (HTS221/LPS25H)</a></li>
             <li><a href="#arch-joystick">5-Way Joystick &amp; Tic-Tac-Toe</a></li>
-            <li><a href="#arch-pwm">Hardware PWM &amp; Oscilloscope</a></li>
-            <li><a href="#arch-gpio">40-Pin Header &amp; /dev/gpiomem</a></li>
             <li><a href="#arch-lcd">16x2 HD44780 Character LCD</a></li>
+            <li><a href="#arch-camera">Camera Pipeline &amp; Edge Detection</a></li>
             <li><a href="#arch-ipc">Daemon IPC &amp; WebSockets</a></li>
             <li><a href="#arch-examples">Curriculum Examples (Python &amp; C)</a></li>
+            <li><a href="#arch-themes">Theme System &amp; CSS Variables</a></li>
             <li><a href="#arch-testing">Automated Component Test Suite</a></li>
+            <li><a href="#arch-pwm">Hardware PWM &amp; Oscilloscope</a></li>
           </ul>
         </li>
         <li class="toc-item">
@@ -139,7 +142,7 @@
           <a href="#getting-started" class="wiki-subnav-btn">Getting Started</a>
           <a href="#code-examples" class="wiki-subnav-btn">Code Snippets</a>
           <a href="#architecture" class="wiki-subnav-btn">Architecture</a>
-          <a href="#installation-ops" class="wiki-subnav-btn" style="background:var(--color-brand); color:#fff; font-weight:600;">Install on Pi</a>
+          <a href="#installation-ops" class="wiki-subnav-btn wiki-subnav-btn-primary">Install on Pi</a>
         </div>
       </header>
 
@@ -174,7 +177,7 @@
 
         <h3 id="intro-requirements">3. Hardware &amp; Software Requirements</h3>
         <div class="callout callout-info">
-          <div class="callout-icon">&curren;</div>
+          <div class="callout-icon">&#9432;</div>
           <div>
             <strong>Verified Requirements:</strong>
             Raspberry Pi 4 Model B (any RAM revision) or Raspberry Pi 5 running <strong>Raspberry Pi OS (Bookworm 64-bit or Bullseye)</strong> with Node.js 18+ and Python 3.9+.
@@ -221,8 +224,8 @@ cd pi-digit</code></pre>
 chmod +x emulator/install.sh
 bash emulator/install.sh</code></pre>
         </div>
-        <p style="font-size:0.875rem;">
-          <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" style="color:var(--color-brand); font-weight:600; text-decoration:none;">
+        <p class="wiki-inline-note">
+          <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" class="wiki-inline-link">
             View emulator/install.sh directly on GitHub &rarr;
           </a>
         </p>
@@ -504,13 +507,13 @@ int main(void) {
             <strong>1. <code>src/pi_twin.py</code> (The Authoritative Core Library):</strong> This is the primary implementation file containing the production wrappers for <code>SenseHat</code>, <code>GPIO</code>, <code>PWM</code>, <code>LCD</code>, and <code>System</code>. It seamlessly bridges Python calls directly to physical Linux kernel device drivers (<code>/dev/fb1</code>, <code>/dev/i2c-1</code>, <code>evdev</code>, <code>/sys/class/pwm</code>) when running on physical Raspberry Pi hardware, and outputs structured IPC event payloads (<code>__PI_TWIN_EVENT__</code>) for the browser digital twin.
           </div>
         </div>
-        <div class="callout callout-info" style="margin-top: 10px;">
+        <div class="callout callout-info callout-stacked">
           <div class="callout-icon">&bull;</div>
           <div>
             <strong>2. <code>src/py_twin.py</code> &amp; <code>src/py_twin/__init__.py</code> (The Compatibility Aliases):</strong> Earlier iterations of university assignments, external lab manuals, and student projects referenced <code>import py_twin</code> (shorthand for <em>Python Twin</em>), whereas official documentation and newer examples reference <code>import pi_twin</code> (shorthand for <em>Raspberry Pi Twin</em>). To guarantee that 100% of student code and legacy project submissions execute cleanly without encountering a breaking <code>ModuleNotFoundError</code>, <code>src/py_twin.py</code> and the <code>py_twin/</code> package re-export all symbols from <code>pi_twin</code>. Both imports are completely interchangeable.
           </div>
         </div>
-        <div class="callout callout-info" style="margin-top: 10px;">
+        <div class="callout callout-info callout-stacked">
           <div class="callout-icon">&bull;</div>
           <div>
             <strong>3. <code>src/pi_twin.h</code> (Embedded C Interface):</strong> Provides native C function prototypes (e.g. <code>twin_init()</code>, <code>twin_set_pixel()</code>, <code>twin_gpio_write()</code>, <code>twin_pwm_start()</code>) so students compiling C programs with <code>gcc</code> can link against the identical hardware and digital twin environment without writing custom boilerplate.
@@ -612,7 +615,7 @@ Real-time controls: Adjustable edge threshold, grayscale gradient, and inversion
           <li><strong>Sense HAT Tic-Tac-Toe Game with AI (<code>examples/python/12_tictactoe.py</code>):</strong>
             Full interactive 3&times;3 Tic-Tac-Toe rendered on the 8&times;8 LED matrix. Players navigate cells using the 5-way joystick and press Middle to place an X (Cyan). A computer AI responds with an O (Amber). Features full win-checking, tie detection, LCD scoreboard updates, and animated victory patterns.</li>
           <li><strong>Raspberry Pi Camera &amp; Morphological Vision (<code>examples/python/13_camera_vision.py</code> &amp; <code>examples/c/11_camera_check.c</code>):</strong>
-            Checks physical CSI-2 / V4L2 camera connectivity (<code>/dev/video0</code>) or activates digital twin simulation. Computes 3&times;3 Sobel gradient convolutions ($|G| = \sqrt{G_x^2 + G_y^2}$) and projects live edge contours directly onto the Sense HAT 8&times;8 RGB matrix.</li>
+            Checks physical CSI-2 / V4L2 camera connectivity (<code>/dev/video0</code>) or activates digital twin simulation. Computes 3&times;3 Sobel gradient convolutions (<code>|G| = sqrt(Gx^2 + Gy^2)</code>) and projects live edge contours directly onto the Sense HAT 8&times;8 RGB matrix.</li>
           <li><strong>Linux Character Device Driver in C (<code>examples/c/10_device_driver.c</code>):</strong>
             Production-grade educational Linux kernel character device driver (<code>/dev/sense_hat_led</code>) implementing <code>file_operations</code> (<code>open</code>, <code>write</code>, <code>read</code>, <code>ioctl</code>, <code>release</code>) with kernel-space memory transitions (<code>copy_to_user</code>, <code>copy_from_user</code>), alongside a standalone userspace test harness.</li>
         </ul>
@@ -647,6 +650,7 @@ python3 test-codes/test_pwm.py         # Hardware PWM0 on GPIO 18
 python3 test-codes/test_lcd.py         # 16x2 I2C Character LCD viewport
 python3 test-codes/test_examples_and_structure.py # Examples compilation &amp; structure test
 python3 src/scripts/hardware_diagnose.py # Comprehensive hardware self-test</code></pre>
+        </div>
         <h3 id="arch-pwm">11. Hardware PWM Signal Generator &amp; Real-Time Oscilloscope Visualizer</h3>
         <p>
           Pulse-Width Modulation (PWM) on the Raspberry Pi 4 BCM2711 SoC utilizes dedicated hardware timers on <strong>GPIO 18 (PWM0 / Physical Pin 12)</strong>. The digital twin couples physical register manipulation with a zero-latency SVG square-wave oscilloscope:
@@ -693,9 +697,9 @@ python3 src/scripts/hardware_diagnose.py # Comprehensive hardware self-test</cod
           </div>
           <pre><code>curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash</code></pre>
         </div>
-        <p style="font-size:0.875rem;">
-          <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" style="color:var(--color-brand); font-weight:600; text-decoration:none;">
-            Inspect installer source on GitHub: github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh &rarr;
+        <p class="wiki-inline-note">
+          <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" class="wiki-inline-link">
+            Inspect installer source on GitHub &rarr;
           </a>
         </p>
 
@@ -771,11 +775,11 @@ rm -rf ~/pi-digit</code></pre>
     <div class="container">
       <div class="footer-grid">
         <div class="footer-col">
-          <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+          <div class="wiki-footer-brand">
             <img src="/assets/images/pi-logo.svg" alt="Logo" width="24" height="24">
-            <span style="color:#fff; font-weight:700; font-size:1.0625rem;">Pi-Digital Twin</span>
+            <span class="wiki-footer-brand-text">Pi-Digital Twin</span>
           </div>
-          <p style="line-height:1.6;">
+          <p class="wiki-footer-copy">
             Open source educational digital twin and hardware emulator for Raspberry Pi single-board computers.
           </p>
         </div>

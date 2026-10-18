@@ -45,16 +45,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 3. Instant Search Filter for Wiki Sections
   const searchInput = document.getElementById('wiki-search');
+  const emptyState = document.getElementById('wiki-search-empty');
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       const query = (e.target.value || '').toLowerCase().trim();
       const contentSections = document.querySelectorAll('.wiki-section');
       const tocItems = document.querySelectorAll('.toc-item');
+      let visibleSectionCount = 0;
 
       contentSections.forEach((section) => {
         const text = section.textContent.toLowerCase();
         if (!query || text.includes(query)) {
           section.style.display = 'block';
+          visibleSectionCount += 1;
         } else {
           section.style.display = 'none';
         }
@@ -63,11 +66,15 @@ document.addEventListener('DOMContentLoaded', () => {
       tocItems.forEach((item) => {
         const text = item.textContent.toLowerCase();
         if (!query || text.includes(query)) {
-          item.style.display = 'block';
+          item.style.display = 'list-item';
         } else {
           item.style.display = 'none';
         }
       });
+
+      if (emptyState) {
+        emptyState.hidden = visibleSectionCount !== 0 || !query;
+      }
     });
   }
 

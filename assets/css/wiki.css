@@ -63,6 +63,12 @@
   pointer-events: none;
 }
 
+.wiki-search-empty {
+  margin: -0.75rem 0 1rem;
+  color: var(--slate-500);
+  font-size: 0.8125rem;
+}
+
 .toc-heading {
   font-size: 0.75rem;
   font-family: var(--font-mono);
@@ -252,7 +258,11 @@
 .callout-icon {
   font-weight: bold;
   font-size: 1.125rem;
-  shrink: 0;
+  flex-shrink: 0;
+}
+
+.callout-stacked {
+  margin-top: 0.625rem;
 }
 
 /* Quick Jump Pills */
@@ -278,4 +288,47 @@
   background: var(--color-brand-subtle);
   color: var(--color-brand);
   border-color: var(--color-brand-border);
+}
+
+.wiki-subnav-btn-primary {
+  background: var(--color-brand);
+  color: #fff;
+  font-weight: 600;
+  border-color: var(--color-brand);
+}
+
+.wiki-subnav-btn-primary:hover {
+  background: #6f0030;
+  color: #fff;
+}
+
+.wiki-inline-note {
+  font-size: 0.875rem;
+}
+
+.wiki-inline-link {
+  color: var(--color-brand);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.wiki-inline-link:hover {
+  text-decoration: underline;
+}
+
+.wiki-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.wiki-footer-brand-text {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.0625rem;
+}
+
+.wiki-footer-copy {
+  line-height: 1.6;
 }

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import os from 'os';
 import dns from 'dns';
-import { spawn, exec, ChildProcess } from 'child_process';
+import { spawn, spawnSync, exec, ChildProcess } from 'child_process';
 import { INITIAL_GPIO_PINS } from './src/data/raspberryPiPinout.ts';
 import {
   FullHardwareState,
@@ -28,6 +28,26 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function resolvePythonCommand(): 'python3' | 'python' | null {
+  if (process.env.CLOUD_NO_PYTHON === '1' || process.env.PI_DIGIT_NO_PYTHON === '1') {
+    return null;
+  }
+
+  const python3 = spawnSync('python3', ['--version'], { stdio: 'ignore' });
+  if (python3.status === 0) return 'python3';
+
+  const python = spawnSync('python', ['--version'], { stdio: 'ignore' });
+  if (python.status === 0) return 'python';
+
+  return null;
+}
+
+const PYTHON_CMD = resolvePythonCommand();
+const pythonRuntimeEnabled = PYTHON_CMD !== null;
+if (!pythonRuntimeEnabled) {
+  console.log('[Runtime Mode] Python disabled or unavailable; serving cloud-safe frontend/simulation mode.');
+}
 
 // Local Network IP and Connection Detection
 let cachedInternetStatus = false;
@@ -105,6 +125,25 @@ try {
 
 function runHardwareDiagnostics(): Promise<HardwareDiagnosticReport> {
   return new Promise((resolve) => {
+    if (!pythonRuntimeEnabled) {
+      const fbExists = fs.existsSync('/dev/fb1') || fs.existsSync('/dev/fb0');
+      const fallbackReport: HardwareDiagnosticReport = {
+        timestamp: Date.now(),
+        overallStatus: fbExists ? 'partial' : 'simulated',
+        isPhysicalPi,
+        piModel: isPhysicalPi ? 'Raspberry Pi' : 'Virtual Simulator',
+        ledMatrix: { ok: fbExists, message: fbExists ? 'Found framebuffer device' : 'Not found' },
+        sensors: { ok: false, message: 'Python runtime unavailable on this host' },
+        joystick: { ok: false, message: 'Standby' },
+        i2c: { ok: fs.existsSync('/dev/i2c-1'), message: fs.existsSync('/dev/i2c-1') ? 'Active' : 'Not found' },
+        gpio: { ok: fs.existsSync('/dev/gpiomem'), message: fs.existsSync('/dev/gpiomem') ? 'Active' : 'Not found' },
+        recommendations: [],
+        terminalLog: 'Python runtime unavailable; diagnostics running in simulation-compatible mode.',
+      };
+      latestDiagnostics = fallbackReport;
+      return resolve(fallbackReport);
+    }
+
     const diagScript = fs.existsSync(path.join(__dirname, 'src', 'scripts', 'hardware_diagnose.py'))
       ? path.join(__dirname, 'src', 'scripts', 'hardware_diagnose.py')
       : path.join(__dirname, 'scripts', 'hardware_diagnose.py');
@@ -128,7 +167,7 @@ function runHardwareDiagnostics(): Promise<HardwareDiagnosticReport> {
     }
 
     exec(
-      `python3 "${diagScript}" --json`,
+      `${PYTHON_CMD} "${diagScript}" --json`,
       {
         cwd: __dirname,
         env: {
@@ -201,13 +240,18 @@ let hwDaemonFailed = false;
 
 function startHardwareDaemon() {
   if (hwDaemonProc || hwDaemonFailed) return;
+  if (!pythonRuntimeEnabled) {
+    hwDaemonFailed = true;
+    console.log('[HwDaemon Info] Python runtime unavailable; hardware daemon disabled.');
+    return;
+  }
   const daemonPath = fs.existsSync(path.join(__dirname, 'src', 'scripts', 'hardware_daemon.py'))
     ? path.join(__dirname, 'src', 'scripts', 'hardware_daemon.py')
     : path.join(__dirname, 'scripts', 'hardware_daemon.py');
   if (!fs.existsSync(daemonPath)) return;
 
   try {
-    hwDaemonProc = spawn('python3', ['-u', daemonPath], {
+    hwDaemonProc = spawn(PYTHON_CMD!, ['-u', daemonPath], {
       cwd: __dirname,
       env: {
         ...process.env,
@@ -264,6 +308,10 @@ let cameraRestartTimer: NodeJS.Timeout | null = null;
 
 function startCameraDaemon() {
   if (cameraDaemonProc) return;
+  if (!pythonRuntimeEnabled) {
+    console.log('[CamDaemon Info] Python runtime unavailable; camera daemon disabled.');
+    return;
+  }
   cameraDaemonEnabled = true;
   if (cameraRestartTimer) {
     clearTimeout(cameraRestartTimer);
@@ -275,7 +323,7 @@ function startCameraDaemon() {
   if (!fs.existsSync(scriptPath)) return;
 
   try {
-    cameraDaemonProc = spawn('python3', ['-u', scriptPath], {
+    cameraDaemonProc = spawn(PYTHON_CMD!, ['-u', scriptPath], {
       cwd: __dirname,
       env: {
         ...process.env,
@@ -1209,8 +1257,16 @@ async function executeStudentCode(
     return;
   }
 
-  // PYTHON EXECUTION (Real python3 subprocess with IPC event stream)
-  emitOutput('system', `[Python 3] python3 -u ${filename}`);
+  if (!pythonRuntimeEnabled) {
+    emitOutput('stderr', '[Python Runtime Disabled] This host is running without Python support. Deploy to Raspberry Pi or install Python to execute Python programs.');
+    programState.status = 'error';
+    programState.exitCode = 127;
+    broadcast('program.status', programState);
+    return;
+  }
+
+  // PYTHON EXECUTION (Real python subprocess with IPC event stream)
+  emitOutput('system', `[Python] ${PYTHON_CMD} -u ${filename}`);
 
   // Safety Timeout Watchdog
   executionTimer = setTimeout(() => {
@@ -1231,7 +1287,7 @@ async function executeStudentCode(
     const tempFile = path.join('/tmp', `student_${Date.now()}_${filename}`);
     fs.writeFileSync(tempFile, code, 'utf8');
 
-    const pyProc = spawn('python3', ['-u', tempFile], {
+    const pyProc = spawn(PYTHON_CMD!, ['-u', tempFile], {
       cwd: process.cwd(),
       env: {
         ...process.env,
@@ -1589,9 +1645,17 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
 
   // Handle Python script execution with Hardware IPC capture
   if (trimmed.startsWith('python3 ') || trimmed.startsWith('python ')) {
+    if (!pythonRuntimeEnabled) {
+      return res.json({
+        output: 'Python runtime is disabled on this host. This cloud deployment serves the marketing frontend and simulation view only. Use a Raspberry Pi install for Python execution.',
+      });
+    }
+
     const parts = trimmed.split(' ');
     const script = parts[1] || '01_hello.py';
-    let execCmd = trimmed;
+    const scriptArgs = parts.length > 2 ? ' ' + parts.slice(2).join(' ') : '';
+    let resolvedScript = script;
+    let execCmd = `${PYTHON_CMD!} ${resolvedScript}${scriptArgs}`;
     // Auto-resolve script in examples/python, examples/scripts, src, or example-codes if not found in root
     if (parts[1] && !fs.existsSync(path.join(process.cwd(), parts[1]))) {
       const candidates = [
@@ -1605,7 +1669,8 @@ app.post('/api/terminal/exec', async (req: Request, res: Response) => {
       ];
       for (const rel of candidates) {
         if (fs.existsSync(path.join(process.cwd(), rel))) {
-          execCmd = `${parts[0]} ${rel}${parts.length > 2 ? ' ' + parts.slice(2).join(' ') : ''}`;
+          resolvedScript = rel;
+          execCmd = `${PYTHON_CMD!} ${resolvedScript}${scriptArgs}`;
           break;
         }
       }
@@ -2357,6 +2422,12 @@ app.post('/api/reset', (_req: Request, res: Response) => {
 
 function runStartupVerificationTests(): Promise<void> {
   return new Promise((resolve) => {
+    if (!pythonRuntimeEnabled) {
+      console.log('[Pi-Twin Boot] Python runtime unavailable; skipping pre-flight Python verification suite.');
+      resolve();
+      return;
+    }
+
     const testRunner = path.join(__dirname, 'test-codes', 'run_all_tests.py');
     if (!fs.existsSync(testRunner)) {
       resolve();
@@ -2377,7 +2448,7 @@ function runStartupVerificationTests(): Promise<void> {
       safeResolve();
     }, 10000);
 
-    const proc = spawn('python3', [testRunner], {
+    const proc = spawn(PYTHON_CMD!, [testRunner], {
       cwd: __dirname,
       env: {
         ...process.env,

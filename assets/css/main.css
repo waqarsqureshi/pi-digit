@@ -64,6 +64,24 @@
   max-width: 580px;
 }
 
+.hero-entry-note {
+  margin-top: -0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9375rem;
+  color: var(--slate-600);
+  max-width: 580px;
+}
+
+.hero-entry-note a {
+  color: var(--color-brand);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hero-entry-note a:hover {
+  text-decoration: underline;
+}
+
 .hero-actions {
   display: flex;
   align-items: center;

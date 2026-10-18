@@ -29,6 +29,18 @@ npm run build
 NODE_ENV=production npm start
 ```
 
+### Cloud deployment (marketing frontend without Python)
+
+If you are deploying the marketing frontend and documentation to Google Cloud (or any host without Python), set:
+
+```bash
+CLOUD_NO_PYTHON=1
+```
+
+In this mode, the landing page, wiki, and simulator UI still run, while Python-backed features (hardware daemon, camera daemon, Python program execution, and Python diagnostics) are intentionally disabled on that host.
+
+For full emulator behavior with hardware integration, deploy the project on a Raspberry Pi using the installer below.
+
 Useful checks and tools:
 
 ```bash
