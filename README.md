@@ -8,6 +8,7 @@ Pi-Digit is a Raspberry Pi digital twin and hardware emulator for exploring and 
 - **Application server:** `server.ts` runs Express and a WebSocket endpoint (`/ws`). It serves the UI, exposes REST endpoints for hardware and program actions, and broadcasts device state and telemetry.
 - **Hardware support:** Python utilities in `scripts/` and `src/scripts/` provide the hardware daemon, diagnostics, and camera service. Hardware access depends on the Raspberry Pi OS configuration and connected devices.
 - **Learning resources:** `examples/` contains Python and C examples; `wiki.html` is served at `/wiki`.
+- **How-to guides:** task-focused help files are available under `assets/help/` (run code, applet usage, cloud-vs-Pi runtime).
 
 ## Run locally
 

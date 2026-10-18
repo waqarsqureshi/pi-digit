@@ -301,7 +301,7 @@ export function HeaderRibbon({
                 className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
               >
                 <Layers className="w-4 h-4 text-[#860038]" />
-                <span>Workspace Studio</span>
+                <span>Workspace</span>
               </button>
               <button
                 onClick={() => {
@@ -311,7 +311,7 @@ export function HeaderRibbon({
                 className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
               >
                 <Camera className="w-4 h-4 text-[#f39200]" />
-                <span>Pi Camera & CV</span>
+                <span>Camera Studio</span>
               </button>
               <a
                 href="/wiki.html"
@@ -372,10 +372,10 @@ export function HeaderRibbon({
               onClick={onConnectHardware}
               disabled={isProbingHardware}
               className="hidden xl:flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-500/15 dark:text-emerald-300 cursor-pointer"
-              title="Connect / Probe Physical Raspberry Pi Hardware"
+              title="Detect and connect physical Raspberry Pi hardware"
             >
               <Cpu className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>{isProbingHardware ? 'Probing...' : 'Probe Pi'}</span>
+              <span>{isProbingHardware ? 'Detecting...' : 'Detect Hardware'}</span>
             </button>
           )}
 

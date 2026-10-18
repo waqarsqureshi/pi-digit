@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import os from 'os';
 import dns from 'dns';
-import { spawn, spawnSync, exec, ChildProcess } from 'child_process';
+import { spawn, spawnSync, exec, execFileSync, ChildProcess } from 'child_process';
 import { INITIAL_GPIO_PINS } from './src/data/raspberryPiPinout.ts';
 import {
   FullHardwareState,
@@ -2200,35 +2200,56 @@ app.post('/api/camera/capture-to-matrix', async (_req: Request, res: Response) =
       ? '/tmp/pi_cam_frame.jpg'
       : (fs.existsSync('/tmp/pi_camera_test.jpg') ? '/tmp/pi_camera_test.jpg' : null);
 
-    if (framePath && fs.existsSync('/usr/bin/convert')) {
-      const thumbRaw = '/tmp/pi_cam_matrix_8x8.rgb';
-      // Downsample live JPEG directly to 8x8 raw RGB (192 bytes: 64 pixels * 3 bytes)
-      const { execFileSync } = await import('child_process');
-      execFileSync('/usr/bin/convert', [framePath, '-resize', '8x8!', `rgb:${thumbRaw}`], { timeout: 1500 });
-      if (fs.existsSync(thumbRaw)) {
-        const rawBuf = fs.readFileSync(thumbRaw);
-        if (rawBuf.length >= 192) {
-          const pixels: RgbColor[] = [];
-          for (let i = 0; i < 64; i++) {
-            pixels.push([rawBuf[i * 3], rawBuf[i * 3 + 1], rawBuf[i * 3 + 2]]);
-          }
-          matrixPixels = pixels;
-          writePhysicalSenseHatFullMatrix(pixels);
-          broadcast('matrix.full', { matrix: pixels });
-          return res.json({ success: true, pixels });
-        }
-      }
+    if (!framePath) {
+      return res.status(503).json({ error: 'Camera frame not available yet. Start camera and retry.' });
     }
+
+    const thumbRaw = '/tmp/pi_cam_matrix_8x8.rgb';
+    let converted = false;
+
+    // 1) Prefer ImageMagick if available.
+    if (fs.existsSync('/usr/bin/convert')) {
+      try {
+        execFileSync('/usr/bin/convert', [framePath, '-resize', '8x8!', `rgb:${thumbRaw}`], { timeout: 1500 });
+        converted = fs.existsSync(thumbRaw);
+      } catch {}
+    }
+
+    // 2) Fallback to ffmpeg if ImageMagick is unavailable.
+    if (!converted && fs.existsSync('/usr/bin/ffmpeg')) {
+      try {
+        execFileSync(
+          '/usr/bin/ffmpeg',
+          ['-y', '-loglevel', 'error', '-i', framePath, '-vf', 'scale=8:8:flags=lanczos,format=rgb24', '-vframes', '1', '-f', 'rawvideo', thumbRaw],
+          { timeout: 1500 }
+        );
+        converted = fs.existsSync(thumbRaw);
+      } catch {}
+    }
+
+    if (!converted || !fs.existsSync(thumbRaw)) {
+      return res.status(503).json({
+        error: 'Unable to downsample camera frame on host. Install ImageMagick (convert) or ffmpeg on Raspberry Pi.',
+      });
+    }
+
+    const rawBuf = fs.readFileSync(thumbRaw);
+    if (rawBuf.length < 192) {
+      return res.status(500).json({ error: 'Downsampled frame is incomplete.' });
+    }
+
+    const pixels: RgbColor[] = [];
+    for (let i = 0; i < 64; i++) {
+      pixels.push([rawBuf[i * 3], rawBuf[i * 3 + 1], rawBuf[i * 3 + 2]]);
+    }
+    matrixPixels = pixels;
+    writePhysicalSenseHatFullMatrix(pixels);
+    broadcast('matrix.full', { matrix: pixels });
+    return res.json({ success: true, pixels });
   } catch (e) {
     console.error('[Camera] capture-to-matrix conversion error:', e);
+    return res.status(500).json({ error: 'Camera capture-to-matrix failed.' });
   }
-
-  // Edge detection visual representation fallback
-  const fallbackPixels: RgbColor[] = Array(64).fill([0, 160, 220]);
-  matrixPixels = fallbackPixels;
-  writePhysicalSenseHatFullMatrix(fallbackPixels);
-  broadcast('matrix.full', { matrix: fallbackPixels });
-  return res.json({ success: true, pixels: fallbackPixels });
 });
 
 // Hardware Connection Probe & Link Endpoints

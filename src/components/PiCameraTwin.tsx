@@ -535,17 +535,17 @@ export function PiCameraTwin({
     setTimeout(() => setSnapshotSuccess(false), 2000);
   };
 
-  const FILTERS: { id: MorphologicalFilter; label: string; desc: string; icon: string }[] = [
-    { id: 'sobel', label: 'Sobel Edges', desc: 'Morphological 3x3 gradient convolutions', icon: '⚡' },
-    { id: 'canny', label: 'Canny Outline', desc: 'High-pass boundary contours', icon: '🔍' },
-    { id: 'dilation', label: 'Dilation (Max)', desc: 'Expands bright structures', icon: '➕' },
-    { id: 'erosion', label: 'Erosion (Min)', desc: 'Shrinks bright structures', icon: '➖' },
-    { id: 'threshold', label: 'Binary Threshold', desc: 'High-contrast black & white', icon: '◐' },
-    { id: 'matrix_green', label: 'Matrix Hacker', desc: 'Phosphor CRT green edge glow', icon: '🟢' },
-    { id: 'cyberpunk', label: 'Cyberpunk Neon', desc: 'Synthwave pink & cyan laser', icon: '🟣' },
-    { id: 'grayscale', label: 'Grayscale', desc: 'Luminescence conversion', icon: '🔘' },
-    { id: 'invert', label: 'Invert Color', desc: 'Photo-negative transform', icon: '🔄' },
-    { id: 'none', label: 'Raw Feed', desc: 'Unfiltered camera stream', icon: '📷' },
+  const FILTERS: { id: MorphologicalFilter; label: string; desc: string }[] = [
+    { id: 'sobel', label: 'Sobel Edges', desc: '3x3 gradient edge detection' },
+    { id: 'canny', label: 'Canny Outline', desc: 'Boundary extraction with noise suppression' },
+    { id: 'dilation', label: 'Dilation', desc: 'Expands bright regions' },
+    { id: 'erosion', label: 'Erosion', desc: 'Shrinks bright regions' },
+    { id: 'threshold', label: 'Binary Threshold', desc: 'High-contrast black and white output' },
+    { id: 'matrix_green', label: 'Green Monochrome', desc: 'Single-channel green display style' },
+    { id: 'cyberpunk', label: 'Cyan-Magenta', desc: 'Dual-tone stylized edge palette' },
+    { id: 'grayscale', label: 'Grayscale', desc: 'Luminance-only rendering' },
+    { id: 'invert', label: 'Invert Color', desc: 'Photo-negative transform' },
+    { id: 'none', label: 'Raw Feed', desc: 'Unfiltered camera stream' },
   ];
 
   return (
@@ -554,18 +554,18 @@ export function PiCameraTwin({
       <video ref={videoRef} className="hidden" playsInline muted autoPlay />
 
       {/* Top Banner Navigation & Hardware Status (Proper Sharp Corners) */}
-      <div className="p-4 sm:p-5 rounded-none border border-slate-300 bg-[var(--theme-bg-card)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+      <div className="p-4 sm:p-5 rounded-xl border border-slate-300 bg-[var(--theme-bg-card)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-none bg-[var(--theme-accent)]/15 border border-[var(--theme-accent)]/40 flex items-center justify-center text-[var(--theme-accent)] shrink-0 shadow-inner">
-            <Camera className="w-6 h-6 animate-pulse" />
+          <div className="w-12 h-12 rounded-lg bg-[var(--theme-accent)]/15 border border-[var(--theme-accent)]/40 flex items-center justify-center text-[var(--theme-accent)] shrink-0 shadow-inner">
+            <Camera className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold text-[var(--theme-text-main)] font-mono">
+              <h2 className="text-base sm:text-lg font-bold text-[var(--theme-text-main)]">
                 Pi Camera & Computer Vision Studio
               </h2>
               <span
-                className={`text-xs font-mono px-2.5 py-0.5 rounded-none font-bold flex items-center gap-1.5 border ${
+                className={`text-xs px-2.5 py-0.5 rounded-md font-semibold flex items-center gap-1.5 border ${
                   cameraConnected
                     ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
                     : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
@@ -575,7 +575,7 @@ export function PiCameraTwin({
                 {cameraConnected ? 'Camera Online (Live Pipeline)' : 'Digital Twin Video Pipeline'}
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-[var(--theme-text-sub)] mt-1 font-mono">
+            <p className="text-xs sm:text-sm text-[var(--theme-text-sub)] mt-1">
               Device: <span className="font-bold text-[var(--theme-text-main)]">{cameraModel}</span> · Backend: {cameraBackend} · Resolution: 640×480 · FPS: {fps}
             </p>
           </div>
@@ -585,10 +585,10 @@ export function PiCameraTwin({
           {/* Hardware Camera Power Switch (Power ON / Release Hardware) */}
           <button
             onClick={() => setIsCameraPowered(!isCameraPowered)}
-            className={`px-3.5 py-2 rounded text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs border ${
+            className={`px-3.5 py-2 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs border ${
               isCameraPowered
                 ? 'bg-rose-700 hover:bg-rose-600 text-white border-rose-500'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 animate-pulse'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400'
             }`}
             title={isCameraPowered ? 'Stop camera service and release /dev/video0 hardware' : 'Start camera service and acquire video stream'}
           >
@@ -599,7 +599,7 @@ export function PiCameraTwin({
           {onBackToWorkspace && (
             <button
               onClick={onBackToWorkspace}
-              className="px-4 py-2 rounded text-xs sm:text-sm font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+              className="px-4 py-2 rounded-md text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
             >
               <span>← Back to Workspace</span>
             </button>
@@ -608,7 +608,7 @@ export function PiCameraTwin({
           {onLoadVisionCode && (
             <button
               onClick={onLoadVisionCode}
-              className="px-4 py-2 rounded text-xs sm:text-sm font-mono font-bold bg-[var(--theme-accent)] hover:opacity-90 text-[var(--theme-accent-text)] transition-all cursor-pointer shadow-md flex items-center gap-2 active:scale-95"
+              className="px-4 py-2 rounded-md text-xs sm:text-sm font-semibold bg-[var(--theme-accent)] hover:opacity-90 text-[var(--theme-accent-text)] transition-all cursor-pointer shadow-md flex items-center gap-2 active:scale-95"
             >
               <Code className="w-4 h-4" />
               <span>Load Python Vision Script</span>
@@ -621,7 +621,7 @@ export function PiCameraTwin({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Left Column: Video Viewport & Controls (8 Cols) */}
         <div className="lg:col-span-8 flex flex-col gap-3.5">
-          <div className="relative border-2 border-slate-700 bg-black rounded-none overflow-hidden shadow-xl aspect-4/3 flex items-center justify-center">
+          <div className="relative border-2 border-slate-700 bg-black rounded-xl overflow-hidden shadow-xl aspect-4/3 flex items-center justify-center">
             {/* Real-time Filtered Canvas */}
             <canvas
               ref={canvasRef}
@@ -654,7 +654,7 @@ export function PiCameraTwin({
 
             {/* Live Video OSD HUD */}
             <div className="absolute top-3 left-3 flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-1 text-xs font-mono font-bold rounded-none bg-black/80 text-white border border-white/20 backdrop-blur-md flex items-center gap-1.5">
+              <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-black/80 text-white border border-white/20 backdrop-blur-md flex items-center gap-1.5">
                 <span className={`w-2.5 h-2.5 rounded-none ${isStreaming ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                 <span>{isStreaming ? 'LIVE' : 'PAUSED'}</span>
               </span>
@@ -741,10 +741,10 @@ export function PiCameraTwin({
             </div>
 
             {/* Video Input Source Switcher */}
-            <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/15 rounded-none">
+            <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/15 rounded-md">
               <button
                 onClick={() => setCameraSource('hardware')}
-                className={`px-3 py-1.5 rounded-none text-xs font-mono font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   cameraSource === 'hardware'
                     ? 'bg-white/20 text-white border border-white/30'
                     : 'text-white/60 hover:text-white'
@@ -755,7 +755,7 @@ export function PiCameraTwin({
               </button>
               <button
                 onClick={() => setCameraSource('webcam')}
-                className={`px-3 py-1.5 rounded-none text-xs font-mono font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   cameraSource === 'webcam'
                     ? 'bg-white/20 text-white border border-white/30'
                     : 'text-white/60 hover:text-white'
@@ -766,7 +766,7 @@ export function PiCameraTwin({
               </button>
               <button
                 onClick={() => setCameraSource('simulation')}
-                className={`px-3 py-1.5 rounded-none text-xs font-mono font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   cameraSource === 'simulation'
                     ? 'bg-white/20 text-white border border-white/30'
                     : 'text-white/60 hover:text-white'
@@ -781,21 +781,21 @@ export function PiCameraTwin({
 
         {/* Right Column: Morphological Filter Selector (4 Cols) */}
         <div className="lg:col-span-4 flex flex-col gap-3.5">
-          <div className="p-4 rounded-none border border-slate-300 bg-[var(--theme-bg-card)] flex flex-col gap-3.5 shadow-sm">
+          <div className="p-4 rounded-xl border border-slate-300 bg-[var(--theme-bg-card)] flex flex-col gap-3.5 shadow-sm">
             <div className="flex items-center justify-between border-b border-[var(--theme-border)] pb-2.5">
-              <span className="text-sm sm:text-base font-bold font-mono text-[var(--theme-text-main)] flex items-center gap-2">
+              <span className="text-sm sm:text-base font-bold text-[var(--theme-text-main)] flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-[var(--theme-accent)]" />
                 <span>Morphological Filters</span>
               </span>
-              <span className="text-xs font-mono px-2 py-0.5 rounded-none bg-[var(--theme-accent)]/20 text-[var(--theme-accent)] font-bold">
+              <span className="text-xs px-2 py-0.5 rounded-md bg-[var(--theme-accent)]/20 text-[var(--theme-accent)] font-semibold">
                 OpenCV
               </span>
             </div>
 
             {/* Sensitivity Slider with Big Touch Track */}
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-xs sm:text-sm font-mono">
-                <span className="text-[var(--theme-text-sub)] font-bold">Gradient Sensitivity:</span>
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <span className="text-[var(--theme-text-sub)] font-semibold">Gradient Sensitivity:</span>
                 <span className="text-[var(--theme-accent)] font-bold text-base">{threshold}</span>
               </div>
               <input
@@ -804,9 +804,9 @@ export function PiCameraTwin({
                 max="220"
                 value={threshold}
                 onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-full accent-[var(--theme-accent)] h-3 bg-slate-300 rounded-none cursor-pointer"
+                className="w-full accent-[var(--theme-accent)] h-3 bg-slate-300 rounded cursor-pointer"
               />
-              <div className="flex justify-between text-[11px] font-mono text-[var(--theme-text-muted)]">
+              <div className="flex justify-between text-[11px] text-[var(--theme-text-muted)]">
                 <span>More Edges (Sensitive)</span>
                 <span>Strong Edges Only</span>
               </div>
@@ -820,16 +820,16 @@ export function PiCameraTwin({
                   <button
                     key={f.id}
                     onClick={() => handleSelectFilter(f.id)}
-                    className={`p-3 rounded-none border-2 text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
                       isActive
                         ? 'bg-[var(--theme-accent)]/20 border-[var(--theme-accent)] text-[var(--theme-text-main)] shadow-sm'
                         : 'bg-white/5 hover:bg-white/10 border-slate-300 text-[var(--theme-text-sub)] hover:text-[var(--theme-text-main)]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="text-xl shrink-0">{f.icon}</span>
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isActive ? 'bg-[var(--theme-accent)]' : 'bg-slate-400'}`} />
                       <div>
-                        <div className="text-xs sm:text-sm font-bold font-mono text-[var(--theme-text-main)]">
+                        <div className="text-xs sm:text-sm font-semibold text-[var(--theme-text-main)]">
                           {f.label}
                         </div>
                         <div className="text-[11px] text-[var(--theme-text-muted)] leading-tight">
@@ -838,7 +838,7 @@ export function PiCameraTwin({
                       </div>
                     </div>
                     {isActive && (
-                      <span className="w-2.5 h-2.5 rounded-none bg-[var(--theme-accent)] shrink-0" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[var(--theme-accent)] shrink-0" />
                     )}
                   </button>
                 );
