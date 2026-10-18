@@ -621,7 +621,19 @@ setInterval(() => {
   telemetryHistory.push(record);
   if (telemetryHistory.length > 60) telemetryHistory.shift();
 
+  broadcast('state.update', {
+    isPhysicalPi,
+    isSenseHatConnected: systemMode === 'emulation' ? isSenseHatConnected : false,
+    hardwareLinkStatus: systemMode === 'simulation' ? 'simulated' : hardwareStatusLevel,
+    system: { uptimeSeconds: Math.floor(process.uptime()) },
+  });
   broadcast('sensor.update', sensors);
+  broadcast('system.update', {
+    isPhysicalPi,
+    isSenseHatConnected: systemMode === 'emulation' && isSenseHatConnected,
+    hardwareLinkStatus: systemMode === 'simulation' ? 'simulated' : hardwareStatusLevel,
+    uptimeSeconds: Math.floor(process.uptime()),
+  });
 }, 500);
 
 // High-Responsiveness Physical Joystick & Keypad Polling Loop (50ms interval)
