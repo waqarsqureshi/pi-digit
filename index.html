@@ -24,9 +24,9 @@
   <nav class="site-nav">
     <div class="container">
       <a href="/" class="nav-brand">
-        <img src="/assets/images/pi-logo.svg" alt="Raspberry Pi Logo" width="32" height="32">
+        <img src="/assets/images/University_Of_Galway_Logo__Positive_Portrait.png" alt="University of Galway logo" class="uog-logo-nav" width="40" height="40">
         <span>Pi-Digital Twin</span>
-        <span class="nav-brand-badge">LANDING</span>
+        <span class="nav-brand-badge">UNIVERSITY OF GALWAY</span>
       </a>
 
       <button class="nav-mobile-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="primary-navigation">
@@ -67,7 +67,7 @@
         <div class="hero-eyebrow">
           <span>RASPBERRY PI HARDWARE EMULATOR</span>
           <span aria-hidden="true">&middot;</span>
-          <span>SENSE HAT &amp; GPIO ENGINE</span>
+          <span>UNIVERSITY OF GALWAY DIGITAL LAB</span>
         </div>
         <h1 class="hero-title">
           The Interactive Digital Twin for <span class="accent">Raspberry Pi</span>
@@ -263,33 +263,33 @@
       <div class="arch-grid">
         <div>
           <div class="section-kicker">SYSTEM ARCHITECTURE</div>
-          <h2 class="section-title">How the Emulator Talks to Hardware</h2>
+          <h2 class="section-title">Clear Separation: Landing, Wiki, and Runtime</h2>
           <p class="hero-desc">
-            The emulator runs as a lightweight Node.js and Python daemon directly on the Raspberry Pi OS userspace, eliminating latency and bridging local kernel drivers with the web frontend.
+            Pi-Digit is intentionally split into three surfaces: a marketing/deployment landing page, a full technical wiki, and the live emulator runtime.
           </p>
 
           <div class="arch-steps">
             <div class="arch-step-item">
               <div class="arch-step-num">1</div>
               <div class="arch-step-content">
-                <h3>Hardware Daemon &amp; Kernel Drivers</h3>
-                <p>A background Python daemon polls native Linux sysfs nodes (<code>/dev/fb1</code>, <code>/dev/i2c-1</code>, <code>/dev/gpiomem</code>) using <code>python3-sense-hat</code> and <code>RPi.GPIO</code>.</p>
+                <h3>Landing Page (<code>/</code>)</h3>
+                <p>Project overview, installation quick-start, and links for first-time users.</p>
               </div>
             </div>
 
             <div class="arch-step-item">
               <div class="arch-step-num">2</div>
               <div class="arch-step-content">
-                <h3>Node.js IPC &amp; WebSocket Engine</h3>
-                <p>The Express backend establishes high-frequency WebSocket streams, synchronizing framebuffer frames, pin toggles, and sensor samples every 500ms.</p>
+                <h3>Technical Documentation (<code>/wiki</code>)</h3>
+                <p>Detailed architecture, command references, hardware notes, and troubleshooting guidance.</p>
               </div>
             </div>
 
             <div class="arch-step-item">
               <div class="arch-step-num">3</div>
               <div class="arch-step-content">
-                <h3>Interactive Twin Frontend</h3>
-                <p>The React digital twin dashboard renders the physical state, allows executing Python/C scripts, and delivers instant visual verification on your browser screen.</p>
+                <h3>Emulator Runtime (<code>/emulator</code>)</h3>
+                <p>Interactive workspace for code execution, applets, diagnostics, and real-time digital twin behavior.</p>
               </div>
             </div>
           </div>
@@ -298,39 +298,18 @@
         <div>
           <div class="code-box">
             <div class="code-box-header">
-              <span>sample_sense_hat.py &mdash; Native Hardware Execution</span>
-              <button class="btn-copy">Copy</button>
+              <span>Where to find detailed technical content</span>
             </div>
-            <pre><code>from sense_hat import SenseHat
-import time
+            <pre><code>Use the Wiki for:
+- Full architecture and data-flow documentation
+- Complete installation and update procedures
+- Code execution and applet how-to guides
+- Hardware diagnostics and troubleshooting
 
-sense = SenseHat()
-sense.clear()
-
-# Display temperature &amp; humidity on 8x8 matrix
-temp = sense.get_temperature()
-humidity = sense.get_humidity()
-
-print(f"Temperature: {temp:.1f} °C")
-print(f"Humidity:    {humidity:.1f} %")
-
-# Draw green heart on 8x8 LED matrix
-G = [0, 255, 0]
-O = [0, 0, 0]
-
-heart = [
-  O, G, G, O, O, G, G, O,
-  G, G, G, G, G, G, G, G,
-  G, G, G, G, G, G, G, G,
-  O, G, G, G, G, G, G, O,
-  O, O, G, G, G, G, O, O,
-  O, O, O, G, G, O, O, O,
-  O, O, O, O, O, O, O, O,
-  O, O, O, O, O, O, O, O
-]
-
-sense.set_pixels(heart)
-time.sleep(2)</code></pre>
+Open: /wiki.html</code></pre>
+            <div class="install-step-link">
+              <a href="/wiki.html" class="text-link">Open complete documentation &rarr;</a>
+            </div>
           </div>
         </div>
       </div>
@@ -341,90 +320,38 @@ time.sleep(2)</code></pre>
   <section id="install" class="section-wrap">
     <div class="section-container">
       <div class="section-header">
-        <div class="section-kicker">STEP-BY-STEP INSTALLATION</div>
-        <h2 class="section-title">Install on Your Raspberry Pi</h2>
+        <div class="section-kicker">QUICK START</div>
+        <h2 class="section-title">Deploy in Minutes</h2>
         <p class="section-subtitle">
-          Follow these quick steps to get the emulator installed, configured, and running on your physical Raspberry Pi.
+          Use the one-command installer for Raspberry Pi. For full procedures and advanced setup options, continue to the wiki.
         </p>
       </div>
 
       <div class="install-steps">
-        <!-- Step 1 -->
         <article class="install-step">
           <div class="install-step-heading">
-            <span class="install-step-number">STEP 1</span>
-            <h3>Clone Repository &amp; Run Automated Installer</h3>
+            <span class="install-step-number">FAST PATH</span>
+            <h3>Install and run on Raspberry Pi</h3>
           </div>
           <p class="install-step-copy">
-            Open a terminal on your Raspberry Pi (or SSH into it) and run the installer script:
+            Run this command on your Raspberry Pi terminal:
           </p>
           <div class="code-box">
             <div class="code-box-header">
-              <span>Terminal (Raspberry Pi OS)</span>
+              <span>Terminal</span>
               <button class="btn-copy">Copy</button>
             </div>
-            <pre><code># Clone repository
-git clone https://github.com/waqarsqureshi/pi-digit.git
-cd pi-digit
-
-# Run installation script (enables I2C, installs dependencies, sets up systemd)
-chmod +x emulator/install.sh
-bash emulator/install.sh</code></pre>
+            <pre><code>curl -sSL https://raw.githubusercontent.com/waqarsqureshi/pi-digit/main/emulator/install.sh | bash</code></pre>
           </div>
           <div class="install-step-link">
             <a href="https://github.com/waqarsqureshi/pi-digit/blob/main/emulator/install.sh" target="_blank" rel="noopener noreferrer" class="text-link">
               View emulator/install.sh on GitHub &rarr;
             </a>
           </div>
-        </article>
-
-        <!-- Step 2 -->
-        <article class="install-step">
-          <div class="install-step-heading">
-            <span class="install-step-number">STEP 2</span>
-            <h3>Reboot to Apply Kernel I2C &amp; Framebuffer Overlays</h3>
-          </div>
           <p class="install-step-copy">
-            If I2C or Sense HAT kernel modules were just enabled, reboot once to initialize <code>/dev/fb1</code>:
+            Need step-by-step install, service setup, and troubleshooting? Use the full guide in the wiki:
+            <a href="/wiki.html#getting-started" class="text-link">Open Getting Started documentation</a>.
           </p>
-          <div class="code-box">
-            <div class="code-box-header">
-              <span>Terminal</span>
-              <button class="btn-copy">Copy</button>
-            </div>
-            <pre><code>sudo reboot</code></pre>
-          </div>
-        </article>
-
-        <!-- Step 3 -->
-        <article class="install-step">
-          <div class="install-step-heading">
-            <span class="install-step-number">STEP 3</span>
-            <h3>Set Working Directory (pwd) &amp; Launch Daemon</h3>
-          </div>
-          <p class="install-step-copy">
-            After rebooting, check that your terminal is in the <code>pi-digit</code> repository folder (<code>cd ~/pi-digit</code>) before executing <code>npm start</code>. The daemon will automatically detect your local IP address:
-          </p>
-          <div class="code-box">
-            <div class="code-box-header">
-              <span>Terminal</span>
-              <button class="btn-copy">Copy</button>
-            </div>
-            <pre><code># 1. Ensure you are in the project folder (required working directory)
-cd ~/pi-digit
-
-# Verify current working directory is the repository root
-pwd
-# Expected output: /home/&lt;user&gt;/pi-digit
-
-# 2. Start the daemon server
-npm start
-
-# The server automatically outputs connection URLs on startup:
-# ➜ Local Pi (Loopback): http://127.0.0.1:3000/emulator/
-# ➜ Network LAN (Wi-Fi): http://&lt;your-pi-ip&gt;:3000/emulator/ (e.g. 192.168.1.xxx)
-# ➜ mDNS Hostname:       http://raspberrypi.local:3000/emulator/</code></pre>
-          </div>
         </article>
       </div>
     </div>
@@ -435,61 +362,26 @@ npm start
     <div class="section-container">
       <div class="section-header">
         <div class="section-kicker">HARDWARE COMPATIBILITY</div>
-        <h2 class="section-title">Supported Devices &amp; Operating Systems</h2>
+        <h2 class="section-title">Supported Raspberry Pi Platforms</h2>
         <p class="section-subtitle">
-          Verified on official Raspberry Pi hardware with Debian GNU/Linux kernel releases.
+          Verified on Raspberry Pi 5, 4, 400, 3B+, and Zero 2 W with Raspberry Pi OS.
         </p>
       </div>
 
-      <div class="spec-table-wrap">
-        <table class="spec-table">
-          <thead>
-            <tr>
-              <th>Raspberry Pi Hardware</th>
-              <th>Operating System</th>
-              <th>Sense HAT Support</th>
-              <th>GPIO Header (/dev/gpiomem)</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Raspberry Pi 5 (4GB / 8GB / 16GB)</strong></td>
-              <td>Raspberry Pi OS (Bookworm 64-bit)</td>
-              <td>Full (/dev/fb1 &amp; I2C)</td>
-              <td>RP1 chip via libgpiod</td>
-              <td><span class="badge-verified">&check; Verified</span></td>
-            </tr>
-            <tr>
-              <td><strong>Raspberry Pi 4 Model B (2GB / 4GB / 8GB)</strong></td>
-              <td>Raspberry Pi OS (Bookworm &amp; Bullseye)</td>
-              <td>Full (/dev/fb1 &amp; I2C)</td>
-              <td>Direct bcm2835 /dev/gpiomem</td>
-              <td><span class="badge-verified">&check; Verified</span></td>
-            </tr>
-            <tr>
-              <td><strong>Raspberry Pi 400</strong></td>
-              <td>Raspberry Pi OS (64-bit &amp; 32-bit)</td>
-              <td>Full via 40-pin ribbon cable</td>
-              <td>Direct bcm2835 /dev/gpiomem</td>
-              <td><span class="badge-verified">&check; Verified</span></td>
-            </tr>
-            <tr>
-              <td><strong>Raspberry Pi 3 Model B+</strong></td>
-              <td>Raspberry Pi OS (Bullseye / Bookworm)</td>
-              <td>Full (/dev/fb1 &amp; I2C)</td>
-              <td>Direct bcm2835 /dev/gpiomem</td>
-              <td><span class="badge-verified">&check; Verified</span></td>
-            </tr>
-            <tr>
-              <td><strong>Raspberry Pi Zero 2 W</strong></td>
-              <td>Raspberry Pi OS Lite / Desktop</td>
-              <td>Supported (Mini I2C header)</td>
-              <td>Direct bcm2835 /dev/gpiomem</td>
-              <td><span class="badge-verified">&check; Verified</span></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3 class="feature-title">Primary Targets</h3>
+          <p class="feature-desc">Raspberry Pi 5 and Raspberry Pi 4 Model B running Raspberry Pi OS (Bookworm/Bullseye).</p>
+        </div>
+        <div class="feature-card">
+          <h3 class="feature-title">Additional Boards</h3>
+          <p class="feature-desc">Raspberry Pi 400, Raspberry Pi 3B+, and Zero 2 W are supported for teaching and lab workflows.</p>
+        </div>
+        <div class="feature-card">
+          <h3 class="feature-title">Detailed Matrix</h3>
+          <p class="feature-desc">For board-by-board OS and driver details, use the full compatibility section in the wiki.</p>
+          <a href="/wiki.html#intro-requirements" class="text-link">Open hardware requirements &rarr;</a>
+        </div>
       </div>
 
       <!-- Call to Action Banner -->
@@ -518,11 +410,11 @@ npm start
       <div class="footer-grid">
         <div class="footer-col">
           <div class="footer-brand">
-            <img src="/assets/images/pi-logo.svg" alt="Logo" width="24" height="24">
+            <img src="/assets/images/University_Of_Galway_Logo__Positive_Portrait.png" alt="University of Galway logo" class="uog-logo-footer" width="32" height="32">
             <span>Pi-Digital Twin</span>
           </div>
           <p class="footer-description">
-            High-fidelity Raspberry Pi Digital Twin emulator for hardware-level experimentation, Sense HAT education, and remote telemetry monitoring.
+            University of Galway aligned Raspberry Pi Digital Twin platform for hardware teaching, lab simulation, and remote telemetry workflows.
           </p>
         </div>
 
