@@ -39,7 +39,6 @@ import {
   Eye,
   EyeOff,
   Move,
-  Columns,
   Terminal as TerminalIcon,
   Sparkles,
   RefreshCw,
@@ -1569,45 +1568,6 @@ export function UnifiedWorkspace({
     }
   };
 
-  const cascadeApplets = () => {
-    const nextZ = highestZIndex + 1;
-    setFloatingPositions((prev) => {
-      const updated = { ...prev };
-      enabledApplets.forEach((app, idx) => {
-        updated[app.id] = {
-          ...updated[app.id],
-          x: 20 + idx * 35,
-          y: 20 + idx * 35,
-          zIndex: nextZ + idx,
-        };
-      });
-      return updated;
-    });
-    setHighestZIndex(nextZ + enabledApplets.length);
-  };
-
-  const tileApplets = () => {
-    const colWidth = 470;
-    const gap = 20;
-    setFloatingPositions((prev) => {
-      const updated = { ...prev };
-      enabledApplets.forEach((app, idx) => {
-        const col = idx % 2;
-        const row = Math.floor(idx / 2);
-        updated[app.id] = {
-          ...updated[app.id],
-          x: 20 + col * (colWidth + gap),
-          y: 20 + row * 430,
-        };
-      });
-      return updated;
-    });
-  };
-
-  const resetFloatingPositions = () => {
-    setFloatingPositions(DEFAULT_FLOATING_POSITIONS);
-  };
-
   // Connected Raspberry Pi Bash Terminal State (User Requirement: Connected to bash terminal of Pi)
   const [terminalLogs, setTerminalLogs] = useState<string[]>([
     'Linux raspberrypi 6.6.20+rpt-rpi-v8 #1 SMP PREEMPT Debian 12 (bookworm) aarch64',
@@ -2427,51 +2387,6 @@ export function UnifiedWorkspace({
             </div>
           ) : (
             <>
-              {/* Canvas Mode & Arrangement Control Toolbar */}
-              <div className="mb-4 flex w-full shrink-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-card)] px-4 py-3 text-sm shadow-sm select-none">
-                <div className="flex items-center gap-2.5">
-                  <span className="inline-flex items-center rounded border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-2.5 py-1 text-xs font-mono text-[var(--theme-text-muted)]">
-                    Layout: <strong className="ml-1 text-[var(--theme-text-main)]">{layoutMode === 'floating' ? 'Floating' : 'Grid'}</strong>
-                  </span>
-                  <span className="text-xs text-[var(--theme-text-muted)] font-mono hidden sm:inline">
-                    {layoutMode === 'floating' ? 'Drag applet headers to reposition windows' : 'Applets are arranged in a fixed multi-column grid'}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {layoutMode === 'floating' && (
-                    <>
-                      <button
-                        onClick={cascadeApplets}
-                        className="px-2.5 py-1 rounded bg-[var(--theme-bg-card)] hover:bg-[var(--theme-border)] border border-[var(--theme-border)] text-xs font-medium cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
-                        title="Cascade open windows diagonally"
-                      >
-                        <Layers className="w-3.5 h-3.5 text-[#f39200]" />
-                        <span>Cascade</span>
-                      </button>
-
-                      <button
-                        onClick={tileApplets}
-                        className="px-2.5 py-1 rounded bg-[var(--theme-bg-card)] hover:bg-[var(--theme-border)] border border-[var(--theme-border)] text-xs font-medium cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
-                        title="Auto-arrange open windows side by side"
-                      >
-                        <Columns className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Auto-Tile</span>
-                      </button>
-                    </>
-                  )}
-
-                  <button
-                    onClick={resetFloatingPositions}
-                    className="px-2.5 py-1 rounded bg-[var(--theme-bg-card)] hover:bg-[var(--theme-border)] border border-[var(--theme-border)] text-xs font-medium cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
-                    title="Reset floating positions"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Reset Positions</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Canvas Container: Floating Area vs Responsive Grid */}
               <div
                 onPointerMove={layoutMode === 'floating' ? handleCanvasPointerMove : undefined}

@@ -7,7 +7,7 @@
 
 .uog-logo-nav {
   width: auto;
-  height: 52px;
+  height: 72px;
   display: block;
 }
 
@@ -22,6 +22,8 @@
 .site-nav {
   background: #840038;
   border-bottom: 1px solid #6b002d;
+  height: auto;
+  min-height: 92px;
 }
 
 .site-nav .nav-mobile-toggle {
@@ -339,7 +341,7 @@
 
 @media (max-width: 768px) {
   .uog-logo-nav {
-    height: 40px;
+    height: 54px;
   }
 
   .hero-copy h1 {

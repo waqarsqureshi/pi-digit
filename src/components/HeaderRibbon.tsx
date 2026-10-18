@@ -88,8 +88,8 @@ export function HeaderRibbon({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[var(--theme-border)] bg-[var(--header-bg)] text-[var(--header-text)] shadow-sm transition-colors duration-150">
-      <div className="flex min-h-[76px] w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-3 sm:px-6">
+    <header className="sticky top-0 z-40 w-full border-b border-[#6b002d] bg-[#840038] text-white shadow-sm transition-colors duration-150">
+      <div className="flex min-h-[92px] w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-3 sm:px-6">
         {/* Brand Zone - Raspberry Pi Digital Twin Studio */}
         <div className="flex items-center gap-3.5 shrink-0">
           <a
@@ -98,7 +98,7 @@ export function HeaderRibbon({
             title="Raspberry Pi Digital Twin Studio"
           >
             {/* Raspberry Pi Insignia */}
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/30 bg-white/10 shadow-sm">
               <img
                 src="/assets/images/pi-logo.svg"
                 alt="Raspberry Pi"
@@ -108,14 +108,14 @@ export function HeaderRibbon({
             
             <div className="flex min-w-0 flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold tracking-tight text-[var(--header-text)] sm:text-lg">
+                <span className="text-base font-bold tracking-tight text-white sm:text-lg">
                   Pi-Digit
                 </span>
-                <span className="hidden rounded-full border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--theme-text-muted)] sm:inline-flex">
+                <span className="hidden rounded-full border border-white/30 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-rose-100 sm:inline-flex">
                   DIGITAL TWIN
                 </span>
               </div>
-              <span className="text-xs text-[var(--theme-text-muted)]">
+              <span className="text-xs text-rose-100">
                 Raspberry Pi hardware studio
               </span>
             </div>
@@ -125,15 +125,15 @@ export function HeaderRibbon({
         {/* Center Zone: Professional Segmented View Switcher */}
         <nav
           aria-label="Main navigation"
-          className="hidden items-center gap-1 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] p-1 text-sm font-medium md:flex"
+          className="hidden items-center gap-1 rounded-xl border border-white/20 bg-[#6b002d]/70 p-1 text-sm font-medium md:flex"
         >
           <button
             onClick={() => setActiveView('workspace')}
             aria-current={activeView === 'workspace' ? 'page' : undefined}
-            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-base transition-all cursor-pointer ${
               activeView === 'workspace'
-                ? 'bg-[var(--theme-bg-card)] text-[var(--theme-accent)] shadow-sm font-semibold'
-                : 'text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-card)]/70 hover:text-[var(--theme-text-main)]'
+                ? 'bg-white text-[#840038] shadow-sm font-bold'
+                : 'text-rose-100 hover:bg-white/15 hover:text-white'
             }`}
           >
             <Layers className="w-4 h-4 shrink-0" />
@@ -143,10 +143,10 @@ export function HeaderRibbon({
           <button
             onClick={() => setActiveView('camera')}
             aria-current={activeView === 'camera' ? 'page' : undefined}
-            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-2 rounded-lg px-5 py-2.5 text-base transition-all cursor-pointer ${
               activeView === 'camera'
-                ? 'bg-[var(--theme-bg-card)] text-[var(--theme-accent)] shadow-sm font-semibold'
-                : 'text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-card)]/70 hover:text-[var(--theme-text-main)]'
+                ? 'bg-white text-[#840038] shadow-sm font-bold'
+                : 'text-rose-100 hover:bg-white/15 hover:text-white'
             }`}
           >
             <Camera className="w-4 h-4 shrink-0" />
@@ -157,11 +157,11 @@ export function HeaderRibbon({
             href="/wiki.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all cursor-pointer text-[var(--theme-text-muted)] hover:text-[var(--theme-text-main)] hover:bg-[var(--theme-bg-card)]/70"
+            className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-base transition-all cursor-pointer text-rose-100 hover:bg-white/15 hover:text-white"
             title="Open Complete Documentation & Hardware Architecture Wiki"
           >
-            <BookOpen className="w-4 h-4 shrink-0 text-[#860038] dark:text-[#f39200]" />
-            <span>Help &amp; Wiki</span>
+            <BookOpen className="w-4 h-4 shrink-0 text-rose-100" />
+            <span>Wiki</span>
             <ExternalLink className="w-3 h-3 opacity-60" />
           </a>
         </nav>
@@ -171,15 +171,15 @@ export function HeaderRibbon({
           <div className="relative" ref={layoutRef}>
             <button
               onClick={() => setLayoutMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-3 py-2 text-sm font-semibold transition-colors hover:bg-[var(--theme-border)] cursor-pointer"
+              className="flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/20 cursor-pointer"
               title="Workspace Layout Selection"
             >
               {layoutMode === 'floating' && <Move className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
               {layoutMode === 'grid' && <LayoutGrid className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
               {layoutMode === 'studio-focus' && <PanelLeft className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
               {layoutMode === 'bench' && <LayoutTemplate className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />}
-              <span className="hidden xl:inline text-xs font-mono uppercase text-[var(--theme-text-muted)]">Layout:</span>
-              <span className="text-xs font-bold text-[var(--theme-text-main)]">
+              <span className="hidden xl:inline text-xs font-mono uppercase text-rose-100">Layout:</span>
+              <span className="text-xs font-bold text-white">
                 {layoutMode === 'floating'
                   ? 'Floating'
                   : layoutMode === 'grid'
@@ -188,7 +188,7 @@ export function HeaderRibbon({
                   ? 'Studio Focus'
                   : 'Hardware Bench'}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[var(--theme-text-muted)]" />
+              <ChevronDown className="w-3.5 h-3.5 text-rose-100" />
             </button>
 
             {layoutMenuOpen && (
@@ -282,17 +282,17 @@ export function HeaderRibbon({
         <div className="relative md:hidden" ref={viewsRef}>
           <button
             onClick={() => setViewsMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-3 py-2 text-sm font-semibold text-[var(--theme-text-main)] cursor-pointer"
+            className="flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white cursor-pointer"
           >
-            {activeView === 'workspace' && <Layers className="w-4 h-4 text-[#860038]" />}
-            {activeView === 'camera' && <Camera className="w-4 h-4 text-[#f39200]" />}
-            {activeView === 'help' && <BookOpen className="w-4 h-4 text-[#860038]" />}
-            <span>{activeView === 'workspace' ? 'Workspace' : activeView === 'camera' ? 'Camera' : 'Help'}</span>
-            <ChevronDown className="w-4 h-4 text-[var(--theme-text-muted)]" />
+            {activeView === 'workspace' && <Layers className="w-4 h-4 text-white" />}
+            {activeView === 'camera' && <Camera className="w-4 h-4 text-white" />}
+            {activeView === 'help' && <BookOpen className="w-4 h-4 text-white" />}
+            <span>{activeView === 'workspace' ? 'Workspace' : activeView === 'camera' ? 'Camera' : 'Wiki'}</span>
+            <ChevronDown className="w-4 h-4 text-rose-100" />
           </button>
 
           {viewsMenuOpen && (
-            <div className="absolute left-0 mt-1.5 w-56 bg-[var(--theme-bg-card)] border border-[var(--theme-border)] rounded shadow-xl py-1 z-50 text-sm font-semibold text-[var(--theme-text-main)]">
+            <div className="absolute left-0 mt-1.5 w-56 bg-[#6b002d] border border-white/20 rounded shadow-xl py-1 z-50 text-sm font-semibold text-white">
               <button
                 onClick={() => {
                   setActiveView('workspace');
@@ -300,7 +300,7 @@ export function HeaderRibbon({
                 }}
                 className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
               >
-                <Layers className="w-4 h-4 text-[#860038]" />
+                <Layers className="w-4 h-4 text-rose-100" />
                 <span>Workspace</span>
               </button>
               <button
@@ -310,8 +310,8 @@ export function HeaderRibbon({
                 }}
                 className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left"
               >
-                <Camera className="w-4 h-4 text-[#f39200]" />
-                <span>Camera Studio</span>
+                <Camera className="w-4 h-4 text-rose-100" />
+                <span>Camera</span>
               </button>
               <a
                 href="/wiki.html"
@@ -321,8 +321,8 @@ export function HeaderRibbon({
                 className="w-full flex items-center justify-between px-3.5 py-2 hover:bg-[var(--theme-bg-subtle)] cursor-pointer text-left text-inherit no-underline"
               >
                 <div className="flex items-center gap-2.5">
-                  <BookOpen className="w-4 h-4 text-[#860038] dark:text-[#f39200]" />
-                  <span>Documentation &amp; Wiki</span>
+                  <BookOpen className="w-4 h-4 text-rose-100" />
+                  <span>Wiki</span>
                 </div>
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" />
               </a>
@@ -333,7 +333,7 @@ export function HeaderRibbon({
         {/* Right Zone: Primary Actions, Restore Default View, Wiki, Themes & Diagnostics */}
         <div className="flex shrink-0 items-center gap-2">
           <div
-            className="hidden items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-2.5 py-2 text-xs font-medium text-[var(--theme-text-sub)] lg:flex"
+            className="hidden items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-2.5 py-2 text-xs font-medium text-rose-100 lg:flex"
             title={`System status: ${systemStatus}`}
           >
             <span className={`h-2 w-2 rounded-full ${statusColor}`} />
@@ -343,7 +343,7 @@ export function HeaderRibbon({
           {onRestoreDefaultView && (
             <button
               onClick={onRestoreDefaultView}
-              className="flex items-center gap-2 rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] px-3 py-2 text-sm font-medium text-[var(--theme-text-main)] transition-colors hover:bg-[var(--theme-border)] cursor-pointer"
+              className="flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20 cursor-pointer"
               title="Restore all 8 applets and reset to the default workspace view"
             >
               <RotateCcw className="w-4 h-4 text-[#f39200] shrink-0" />
@@ -351,20 +351,6 @@ export function HeaderRibbon({
               <span className="xl:hidden">Reset</span>
             </button>
           )}
-
-          {/* Promoted "Emulator Wiki" Action Button */}
-          <a
-            href="/wiki.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-lg bg-[var(--theme-accent)] px-3 py-2 text-sm font-semibold text-[var(--theme-accent-text)] transition-colors hover:opacity-90 cursor-pointer no-underline"
-            title="Open Interactive Technical Documentation, Hardware Architecture & API Manual"
-          >
-            <BookOpen className="w-4 h-4 text-white shrink-0" />
-            <span className="hidden sm:inline">Documentation</span>
-            <span className="sm:hidden">Wiki</span>
-            <ExternalLink className="w-3 h-3 text-white/80 shrink-0" />
-          </a>
 
           {/* Connect Hardware Probe */}
           {onConnectHardware && (
@@ -386,10 +372,10 @@ export function HeaderRibbon({
           {onOpenDiagnostics && (
             <button
               onClick={onOpenDiagnostics}
-              className="rounded-lg border border-[var(--theme-border)] bg-[var(--theme-bg-subtle)] p-2 text-[var(--theme-text-main)] transition-colors hover:border-[var(--theme-accent)] cursor-pointer"
+              className="rounded-lg border border-white/20 bg-white/10 p-2 text-white transition-colors hover:bg-white/20 cursor-pointer"
               title="System Diagnostics & Hardware Self-Test"
             >
-              <Wrench className="w-4 h-4 text-[var(--theme-text-muted)]" />
+              <Wrench className="w-4 h-4 text-rose-100" />
             </button>
           )}
         </div>
