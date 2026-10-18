@@ -59,6 +59,20 @@ export function useDigitalTwin() {
             }
             break;
 
+          case 'state.update':
+            setState((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    isPhysicalPi: msg.payload.isPhysicalPi,
+                    isSenseHatConnected: msg.payload.isSenseHatConnected,
+                    hardwareLinkStatus: msg.payload.hardwareLinkStatus,
+                    system: { ...prev.system, ...msg.payload.system },
+                  }
+                : prev
+            );
+            break;
+
           case 'hardware.diagnostics':
             setDiagnostics(msg.payload);
             break;
