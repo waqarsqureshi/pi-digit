@@ -12,6 +12,9 @@ import {
   Layers,
   ArrowRight,
   RefreshCw,
+  Power,
+  PowerOff,
+  Square,
 } from 'lucide-react';
 import { ThemeId } from '../types/theme';
 
@@ -42,7 +45,7 @@ export function PiCameraTwin({
 }: PiCameraTwinProps) {
   const [filter, setFilter] = useState<MorphologicalFilter>('sobel');
   const [threshold, setThreshold] = useState<number>(100);
-  const [isStreaming, setIsStreaming] = useState<boolean>(true);
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [cameraSource, setCameraSource] = useState<'hardware' | 'webcam' | 'simulation'>('hardware');
   const [streamToMatrix, setStreamToMatrix] = useState<boolean>(false);
   const [fps, setFps] = useState<number>(30);
@@ -53,6 +56,27 @@ export function PiCameraTwin({
   const [streamKey, setStreamKey] = useState<number>(Date.now());
   const [displayMode, setDisplayMode] = useState<'processed' | 'raw'>('processed');
   const [hardwareFrameLoaded, setHardwareFrameLoaded] = useState<boolean>(false);
+  const [isCameraPowered, setIsCameraPowered] = useState<boolean>(false);
+
+  // Manage camera hardware daemon lifecycle (Start / Stop & Release)
+  useEffect(() => {
+    if (isCameraPowered) {
+      setIsStreaming(true);
+      fetch('/api/camera/start', { method: 'POST' }).catch(() => {});
+    } else {
+      setIsStreaming(false);
+      fetch('/api/camera/stop', { method: 'POST' }).catch(() => {});
+      setCameraConnected(false);
+      setHardwareFrameLoaded(false);
+    }
+  }, [isCameraPowered]);
+
+  // Clean hardware release when unmounting or leaving the Pi Camera tab
+  useEffect(() => {
+    return () => {
+      fetch('/api/camera/stop', { method: 'POST' }).catch(() => {});
+    };
+  }, []);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -64,7 +88,7 @@ export function PiCameraTwin({
 
   // Active reliable hardware frame polling loop (continuous 25 FPS JPEG frames)
   useEffect(() => {
-    if (!isStreaming || cameraSource !== 'hardware') return;
+    if (!isStreaming || !isCameraPowered || cameraSource !== 'hardware') return;
 
     let active = true;
     let timerId: number;
@@ -552,10 +576,24 @@ export function PiCameraTwin({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap self-end md:self-center">
+          {/* Hardware Camera Power Switch (Power ON / Release Hardware) */}
+          <button
+            onClick={() => setIsCameraPowered(!isCameraPowered)}
+            className={`px-3.5 py-2 rounded text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs border ${
+              isCameraPowered
+                ? 'bg-rose-700 hover:bg-rose-600 text-white border-rose-500'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 animate-pulse'
+            }`}
+            title={isCameraPowered ? 'Stop camera service and release /dev/video0 hardware' : 'Start camera service and acquire video stream'}
+          >
+            {isCameraPowered ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{isCameraPowered ? 'Stop Camera (Release HW)' : 'Start Camera'}</span>
+          </button>
+
           {onBackToWorkspace && (
             <button
               onClick={onBackToWorkspace}
-              className="px-4 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+              className="px-4 py-2 rounded text-xs sm:text-sm font-mono font-bold bg-white/10 hover:bg-white/20 text-[var(--theme-text-main)] border border-white/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
             >
               <span>← Back to Workspace</span>
             </button>
@@ -564,7 +602,7 @@ export function PiCameraTwin({
           {onLoadVisionCode && (
             <button
               onClick={onLoadVisionCode}
-              className="px-4 py-2 rounded-none text-xs sm:text-sm font-mono font-bold bg-[var(--theme-accent)] hover:opacity-90 text-[var(--theme-accent-text)] transition-all cursor-pointer shadow-md flex items-center gap-2 active:scale-95"
+              className="px-4 py-2 rounded text-xs sm:text-sm font-mono font-bold bg-[var(--theme-accent)] hover:opacity-90 text-[var(--theme-accent-text)] transition-all cursor-pointer shadow-md flex items-center gap-2 active:scale-95"
             >
               <Code className="w-4 h-4" />
               <span>Load Python Vision Script</span>
@@ -583,8 +621,30 @@ export function PiCameraTwin({
               ref={canvasRef}
               width={640}
               height={480}
-              className="w-full h-full object-contain"
+              className={`w-full h-full object-contain ${!isCameraPowered ? 'opacity-10' : ''}`}
             />
+
+            {/* Powered OFF Overlay when camera is stopped */}
+            {!isCameraPowered && (
+              <div className="absolute inset-0 bg-[#080c14]/95 flex flex-col items-center justify-center p-6 text-center select-none backdrop-blur-xs">
+                <div className="w-16 h-16 rounded-full bg-[#121824] border-2 border-slate-700 flex items-center justify-center mb-3 shadow-lg">
+                  <Camera className="w-8 h-8 text-slate-500" />
+                </div>
+                <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider mb-1">
+                  Camera Powered Off · Hardware Released
+                </h3>
+                <p className="text-xs text-slate-400 font-mono max-w-sm mb-4 leading-relaxed">
+                  Linux V4L2 device node (/dev/video0) is released. No background Python camera daemon is locking the hardware.
+                </p>
+                <button
+                  onClick={() => setIsCameraPowered(true)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded cursor-pointer transition-all shadow-md flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  <span>Start Camera & Initialize /dev/video0</span>
+                </button>
+              </div>
+            )}
 
             {/* Live Video OSD HUD */}
             <div className="absolute top-3 left-3 flex items-center gap-2 flex-wrap">

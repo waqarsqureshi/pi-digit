@@ -258,9 +258,16 @@ function startHardwareDaemon() {
 
 // Background Python Camera Service & Video Frame Daemon Supervisor
 let cameraDaemonProc: ChildProcess | null = null;
+let cameraDaemonEnabled = false; // Off by default: camera hardware is only accessed when explicitly powered on!
+let cameraRestartTimer: NodeJS.Timeout | null = null;
 
 function startCameraDaemon() {
   if (cameraDaemonProc) return;
+  cameraDaemonEnabled = true;
+  if (cameraRestartTimer) {
+    clearTimeout(cameraRestartTimer);
+    cameraRestartTimer = null;
+  }
   const scriptPath = fs.existsSync(path.join(__dirname, 'src', 'scripts', 'camera_service.py'))
     ? path.join(__dirname, 'src', 'scripts', 'camera_service.py')
     : path.join(__dirname, 'scripts', 'camera_service.py');
@@ -294,17 +301,48 @@ function startCameraDaemon() {
 
     cameraDaemonProc.on('exit', () => {
       cameraDaemonProc = null;
-      // Auto-restart camera daemon to maintain video frames
-      setTimeout(startCameraDaemon, 2500);
+      if (cameraDaemonEnabled) {
+        cameraRestartTimer = setTimeout(() => {
+          if (cameraDaemonEnabled) startCameraDaemon();
+        }, 2500);
+      }
     });
 
     cameraDaemonProc.on('error', (err) => {
       console.log(`[CamDaemon Error] ${err.message}`);
       cameraDaemonProc = null;
     });
+    console.log('[CamDaemon] Started and camera pipeline active.');
   } catch (err) {
     console.log('[CamDaemon Error] Spawn failed:', err);
   }
+}
+
+function stopCameraDaemon() {
+  cameraDaemonEnabled = false;
+  if (cameraRestartTimer) {
+    clearTimeout(cameraRestartTimer);
+    cameraRestartTimer = null;
+  }
+  if (cameraDaemonProc) {
+    try {
+      cameraDaemonProc.kill('SIGTERM');
+      const proc = cameraDaemonProc;
+      setTimeout(() => {
+        try {
+          if (proc && !proc.killed) proc.kill('SIGKILL');
+        } catch {}
+      }, 500);
+    } catch {}
+    cameraDaemonProc = null;
+  }
+  try {
+    exec('pkill -9 -f camera_service.py', () => {});
+  } catch {}
+  try {
+    if (fs.existsSync('/tmp/pi_cam_frame.jpg')) fs.unlinkSync('/tmp/pi_cam_frame.jpg');
+  } catch {}
+  console.log('[CamDaemon] Stopped and camera hardware released.');
 }
 
 // Emulated Peripherals Rack (Wire-Free Physical Computing)
@@ -1936,6 +1974,7 @@ app.get('/api/camera/status', (_req: Request, res: Response) => {
   const isConnected = hasV4L2 || libcameraDetected || Boolean(daemonStatus.connected);
   res.json({
     connected: isConnected,
+    running: cameraDaemonEnabled && Boolean(cameraDaemonProc),
     device: daemonStatus.device || (hasV4L2 ? '/dev/video0 (V4L2 CSI-2)' : (libcameraDetected ? 'libcamera CSI-2' : 'Virtual / WebCam Simulator')),
     backend: daemonStatus.backend || (hasV4L2 ? 'v4l2' : 'synthetic'),
     driver: hasV4L2 ? 'bcm2835-unicam / v4l2' : (libcameraDetected ? 'libcamera' : 'Digital Twin Camera Stream'),
@@ -1947,6 +1986,17 @@ app.get('/api/camera/status', (_req: Request, res: Response) => {
     isPhysical: isConnected,
     timestamp: Date.now(),
   });
+});
+
+// Explicit Camera Power Controls (Power ON / Hardware Release)
+app.post('/api/camera/start', (_req: Request, res: Response) => {
+  startCameraDaemon();
+  res.json({ success: true, running: true });
+});
+
+app.post('/api/camera/stop', (_req: Request, res: Response) => {
+  stopCameraDaemon();
+  res.json({ success: true, running: false });
 });
 
 // Camera In-Memory Frame Buffer Cache (Eliminates frame flicker and 503 read drops)
@@ -1961,7 +2011,9 @@ try {
 
 // Real-Time High-Speed MJPEG Video Stream over Network
 app.get('/api/camera/stream', (_req: Request, res: Response) => {
-  startCameraDaemon();
+  if (!cameraDaemonEnabled) {
+    return res.status(503).send('Camera is powered off. Click Start Camera to initialize hardware.');
+  }
 
   res.writeHead(200, {
     'Content-Type': 'multipart/x-mixed-replace; boundary=myframe',
@@ -1980,7 +2032,7 @@ app.get('/api/camera/stream', (_req: Request, res: Response) => {
   });
 
   const sendFrame = () => {
-    if (isClosed) return;
+    if (isClosed || !cameraDaemonEnabled) return;
     try {
       if (fs.existsSync(framePath)) {
         const frameData = fs.readFileSync(framePath);
@@ -2008,7 +2060,9 @@ app.get('/api/camera/stream', (_req: Request, res: Response) => {
 
 // Single Frame Snapshot endpoint
 app.get('/api/camera/frame', (_req: Request, res: Response) => {
-  startCameraDaemon();
+  if (!cameraDaemonEnabled) {
+    return res.status(503).json({ error: 'Camera is powered off' });
+  }
   const framePath = '/tmp/pi_cam_frame.jpg';
   if (fs.existsSync(framePath)) {
     try {
@@ -2417,9 +2471,8 @@ async function start() {
     // 1. Run pre-flight hardware and camera verification tests before starting emulator
     await runStartupVerificationTests();
 
-    // 2. Launch background hardware & camera frame supervisor daemons
+    // 2. Launch background hardware supervisor daemon (Camera starts powered OFF until activated)
     startHardwareDaemon();
-    startCameraDaemon();
 
     // 3. Run initial hardware probe and print terminal notice
     runHardwareDiagnostics().then((diag) => {

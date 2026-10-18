@@ -47,6 +47,9 @@ import {
   Gamepad2,
   Download,
   ExternalLink,
+  PowerOff,
+  Power,
+  Navigation,
 } from 'lucide-react';
 import {
   FullHardwareState,
@@ -80,7 +83,7 @@ interface UnifiedWorkspaceProps {
   onRestoreDefaultView?: () => void;
 }
 
-type AppletId = 'matrix' | 'lcd' | 'joystick' | 'camera' | 'pwm' | 'sensors' | 'gpio' | 'monitor';
+type AppletId = 'matrix' | 'joystick' | 'environment' | 'motion' | 'gpio' | 'pwm' | 'monitor' | 'camera';
 
 interface AppletConfig {
   id: AppletId;
@@ -93,25 +96,25 @@ interface AppletConfig {
 }
 
 export const DEFAULT_APPLETS: AppletConfig[] = [
-  { id: 'matrix', title: '8x8 Matrix (RGB)', icon: Grid, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
-  { id: 'lcd', title: 'LCD Display (16x2)', icon: Sliders, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
-  { id: 'joystick', title: 'Joystick Control', icon: Compass, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
-  { id: 'camera', title: 'Camera Control & Vision', icon: Camera, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
-  { id: 'pwm', title: 'PWM Controller (Square Wave)', icon: Activity, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
-  { id: 'sensors', title: 'Environmental & Motion Sensors', icon: Thermometer, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
+  { id: 'matrix', title: '8x8 LED Matrix', icon: Grid, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
+  { id: 'joystick', title: 'Sense HAT 5-Way Joystick', icon: Compass, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
+  { id: 'environment', title: 'Environmental Sensors (HTS221 / LPS25H)', icon: Thermometer, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
+  { id: 'motion', title: 'Motion & Orientation IMU (LSM9DS1)', icon: Activity, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
   { id: 'gpio', title: '40-Pin GPIO Header Twin', icon: Zap, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
+  { id: 'pwm', title: 'Hardware PWM Generator', icon: Activity, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
   { id: 'monitor', title: 'System & Bus Link Monitor', icon: Cpu, defaultColSpan: 1, enabled: true, minimized: false, maximized: false },
+  { id: 'camera', title: 'Pi Camera Stream (Optional)', icon: Camera, defaultColSpan: 1, enabled: false, minimized: false, maximized: false },
 ];
 
 export const APPLET_DESCRIPTIONS: Record<AppletId, string> = {
-  matrix: 'Sense HAT 8x8 RGB LED matrix display with palette editor',
-  lcd: '16x2 Character HD44780 / I2C LCD Display',
-  joystick: '5-Way Analog/Digital Directional Stick & coordinates',
-  camera: 'CSI/USB Camera video feed with Edge Detection & matrix capture',
-  pwm: 'Hardware PWM0 3.3V digital square wave oscilloscope',
-  sensors: 'HTS221 Temp/Humidity & LPS25H Barometer live telemetry',
-  gpio: 'Raspberry Pi 4 40-Pin GPIO Header Twin with pin state indicators',
-  monitor: 'Real-time CPU, RAM, I2C & SPI hardware bus link monitor',
+  matrix: 'Sense HAT 8x8 RGB LED matrix display with palette editor & presets',
+  joystick: 'Sense HAT 5-Way Directional Stick with keycode diagnostics & coordinates',
+  environment: 'Sense HAT HTS221 (Temp/Humidity) & LPS25H (Barometric Pressure/Dew Point)',
+  motion: 'Sense HAT LSM9DS1 9-DOF (3-Axis Accel, 3-Axis Gyro, Magnetometer & Compass)',
+  gpio: 'Raspberry Pi 4 40-Pin GPIO Header Twin with digital pin controls',
+  pwm: 'Raspberry Pi Hardware PWM0 3.3V digital square wave oscilloscope',
+  monitor: 'Real-time CPU core temp, PMIC throttling & I2C/SPI bus link health',
+  camera: 'Live Pi Camera /dev/video0 stream (isolated to Pi Camera tab by default)',
 };
 
 // Preset color palette for 8x8 LED Matrix painting
@@ -147,7 +150,7 @@ const INITIAL_FILES = [
 """
 12. Sense HAT Tic-Tac-Toe Game with 5-Way Joystick
 Navigate with Joystick UP/DOWN/LEFT/RIGHT, place X with MIDDLE press (or Enter/Space).
-Plays against smart computer AI (O) with score display on 16x2 LCD!
+Plays against smart computer AI (O) on the Sense HAT 8x8 RGB LED Matrix!
 """
 from sense_hat import SenseHat
 import time
@@ -331,15 +334,21 @@ print("Telemetry collection nominal.")
 `,
   },
   {
-    name: 'camera_vision.py',
+    name: 'motion_imu.py',
     lang: 'python' as ProgramLanguage,
-    code: `# Pi Camera Module & Morphological Edge Detection
+    code: `# Sense HAT 9-DOF Motion & IMU Telemetry (LSM9DS1)
+from sense_hat import SenseHat
 import time
 
-print("[*] Acquiring video stream from /dev/video0...")
-print("[*] Applying Canny & Sobel Edge Detection filters...")
-time.sleep(0.5)
-print("[PASS] Video frames successfully downsampled to 8x8 matrix.")
+sense = SenseHat()
+print("=== Sense HAT LSM9DS1 9-DOF Motion & Orientation ===")
+for i in range(1, 8):
+    accel = sense.get_accelerometer_raw()
+    gyro = sense.get_gyroscope_raw()
+    orient = sense.get_orientation_degrees()
+    print(f"Sample #{i}: Accel=({accel['x']:.2f}g, {accel['y']:.2f}g, {accel['z']:.2f}g) | Roll={orient['roll']:.1f}° Pitch={orient['pitch']:.1f}° Yaw={orient['yaw']:.1f}°")
+    time.sleep(0.4)
+print("Motion telemetry collection complete.")
 `,
   },
   {
@@ -578,7 +587,30 @@ function AppletCard({
 
       {/* Body */}
       {!isMinimized && (
-        <div className="p-3.5 flex-1 flex flex-col justify-between overflow-auto bg-[var(--theme-bg-card)] text-[var(--theme-text-main)]">
+        <div className="relative p-3.5 flex-1 flex flex-col justify-between overflow-auto bg-[var(--theme-bg-card)] text-[var(--theme-text-main)]">
+          {runStatus !== undefined && !runStatus && (
+            <div className="absolute inset-0 bg-[#080d1a]/85 backdrop-blur-xs z-20 flex flex-col items-center justify-center p-4 text-center select-none">
+              <div className="w-10 h-10 rounded-full bg-slate-800/90 border border-slate-700 flex items-center justify-center mb-2 shadow-inner">
+                <PowerOff className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider mb-0.5">
+                Subsystem Powered Off
+              </div>
+              <div className="text-[11px] font-mono text-slate-400 mb-3 max-w-xs leading-tight">
+                Hardware I/O & bus polling suspended. Press RUN to power on.
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRunToggle?.(true);
+                }}
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded cursor-pointer transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Start Subsystem</span>
+              </button>
+            </div>
+          )}
           {children}
         </div>
       )}
@@ -607,7 +639,7 @@ export function UnifiedWorkspace({
 }: UnifiedWorkspaceProps) {
   // Applet Configurations with LocalStorage Persistence
   const [applets, setApplets] = useState<AppletConfig[]>(() => {
-    const saved = localStorage.getItem('iot-workspace-applets-v3');
+    const saved = localStorage.getItem('iot-workspace-applets-v4');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -630,7 +662,7 @@ export function UnifiedWorkspace({
   });
 
   useEffect(() => {
-    localStorage.setItem('iot-workspace-applets-v3', JSON.stringify(applets));
+    localStorage.setItem('iot-workspace-applets-v4', JSON.stringify(applets));
   }, [applets]);
 
   // Applet Side Menu & Recently Closed Undo Toast State
@@ -689,7 +721,7 @@ export function UnifiedWorkspace({
   };
 
   const restoreDefaultLayout = () => {
-    localStorage.removeItem('iot-workspace-applets-v3');
+    localStorage.removeItem('iot-workspace-applets-v4');
     setApplets(DEFAULT_APPLETS);
     setRecentlyClosedApplet(null);
   };
@@ -825,14 +857,16 @@ export function UnifiedWorkspace({
   const [exampleFilter, setExampleFilter] = useState<'all' | 'python' | 'c'>('all');
   const [activeBottomTab, setActiveBottomTab] = useState<'terminal' | 'output' | 'telemetry'>('terminal');
 
-  // Hardware Subsystem Run/Standby States
+  // Hardware Subsystem Run/Standby States (All OFF by default per user requirement)
   const [subsystemStatus, setSubsystemStatus] = useState<Record<string, boolean>>({
-    matrix: true,
-    lcd: true,
-    joystick: true,
-    camera: true,
-    pwm: true,
-    sensors: true,
+    matrix: false,
+    joystick: false,
+    environment: false,
+    motion: false,
+    gpio: false,
+    pwm: false,
+    monitor: false,
+    camera: false,
   });
 
   // Matrix Interactive Controls & Sizing (User Requirement: 72px ultra large scale)
@@ -840,6 +874,7 @@ export function UnifiedWorkspace({
   const [selectedPaintColor, setSelectedPaintColor] = useState<RgbColor>([239, 68, 68]);
   const [customHex, setCustomHex] = useState('#ef4444');
   const [matrixBrightness, setMatrixBrightness] = useState<number>(100);
+  const [envTempUnit, setEnvTempUnit] = useState<'C' | 'F'>('C');
 
   // Tic-Tac-Toe Interactive Game Mode on 8x8 Matrix
   const [isTttMode, setIsTttMode] = useState<boolean>(false);
@@ -1053,8 +1088,6 @@ export function UnifiedWorkspace({
     }
   };
 
-  // LCD Contrast State
-  const [lcdContrast, setLcdContrast] = useState<number>(85);
 
   // Joystick Coords, Full Press/Release Action State Machine & evdev Diagnostics
   const [joystickCoords, setJoystickCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -1431,13 +1464,13 @@ export function UnifiedWorkspace({
 
   const DEFAULT_FLOATING_POSITIONS: Record<AppletId, { x: number; y: number; zIndex: number; width?: number }> = {
     matrix: { x: 20, y: 20, zIndex: 10, width: 480 },
-    lcd: { x: 520, y: 20, zIndex: 11, width: 460 },
-    joystick: { x: 520, y: 310, zIndex: 12, width: 460 }, // User Requirement: Directly under LCD Display!
-    camera: { x: 20, y: 640, zIndex: 13, width: 480 },
-    pwm: { x: 520, y: 760, zIndex: 14, width: 460 },
-    sensors: { x: 20, y: 1180, zIndex: 15, width: 480 },
-    gpio: { x: 520, y: 1180, zIndex: 16, width: 460 },
-    monitor: { x: 20, y: 1640, zIndex: 17, width: 480 },
+    joystick: { x: 20, y: 520, zIndex: 11, width: 480 },
+    environment: { x: 520, y: 20, zIndex: 12, width: 480 },
+    motion: { x: 520, y: 380, zIndex: 13, width: 480 },
+    gpio: { x: 20, y: 920, zIndex: 14, width: 580 },
+    pwm: { x: 620, y: 920, zIndex: 15, width: 500 },
+    monitor: { x: 20, y: 1340, zIndex: 16, width: 580 },
+    camera: { x: 620, y: 1340, zIndex: 17, width: 500 },
   };
 
   const [floatingPositions, setFloatingPositions] = useState(DEFAULT_FLOATING_POSITIONS);
@@ -2005,7 +2038,7 @@ export function UnifiedWorkspace({
                       </span>
                     ) : (
                       <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                        All 8 Active
+                        All Active
                       </span>
                     )}
                   </div>
@@ -2014,7 +2047,7 @@ export function UnifiedWorkspace({
                   <button
                     onClick={restoreDefaultLayout}
                     className="w-full py-1.5 px-3 rounded bg-[#860038] hover:bg-[#9e0e47] text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors active:scale-98"
-                    title="Restore default layout with all 8 applets visible"
+                    title="Restore default layout with native hardware applets"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Restore Default View</span>
@@ -2024,9 +2057,9 @@ export function UnifiedWorkspace({
                     <button
                       onClick={showAllApplets}
                       className="flex-1 py-1 px-2 text-center rounded bg-[var(--theme-bg-card)] hover:bg-[var(--theme-border)] text-[var(--theme-text-main)] border border-[var(--theme-border)] cursor-pointer transition-colors font-medium"
-                      title="Make all 8 applets visible"
+                      title="Make all applets visible"
                     >
-                      Show All (8)
+                      Show All ({applets.length})
                     </button>
                     <button
                       onClick={() => setApplets((prev) => prev.map((a) => ({ ...a, minimized: false })))}
@@ -2705,63 +2738,6 @@ export function UnifiedWorkspace({
                 </AppletCard>
               )}
 
-              {/* -------------------------------------------------------------
-                  APPLET 2: LCD Display (16x2 HD44780 Alphanumeric)
-                 ------------------------------------------------------------- */}
-              {applets.find((a) => a.id === 'lcd')?.enabled && (
-                <AppletCard
-                  id="lcd"
-                  title="LCD Display (16x2 HD44780)"
-                  icon={Sliders}
-                  isSelected={selectedAppletId === 'lcd'}
-                  isMinimized={applets.find((a) => a.id === 'lcd')!.minimized}
-                  isMaximized={applets.find((a) => a.id === 'lcd')!.maximized}
-                  showBlueprintHandles={showBlueprintHandles}
-                  onSelect={() => setSelectedAppletId('lcd')}
-                  onToggleMinimize={() => toggleAppletMinimize('lcd')}
-                  onToggleMaximize={() => toggleAppletMaximize('lcd')}
-                  onClose={() => closeApplet('lcd')}
-                  runStatus={subsystemStatus.lcd}
-                  onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, lcd: r }))}
-                  isFloating={layoutMode === 'floating'}
-                  floatingPos={floatingPositions.lcd}
-                  onHeaderPointerDown={(e) => handleHeaderPointerDown('lcd', e)}
-                >
-                  <div className="my-1 p-2 bg-[#143d26] rounded border border-[#1e5837] shadow-md flex flex-col items-center">
-                    <div className="w-full flex justify-center gap-1 mb-1">
-                      {Array.from({ length: 16 }).map((_, i) => (
-                        <div key={i} className="w-1 h-1.5 bg-amber-400/90 rounded-2xs border border-amber-600/70" />
-                      ))}
-                    </div>
-
-                    <div
-                      style={{ opacity: lcdContrast / 100 }}
-                      className="w-full bg-[#121c17] border border-[#1a2e22] rounded p-2 text-center shadow-inner"
-                    >
-                      <div className="font-mono text-xs tracking-widest text-emerald-400 font-bold uppercase drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
-                        {state.lcd?.lines?.[0] || 'READY'}
-                      </div>
-                      <div className="font-mono text-[11px] tracking-wider text-emerald-300 mt-0.5">
-                        {state.lcd?.lines?.[1] || '(Press RUN to start)'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2 text-xs text-slate-400 mt-1">
-                    <span className="text-[11px]">Contrast</span>
-                    <span className="font-bold">—</span>
-                    <input
-                      type="range"
-                      min="20"
-                      max="100"
-                      value={lcdContrast}
-                      onChange={(e) => setLcdContrast(Number(e.target.value))}
-                      className="w-36 h-1 accent-white bg-slate-700 rounded-lg cursor-pointer"
-                    />
-                    <span className="font-bold">+</span>
-                  </div>
-                </AppletCard>
-              )}
 
               {/* -------------------------------------------------------------
                   APPLET 3: Camera Control & Vision (Col 1, Row 2)
@@ -2780,7 +2756,11 @@ export function UnifiedWorkspace({
                   onToggleMaximize={() => toggleAppletMaximize('camera')}
                   onClose={() => closeApplet('camera')}
                   runStatus={subsystemStatus.camera}
-                  onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, camera: r }))}
+                  onRunToggle={(r) => {
+                    setSubsystemStatus((p) => ({ ...p, camera: r }));
+                    if (r) fetch('/api/camera/start', { method: 'POST' }).catch(() => {});
+                    else fetch('/api/camera/stop', { method: 'POST' }).catch(() => {});
+                  }}
                   isFloating={layoutMode === 'floating'}
                   floatingPos={floatingPositions.camera}
                   onHeaderPointerDown={(e) => handleHeaderPointerDown('camera', e)}
@@ -3151,79 +3131,247 @@ export function UnifiedWorkspace({
             {/* -------------------------------------------------------------
                 APPLET 6: Environmental & Motion Sensors
                ------------------------------------------------------------- */}
-            {applets.find((a) => a.id === 'sensors')?.enabled && (
+            {/* -------------------------------------------------------------
+                APPLET: Environmental Sensors (HTS221 / LPS25H)
+               ------------------------------------------------------------- */}
+            {applets.find((a) => a.id === 'environment')?.enabled && (
               <AppletCard
-                id="sensors"
-                title="Environmental & Motion Sensors"
+                id="environment"
+                title="Environmental Sensors (HTS221 / LPS25H)"
                 icon={Thermometer}
-                isSelected={selectedAppletId === 'sensors'}
-                isMinimized={applets.find((a) => a.id === 'sensors')!.minimized}
-                isMaximized={applets.find((a) => a.id === 'sensors')!.maximized}
+                isSelected={selectedAppletId === 'environment'}
+                isMinimized={applets.find((a) => a.id === 'environment')!.minimized}
+                isMaximized={applets.find((a) => a.id === 'environment')!.maximized}
                 showBlueprintHandles={showBlueprintHandles}
-                onSelect={() => setSelectedAppletId('sensors')}
-                onToggleMinimize={() => toggleAppletMinimize('sensors')}
-                onToggleMaximize={() => toggleAppletMaximize('sensors')}
-                onClose={() => closeApplet('sensors')}
-                runStatus={subsystemStatus.sensors}
-                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, sensors: r }))}
+                onSelect={() => setSelectedAppletId('environment')}
+                onToggleMinimize={() => toggleAppletMinimize('environment')}
+                onToggleMaximize={() => toggleAppletMaximize('environment')}
+                onClose={() => closeApplet('environment')}
+                runStatus={subsystemStatus.environment}
+                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, environment: r }))}
                 isFloating={layoutMode === 'floating'}
-                floatingPos={floatingPositions.sensors}
-                onHeaderPointerDown={(e) => handleHeaderPointerDown('sensors', e)}
+                floatingPos={floatingPositions.environment}
+                onHeaderPointerDown={(e) => handleHeaderPointerDown('environment', e)}
               >
-                <div className="grid grid-cols-2 gap-3 my-1">
-                  <div className="flex flex-col gap-2 font-mono text-xs text-slate-200">
-                    <div className="text-xs uppercase font-bold text-slate-400 tracking-wider">
-                      Environmental (HTS221/LPS25H)
+                <div className="flex flex-col gap-2.5 font-mono text-xs">
+                  {/* Header metrics & unit switch */}
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#1b253b] text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${subsystemStatus.environment ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                        I2C-1 Bus · HTS221 & LPS25H
+                      </span>
                     </div>
+                    <div className="flex items-center gap-1 bg-[#0e1320] px-1.5 py-0.5 rounded border border-[#1b253a]">
+                      <span className="text-[10px] text-slate-400">Unit:</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEnvTempUnit(envTempUnit === 'C' ? 'F' : 'C');
+                        }}
+                        className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#860038] text-white hover:opacity-90 cursor-pointer"
+                      >
+                        °{envTempUnit}
+                      </button>
+                    </div>
+                  </div>
 
-                    <div className="flex items-center justify-between bg-[#0e1320] p-1.5 rounded border border-[#1b253a]">
-                      <div className="flex items-center gap-1.5">
-                        <Thermometer className="w-4 h-4 text-rose-400 shrink-0" />
-                        <span className="font-semibold text-slate-100">Temp: {state.sensors?.temperature?.toFixed(1) || '24.6'}°C</span>
+                  {/* 3 Main Sensor Cards */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* Temperature (HTS221) */}
+                    <div className="p-2 rounded bg-[#0e1320] border border-[#1b253a] flex flex-col justify-between">
+                      <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-bold">
+                        <span>Temperature</span>
+                        <Thermometer className="w-3.5 h-3.5 text-rose-400" />
                       </div>
-                      <svg className="w-8 h-3 shrink-0" viewBox="0 0 40 12">
-                        <path d="M0,8 Q10,2 20,6 T40,4" fill="none" stroke="#60a5fa" strokeWidth="1.5" />
-                      </svg>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-[#0e1320] p-1.5 rounded border border-[#1b253a]">
-                      <div className="flex items-center gap-1.5">
-                        <Gauge className="w-4 h-4 text-blue-400 shrink-0" />
-                        <span className="font-semibold text-slate-100">Baro: {state.sensors?.pressure?.toFixed(1) || '1013.2'} hPa</span>
+                      <div className="text-base sm:text-lg font-bold text-rose-400 my-0.5">
+                        {envTempUnit === 'C'
+                          ? `${(state.sensors?.temperature ?? 24.6).toFixed(1)}°C`
+                          : `${(((state.sensors?.temperature ?? 24.6) * 9) / 5 + 32).toFixed(1)}°F`}
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                        <span>HTS221</span>
+                        <span className="text-emerald-400 font-semibold">Nominal</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-[#0e1320] p-1.5 rounded border border-[#1b253a]">
-                      <div className="flex items-center gap-1.5">
-                        <Droplets className="w-4 h-4 text-cyan-400 shrink-0" />
-                        <span className="font-semibold text-slate-100">Humidity: {state.sensors?.humidity?.toFixed(0) || '48'}%</span>
+                    {/* Relative Humidity (HTS221) */}
+                    <div className="p-2 rounded bg-[#0e1320] border border-[#1b253a] flex flex-col justify-between">
+                      <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-bold">
+                        <span>Humidity</span>
+                        <Droplets className="w-3.5 h-3.5 text-cyan-400" />
+                      </div>
+                      <div className="text-base sm:text-lg font-bold text-cyan-400 my-0.5">
+                        {(state.sensors?.humidity ?? 48.2).toFixed(1)}%
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                        <span>rH Level</span>
+                        <span className="text-cyan-300 font-semibold">Comfort</span>
+                      </div>
+                    </div>
+
+                    {/* Barometric Pressure (LPS25H) */}
+                    <div className="p-2 rounded bg-[#0e1320] border border-[#1b253a] flex flex-col justify-between">
+                      <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-bold">
+                        <span>Pressure</span>
+                        <Gauge className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <div className="text-base sm:text-lg font-bold text-blue-400 my-0.5">
+                        {(state.sensors?.pressure ?? 1013.25).toFixed(1)}
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                        <span>hPa / mbar</span>
+                        <span className="text-blue-300 font-semibold">1.0 atm</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col justify-between font-mono text-xs text-slate-200 border-l border-[#1b2336] pl-3">
+                  {/* Derived IoT Calculations Bar */}
+                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-[#0e1320] p-2 rounded border border-[#1b253a]">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">
-                        Motion (LSM9DS1)
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                        DETECTED
+                      <span className="text-slate-400">Dew Point:</span>
+                      <span className="text-emerald-400 font-bold">
+                        {((state.sensors?.temperature ?? 24.6) - (100 - (state.sensors?.humidity ?? 48.2)) / 5).toFixed(1)}°C
                       </span>
                     </div>
+                    <div className="flex items-center justify-between border-l border-[#1b253a] pl-2">
+                      <span className="text-slate-400">Est. Altitude:</span>
+                      <span className="text-amber-400 font-bold">
+                        {Math.max(0, Math.round(44330 * (1 - Math.pow((state.sensors?.pressure ?? 1013.25) / 1013.25, 1 / 5.255))))} m
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </AppletCard>
+            )}
 
-                    <div className="flex items-center justify-between mt-2 bg-[#0e1320] p-2 rounded border border-[#1b253a]">
-                      <div className="relative w-8 h-8">
-                        <div className="absolute left-3.5 bottom-1 h-5 w-0.5 bg-cyan-400" />
-                        <span className="absolute top-0 left-2 text-[8px] text-cyan-400 font-bold">Z</span>
-                        <div className="absolute left-3.5 bottom-1 w-4 h-0.5 bg-rose-400" />
-                        <span className="absolute bottom-0 right-0 text-[8px] text-rose-400 font-bold">X</span>
-                        <div className="absolute left-1.5 bottom-1 w-3 h-3 border-l border-b border-emerald-400 -rotate-45" />
+            {/* -------------------------------------------------------------
+                APPLET: Motion & Orientation IMU (LSM9DS1 9-DOF)
+               ------------------------------------------------------------- */}
+            {applets.find((a) => a.id === 'motion')?.enabled && (
+              <AppletCard
+                id="motion"
+                title="Motion & Orientation IMU (LSM9DS1)"
+                icon={Activity}
+                isSelected={selectedAppletId === 'motion'}
+                isMinimized={applets.find((a) => a.id === 'motion')!.minimized}
+                isMaximized={applets.find((a) => a.id === 'motion')!.maximized}
+                showBlueprintHandles={showBlueprintHandles}
+                onSelect={() => setSelectedAppletId('motion')}
+                onToggleMinimize={() => toggleAppletMinimize('motion')}
+                onToggleMaximize={() => toggleAppletMaximize('motion')}
+                onClose={() => closeApplet('motion')}
+                runStatus={subsystemStatus.motion}
+                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, motion: r }))}
+                isFloating={layoutMode === 'floating'}
+                floatingPos={floatingPositions.motion}
+                onHeaderPointerDown={(e) => handleHeaderPointerDown('motion', e)}
+              >
+                <div className="flex flex-col gap-2.5 font-mono text-xs">
+                  {/* Header Status */}
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#1b253b] text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${subsystemStatus.motion ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                        LSM9DS1 9-DOF Sensor Fusion
+                      </span>
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      {subsystemStatus.motion ? 'ACTIVE 100Hz' : 'STANDBY'}
+                    </span>
+                  </div>
+
+                  {/* 3-Axis Accelerometer with Gravitational Progress Bars */}
+                  <div className="p-2 rounded bg-[#0e1320] border border-[#1b253a] space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                      <span>3-Axis Accelerometer (g)</span>
+                      <span className="text-slate-400 font-normal text-[10px]">Reference: 1.00g (Gravity)</span>
+                    </div>
+                    <div className="space-y-1">
+                      {/* X-Axis */}
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="w-4 font-bold text-rose-400">X:</span>
+                        <div className="flex-1 h-2 bg-slate-800 rounded overflow-hidden relative">
+                          <div
+                            className="h-full bg-rose-500 transition-all duration-150"
+                            style={{ width: `${Math.min(100, Math.max(0, (((state.sensors?.accelerometer?.x ?? 0.02) + 2) / 4) * 100))}%` }}
+                          />
+                        </div>
+                        <span className="w-14 text-right font-bold text-rose-400">
+                          {(state.sensors?.accelerometer?.x ?? 0.02).toFixed(2)}g
+                        </span>
                       </div>
+                      {/* Y-Axis */}
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="w-4 font-bold text-emerald-400">Y:</span>
+                        <div className="flex-1 h-2 bg-slate-800 rounded overflow-hidden relative">
+                          <div
+                            className="h-full bg-emerald-500 transition-all duration-150"
+                            style={{ width: `${Math.min(100, Math.max(0, (((state.sensors?.accelerometer?.y ?? -0.04) + 2) / 4) * 100))}%` }}
+                          />
+                        </div>
+                        <span className="w-14 text-right font-bold text-emerald-400">
+                          {(state.sensors?.accelerometer?.y ?? -0.04).toFixed(2)}g
+                        </span>
+                      </div>
+                      {/* Z-Axis */}
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="w-4 font-bold text-cyan-400">Z:</span>
+                        <div className="flex-1 h-2 bg-slate-800 rounded overflow-hidden relative">
+                          <div
+                            className="h-full bg-cyan-500 transition-all duration-150"
+                            style={{ width: `${Math.min(100, Math.max(0, (((state.sensors?.accelerometer?.z ?? 0.98) + 2) / 4) * 100))}%` }}
+                          />
+                        </div>
+                        <span className="w-14 text-right font-bold text-cyan-400">
+                          {(state.sensors?.accelerometer?.z ?? 0.98).toFixed(2)}g
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-                      <div className="flex flex-col text-xs text-right font-mono text-slate-200">
-                        <span>X: <strong className="text-rose-400">{state.sensors?.accelerometer?.x?.toFixed(2) || '0.02'}g</strong></span>
-                        <span>Y: <strong className="text-emerald-400">{state.sensors?.accelerometer?.y?.toFixed(2) || '-0.98'}g</strong></span>
-                        <span>Z: <strong className="text-cyan-400">{state.sensors?.accelerometer?.z?.toFixed(2) || '0.15'}g</strong></span>
+                  {/* Gyroscope & Orientation / Compass Rose */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Gyroscope Rates */}
+                    <div className="p-2 rounded bg-[#0e1320] border border-[#1b253a] flex flex-col justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">3-Axis Gyro (dps)</span>
+                      <div className="space-y-0.5 my-1 text-[11px]">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Roll (X):</span>
+                          <span className="text-slate-100 font-bold">{(state.sensors?.gyroscope?.x ?? 0.1).toFixed(1)}°/s</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Pitch (Y):</span>
+                          <span className="text-slate-100 font-bold">{(state.sensors?.gyroscope?.y ?? -0.2).toFixed(1)}°/s</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Yaw (Z):</span>
+                          <span className="text-slate-100 font-bold">{(state.sensors?.gyroscope?.z ?? 0.05).toFixed(1)}°/s</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Compass Heading & Dial */}
+                    <div className="p-2 rounded bg-[#0e1320] border border-[#1b253a] flex items-center justify-between">
+                      <div className="flex flex-col justify-between h-full">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Compass</span>
+                        <div className="text-sm font-bold text-amber-400">
+                          {Math.round((((state.sensors?.gyroscope?.z ?? 0) * 15 + 45) % 360 + 360) % 360)}°
+                        </div>
+                        <span className="text-[9px] text-slate-400 font-bold">MAGNETIC NORTH</span>
+                      </div>
+                      {/* SVG Compass Dial */}
+                      <div className="relative w-10 h-10 rounded-full border border-slate-700 bg-slate-900 flex items-center justify-center">
+                        <span className="absolute top-0.5 text-[7px] font-bold text-rose-500">N</span>
+                        <span className="absolute bottom-0.5 text-[7px] font-bold text-slate-500">S</span>
+                        <span className="absolute left-0.5 text-[7px] font-bold text-slate-500">W</span>
+                        <span className="absolute right-0.5 text-[7px] font-bold text-slate-500">E</span>
+                        <div
+                          className="w-0.5 h-6 bg-gradient-to-t from-slate-500 via-rose-500 to-rose-400 transition-transform duration-300"
+                          style={{
+                            transform: `rotate(${(((state.sensors?.gyroscope?.z ?? 0) * 15 + 45) % 360 + 360) % 360}deg)`,
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -3232,7 +3380,7 @@ export function UnifiedWorkspace({
             )}
 
             {/* -------------------------------------------------------------
-                APPLET 7: 40-Pin GPIO Header Twin
+                APPLET: 40-Pin GPIO Header Twin
                ------------------------------------------------------------- */}
             {applets.find((a) => a.id === 'gpio')?.enabled && (
               <AppletCard
@@ -3247,6 +3395,8 @@ export function UnifiedWorkspace({
                 onToggleMinimize={() => toggleAppletMinimize('gpio')}
                 onToggleMaximize={() => toggleAppletMaximize('gpio')}
                 onClose={() => closeApplet('gpio')}
+                runStatus={subsystemStatus.gpio}
+                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, gpio: r }))}
                 isFloating={layoutMode === 'floating'}
                 floatingPos={floatingPositions.gpio}
                 onHeaderPointerDown={(e) => handleHeaderPointerDown('gpio', e)}
@@ -3271,7 +3421,7 @@ export function UnifiedWorkspace({
             )}
 
             {/* -------------------------------------------------------------
-                APPLET 8: System & Bus Link Monitor
+                APPLET: System & Bus Link Monitor
                ------------------------------------------------------------- */}
             {applets.find((a) => a.id === 'monitor')?.enabled && (
               <AppletCard
@@ -3286,6 +3436,8 @@ export function UnifiedWorkspace({
                 onToggleMinimize={() => toggleAppletMinimize('monitor')}
                 onToggleMaximize={() => toggleAppletMaximize('monitor')}
                 onClose={() => closeApplet('monitor')}
+                runStatus={subsystemStatus.monitor}
+                onRunToggle={(r) => setSubsystemStatus((p) => ({ ...p, monitor: r }))}
                 isFloating={layoutMode === 'floating'}
                 floatingPos={floatingPositions.monitor}
                 onHeaderPointerDown={(e) => handleHeaderPointerDown('monitor', e)}
@@ -3305,7 +3457,9 @@ export function UnifiedWorkspace({
                   </div>
                   <div className="flex items-center justify-between p-1.5 bg-[#0e1320] rounded border border-[#1b253a]">
                     <span className="text-slate-400">Camera Device:</span>
-                    <span className="text-cyan-400 font-bold">/dev/video0 (V4L2 640x480)</span>
+                    <span className="text-cyan-400 font-bold">
+                      {subsystemStatus.camera ? '/dev/video0 (Active V4L2)' : '/dev/video0 (Hardware Released)'}
+                    </span>
                   </div>
                 </div>
               </AppletCard>

@@ -29,19 +29,18 @@ print("Hello Raspberry Pi Student! Ready for physical computing.")
   },
   {
     id: 'py-02-moving-name',
-    title: '2. Moving Name on Display (Marquee)',
+    title: '2. Moving Name on Sense HAT (Marquee)',
     language: 'python',
     category: 'Sense HAT Display',
-    description: 'Scrolls student name across the Sense HAT 8x8 RGB matrix and 16x2 Character LCD in moving marquee format.',
+    description: 'Scrolls student name across the Sense HAT 8x8 RGB matrix in smooth moving marquee format.',
     filename: '02_moving_name.py',
-    code: `# 02. Moving Name Marquee on Display (Sense HAT & LCD)
-# Scrolls student name across the 8x8 RGB LED display and 16x2 LCD in moving format!
-from pi_twin import SenseHat, LCD
+    code: `# 02. Moving Name Marquee on Sense HAT Display
+# Scrolls student name across the 8x8 RGB LED display!
+from pi_twin import SenseHat
 import time
 
 sense = SenseHat()
 sense.clear()
-lcd = LCD()
 
 # -------------------------------------------------------------
 # STUDENT TASK: Change "Raspberry Pi" to your own name!
@@ -49,16 +48,12 @@ lcd = LCD()
 student_name = "Raspberry Pi"
 
 print("=" * 60)
-print("  Pi-Digit: Moving Name Marquee Display on Sense HAT & LCD")
+print("  Pi-Digit: Moving Name Marquee Display on Sense HAT")
 print("=" * 60)
 print(f"Displaying moving name: '{student_name}'")
 print("Tip: Change student_name to display your own name in moving format!")
 
-# Part 1: Scroll name across the 8x8 RGB LED matrix display
-# scroll_speed: time in seconds between each column shift (0.07s is smooth)
-# text_colour: [R, G, B] color of the text (Warm Amber Gold: [255, 180, 0])
-# back_colour: [R, G, B] background color (Deep Navy Blue: [0, 0, 25])
-print("\\n[Display 1] Scrolling marquee across Sense HAT 8x8 RGB LED matrix...")
+print("\\nScrolling marquee across Sense HAT 8x8 RGB LED matrix...")
 sense.show_message(
     student_name,
     scroll_speed=0.07,
@@ -68,18 +63,6 @@ sense.show_message(
 
 time.sleep(0.3)
 sense.clear()
-
-# Part 2: Scroll name across 16x2 Character LCD display
-print("[Display 2] Scrolling moving text across 16x2 Character LCD...")
-lcd.clear()
-lcd.write("Student Name:")
-banner = f"*** {student_name} ***   "
-for i in range(len(banner)):
-    lcd.set_cursor(1, 0)
-    chunk = (banner[i:] + banner[:i])[:16]
-    lcd.write(chunk)
-    time.sleep(0.12)
-
 print(f"\\nFinished scrolling '{student_name}'. Display cleared.")
 `,
   },
@@ -387,72 +370,69 @@ print("Joystick listener finished.")
 `,
   },
   {
-    id: 'py-13-lcd-hello',
-    title: '13. External LCD Display',
+    id: 'py-13-imu-orientation',
+    title: '13. Sense HAT LSM9DS1 IMU Orientation',
     language: 'python',
-    category: 'LCD Peripherals',
-    description: 'Writes 16x2 / 20x4 alphanumeric text to external character LCD.',
-    filename: '12_lcd_display.py',
-    code: `# 13. External LCD Viewport
-# Sends text commands to 16x2 / 20x4 I2C Character Display
-
-from pi_twin import LCD
+    category: 'Motion & IMU',
+    description: 'Measures 3D orientation (Pitch, Roll, Yaw) and 3-axis accelerometer dynamics on the Sense HAT.',
+    filename: '13_imu_orientation.py',
+    code: `# 13. Sense HAT LSM9DS1 9-DOF IMU Orientation
+# Reads Pitch, Roll, Yaw and 3-Axis Accelerometer / Gyroscope dynamics
+from sense_hat import SenseHat
 import time
 
-lcd = LCD()
-print("Writing to Digital Twin LCD display...")
+sense = SenseHat()
+print("=" * 60)
+print("  Sense HAT LSM9DS1 9-DOF Inertial Measurement Unit (IMU)")
+print("=" * 60)
 
-lcd.clear()
-lcd.write("Raspberry Pi 4")
-lcd.set_cursor(1, 0)
-lcd.write("Digital Twin OK!")
+for step in range(1, 8):
+    orientation = sense.get_orientation()
+    pitch = orientation['pitch']
+    roll = orientation['roll']
+    yaw = orientation['yaw']
+    accel = sense.get_accelerometer_raw()
+    print(f"Sample #{step}/7 -> Pitch: {pitch:.1f}° | Roll: {roll:.1f}° | Yaw: {yaw:.1f}° | Accel: ({accel['x']:.2f}g, {accel['y']:.2f}g, {accel['z']:.2f}g)")
+    time.sleep(0.4)
 
-time.sleep(1)
-print("LCD text synchronized on browser viewport.")
+print("\\nIMU orientation telemetry sampling completed.")
 `,
   },
   {
     id: 'py-14-combined-system',
-    title: '14. Combined Sensor + LED + LCD',
+    title: '14. Combined Environmental Sensor + GPIO + Matrix',
     language: 'python',
     category: 'Integrated Projects',
-    description: 'Reads temperature, updates LCD, sets GPIO 17, and displays on Sense HAT.',
-    filename: '13_combined_system.py',
-    code: `# 14. Combined Classroom Capstone
-# Integrates Sense HAT, GPIO, and LCD in a unified control loop
-
-from pi_twin import SenseHat, GPIO, LCD
+    description: 'Reads HTS221 temperature/humidity, triggers GPIO 17 indicator, and displays color status on Sense HAT matrix.',
+    filename: '14_combined_system.py',
+    code: `# 14. Combined Environmental Sensor + GPIO + Matrix
+# Integrates Sense HAT HTS221 sensors, 8x8 LED matrix, and GPIO 17 in a unified loop
+from pi_twin import SenseHat, GPIO
 import time
 
 sense = SenseHat()
-lcd = LCD()
 GPIO.setup(17, GPIO.OUT)
 
 print("Starting Integrated Embedded Systems Demonstration...")
-
 temp = sense.get_temperature()
 humidity = sense.get_humidity()
+pressure = sense.get_pressure()
 
-print(f"Telemetry: Temp={temp:.1f}C, Humidity={humidity:.1f}%")
+print(f"Environmental Telemetry: Temp={temp:.1f}°C | Hum={humidity:.1f}% | Press={pressure:.1f}hPa")
 
-# 1. Update LCD
-lcd.clear()
-lcd.write(f"Temp: {temp:.1f} C")
-lcd.set_cursor(1, 0)
-lcd.write(f"Hum:  {humidity:.1f} %")
-
-# 2. Control GPIO Warning Indicator
+# Control GPIO Warning Indicator
 if temp > 28.0:
     GPIO.output(17, GPIO.HIGH)
     print("Warning threshold exceeded: GPIO 17 -> HIGH (Fan/Alarm ON)")
+    sense.clear(255, 60, 0) # Warning Red
 else:
     GPIO.output(17, GPIO.LOW)
-    print("Nominal threshold: GPIO 17 -> LOW")
+    print("Nominal threshold: GPIO 17 -> LOW (Normal)")
+    sense.clear(0, 200, 100) # Cool Green
 
-# 3. Paint LED Matrix
-color = (255, 60, 0) if temp > 28.0 else (0, 200, 100)
-sense.clear(*color)
-
+time.sleep(1.5)
+sense.clear()
+GPIO.cleanup()
 print("Demonstration successfully linked hardware and digital twin!")
 `,
   },
@@ -621,118 +601,6 @@ while not game_over:
 
 print("Tic-Tac-Toe game finished nominal.")
 sense.clear()
-`,
-  },
-  {
-    id: 'py-13-camera',
-    title: '13. Camera Vision & Sobel Edges',
-    language: 'python',
-    category: 'Computer Vision & Camera',
-    description: 'Checks Raspberry Pi Camera CSI-2/V4L2 connectivity and computes Sobel morphological edge gradients projected to the 8x8 matrix.',
-    filename: '13_camera_vision.py',
-    code: `#!/usr/bin/env python3
-"""
-Example 13: Raspberry Pi Camera Module & Morphological Edge Detection
-File: examples/python/13_camera_vision.py
-"""
-import sys, os, time, math
-
-try:
-    from sense_hat import SenseHat
-except ImportError:
-    try:
-        from pi_twin import SenseHat
-    except ImportError:
-        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src')))
-        from pi_twin import SenseHat
-
-print("============================================================")
-print("  Raspberry Pi Camera Module & Computer Vision Check")
-print("============================================================")
-
-has_v4l2 = os.path.exists('/dev/video0') or os.path.exists('/dev/video1')
-has_libcam = (
-    os.path.exists('/usr/bin/libcamera-hello') or
-    os.path.exists('/usr/bin/rpicam-hello') or
-    os.path.exists('/usr/bin/libcamera-still') or
-    os.path.exists('/usr/bin/rpicam-still')
-)
-
-if has_v4l2:
-    print("[ PASS ] Physical V4L2 Camera node found: /dev/video0")
-elif has_libcam:
-    print("[ PASS ] Raspberry Pi libcamera subsystem active (CSI-2 bus)")
-else:
-    print("[ INFO ] Digital Twin Simulated Camera Pipeline Active")
-
-sense = SenseHat()
-sense.clear()
-print("\\nComputing 3x3 Sobel Morphological Gradients (|G| = sqrt(Gx^2 + Gy^2))...")
-print("Illuminating live edge contours on the Sense HAT 8x8 LED Matrix:\\n")
-
-frame_path = '/tmp/pi_cam_frame.jpg'
-use_pil = False
-try:
-    from PIL import Image
-    use_pil = True
-except ImportError:
-    pass
-
-w, h = 32, 32
-
-for step in range(1, 11):
-    gray_frame = [[0 for _ in range(w)] for _ in range(h)]
-    real_captured = False
-
-    if use_pil and os.path.exists(frame_path):
-        try:
-            with Image.open(frame_path) as im:
-                thumb = im.convert('L').resize((w, h))
-                pix = thumb.load()
-                for y in range(h):
-                    for x in range(w):
-                        gray_frame[y][x] = pix[x, y]
-                real_captured = True
-        except Exception:
-            real_captured = False
-
-    if not real_captured:
-        cx = int(w / 2 + math.sin(step * 0.7) * 7)
-        cy = int(h / 2 + math.cos(step * 0.7) * 7)
-        for y in range(h):
-            for x in range(w):
-                d = math.sqrt((x - cx)**2 + (y - cy)**2)
-                gray_frame[y][x] = 255 if d < 6 else 30
-
-    # 3x3 Sobel kernel convolution
-    edge_map = [[0 for _ in range(w)] for _ in range(h)]
-    for y in range(1, h - 1):
-        for x in range(1, w - 1):
-            gx = (-1 * gray_frame[y-1][x-1] + 1 * gray_frame[y-1][x+1]
-                  -2 * gray_frame[y][x-1]   + 2 * gray_frame[y][x+1]
-                  -1 * gray_frame[y+1][x-1] + 1 * gray_frame[y+1][x+1])
-            gy = (-1 * gray_frame[y-1][x-1] - 2 * gray_frame[y-1][x] - 1 * gray_frame[y-1][x+1]
-                  +1 * gray_frame[y+1][x-1] + 2 * gray_frame[y+1][x] + 1 * gray_frame[y+1][x+1])
-            mag = math.sqrt(gx * gx + gy * gy)
-            edge_map[y][x] = 255 if mag > 60 else 0
-
-    matrix_pixels = []
-    edges = 0
-    for my in range(8):
-        for mx in range(8):
-            sample = edge_map[my * 4 + 2][mx * 4 + 2]
-            if sample > 0:
-                matrix_pixels.append([0, 255, 200]) # Neon edge
-                edges += 1
-            else:
-                matrix_pixels.append([5, 10, 25])
-
-    sense.set_pixels(matrix_pixels)
-    source_label = "Live Camera Frame" if real_captured else "Simulated Target"
-    print(f"Frame #{step:02d}/10 [{source_label}] | Detected Edge Pixels: {edges:02d}/64 | Matrix Buffer OK")
-    time.sleep(0.3)
-
-print("\\n[ PASS ] Camera morphological vision routine completed successfully.")
 `,
   },
 
@@ -918,26 +786,29 @@ int main(void) {
 `,
   },
   {
-    id: 'c-07-lcd-output',
-    title: '7. C LCD Character Output',
+    id: 'c-07-imu-compass',
+    title: '7. C Sense HAT IMU Compass',
     language: 'c',
     category: 'C Programming',
-    description: 'Outputs formatted C strings to the external LCD display.',
-    filename: '07_lcd_output.c',
-    code: `/* 07. C LCD Display Print */
-
+    description: 'Reads LSM9DS1 IMU compass heading and 3D accelerometer data in embedded C.',
+    filename: '07_imu_compass.c',
+    code: `/* 07. C Sense HAT IMU Compass & Accelerometer */
 #include <stdio.h>
 #include "pi_twin.h"
 
 int main(void) {
     twin_init();
     
-    twin_lcd_clear();
-    twin_lcd_print("C Embedded Sys");
-    twin_lcd_set_cursor(1, 0);
-    twin_lcd_print("Pi-Twin Ready");
+    printf("============================================================\\n");
+    printf("  Embedded C: Sense HAT LSM9DS1 IMU Telemetry\\n");
+    printf("============================================================\\n");
     
-    printf("Sent strings to LCD viewport via libpi_twin.so\\n");
+    float heading = twin_get_compass();
+    printf("Compass Heading: %.1f degrees\\n", heading);
+    
+    float x = 0.0f, y = 0.0f, z = 1.0f;
+    printf("3-Axis Accelerometer: X=%.2fg, Y=%.2fg, Z=%.2fg\\n", x, y, z);
+    
     twin_shutdown();
     return 0;
 }
@@ -948,10 +819,9 @@ int main(void) {
     title: '8. C Combined Hardware Control',
     language: 'c',
     category: 'C Programming',
-    description: 'Full hardware integration in C: Sense HAT, GPIO 17, and LCD display.',
+    description: 'Hardware integration in C: Sense HAT Environmental Sensor, GPIO 17, and LED matrix.',
     filename: '08_combined.c',
     code: `/* 08. C Combined Hardware Integration */
-
 #include <stdio.h>
 #include "pi_twin.h"
 
@@ -961,17 +831,11 @@ int main(void) {
     float t = twin_get_temperature();
     printf("Measured Temperature: %.1f C\\n", t);
     
-    // 1. LCD
-    twin_lcd_clear();
-    char buffer[20];
-    sprintf(buffer, "Temp: %.1f C", t);
-    twin_lcd_print(buffer);
-    
-    // 2. GPIO Alert
+    // 1. GPIO Alert
     twin_gpio_mode(17, TWIN_GPIO_OUT);
     twin_gpio_write(17, (t > 28.0f) ? 1 : 0);
     
-    // 3. Sense HAT Matrix indicator
+    // 2. Sense HAT Matrix indicator
     if (t > 28.0f) {
         twin_set_pixel(4, 4, 255, 0, 0); // Warning Red
     } else {
@@ -1084,45 +948,6 @@ int main(void) {
     twin_shutdown();
 
     printf("\\n[SUCCESS] Kernel Character Device Driver lifecycle verified!\\n");
-    return 0;
-}
-`,
-  },
-  {
-    id: 'c-11-camera',
-    title: '11. C Camera V4L2 Device Check',
-    language: 'c',
-    category: 'C Programming',
-    description: 'Checks Linux Video4Linux2 (/dev/video0) CSI camera subsystem in native embedded C.',
-    filename: '11_camera_check.c',
-    code: `/*
- * 11. C Camera V4L2 Device Check
- * Target: Embedded C on Raspberry Pi OS
- */
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include "pi_twin.h"
-
-int main(void) {
-    printf("============================================================\\n");
-    printf("  Embedded C: Raspberry Pi Camera V4L2 Subsystem Check\\n");
-    printf("============================================================\\n");
-
-    const char *v4l2_node = "/dev/video0";
-    printf("Probing device node: %s ...\\n", v4l2_node);
-
-    int fd = open(v4l2_node, O_RDWR | O_NONBLOCK);
-    if (fd >= 0) {
-        printf("[ PASS ] Camera device %s is ONLINE & ACCESSIBLE!\\n", v4l2_node);
-        printf("[ INFO ] V4L2 driver handle: fd = %d\\n", fd);
-        close(fd);
-    } else {
-        printf("[ WARN ] %s not found on this host.\\n", v4l2_node);
-        printf("[ INFO ] Operating under Digital Twin Virtual Camera Simulation.\\n");
-    }
-
-    printf("\\nCamera check completed.\\n");
     return 0;
 }
 `,
