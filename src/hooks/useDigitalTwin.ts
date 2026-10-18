@@ -131,7 +131,7 @@ export function useDigitalTwin() {
             break;
 
           case 'program.output':
-            setTerminalOutputs((prev) => [...prev, msg.payload]);
+            setTerminalOutputs((prev) => [...prev, msg.payload].slice(-200));
             break;
 
           case 'timeline.trace':
@@ -180,7 +180,10 @@ export function useDigitalTwin() {
     connectWs();
 
     // Active polling fallback ensures live simulation updates even if WebSocket drops in cloud iframe
+    let isPolling = false;
     const pollInterval = setInterval(async () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN || isPolling) return;
+      isPolling = true;
       try {
         const stateRes = await fetch('/api/state');
         if (stateRes.ok) {
@@ -195,14 +198,16 @@ export function useDigitalTwin() {
             setTerminalOutputs((prev) => {
               const knownIds = new Set(prev.map((o) => o.id));
               const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
-              return newItems.length > 0 ? [...prev, ...newItems] : prev;
+              return newItems.length > 0 ? [...prev, ...newItems].slice(-200) : prev;
             });
           }
         }
       } catch {
         // Ignore polling errors
+      } finally {
+        isPolling = false;
       }
-    }, 600);
+    }, 2000);
 
     return () => {
       clearInterval(pollInterval);
@@ -305,10 +310,10 @@ export function useDigitalTwin() {
         {
           id: 'run-' + Date.now(),
           timestamp: new Date().toLocaleTimeString(),
-          stream: 'system',
+          stream: 'system' as const,
           text: `>>> Launching ${filename} (${language.toUpperCase()}) on Raspberry Pi 4 [Watchdog: ${timeoutMs / 1000}s]...`,
         },
-      ]);
+      ].slice(-200));
 
       await fetch('/api/program/run', {
         method: 'POST',
@@ -333,7 +338,7 @@ export function useDigitalTwin() {
               setTerminalOutputs((prev) => {
                 const knownIds = new Set(prev.map((o) => o.id));
                 const newItems = freshOuts.filter((o) => !knownIds.has(o.id));
-                return newItems.length > 0 ? [...prev, ...newItems] : prev;
+                return newItems.length > 0 ? [...prev, ...newItems].slice(-200) : prev;
               });
             }
           } catch {}

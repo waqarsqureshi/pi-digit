@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
@@ -2059,18 +2060,27 @@ app.get('/api/camera/stream', (_req: Request, res: Response) => {
 });
 
 // Single Frame Snapshot endpoint
-app.get('/api/camera/frame', (_req: Request, res: Response) => {
+const cameraFrameLimiter = rateLimit({
+  windowMs: 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.get('/api/camera/frame', cameraFrameLimiter, async (_req: Request, res: Response) => {
   if (!cameraDaemonEnabled) {
     return res.status(503).json({ error: 'Camera is powered off' });
   }
   const framePath = '/tmp/pi_cam_frame.jpg';
-  if (fs.existsSync(framePath)) {
-    try {
-      const data = fs.readFileSync(framePath);
-      if (data && data.length > 50) {
-        lastValidCameraFrame = data;
-      }
-    } catch (e) {}
+  try {
+    const data = await fs.promises.readFile(framePath);
+    if (data.length > 50) {
+      lastValidCameraFrame = data;
+    }
+  } catch {}
+
+  if (!cameraDaemonEnabled) {
+    return res.status(503).json({ error: 'Camera is powered off' });
   }
 
   if (lastValidCameraFrame && lastValidCameraFrame.length > 50) {

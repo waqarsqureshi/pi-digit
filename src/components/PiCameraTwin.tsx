@@ -86,7 +86,7 @@ export function PiCameraTwin({
   const frameCount = useRef<number>(0);
   const simAngle = useRef<number>(0);
 
-  // Active reliable hardware frame polling loop (continuous 25 FPS JPEG frames)
+  // Poll hardware frames at a rate that keeps network and decode work bounded.
   useEffect(() => {
     if (!isStreaming || !isCameraPowered || cameraSource !== 'hardware') return;
 
@@ -102,7 +102,7 @@ export function PiCameraTwin({
         hardwareFrameRef.current = img;
         setHardwareFrameLoaded(true);
         setCameraConnected(true);
-        timerId = window.setTimeout(pollFrame, 40);
+        timerId = window.setTimeout(pollFrame, 100);
       };
       img.onerror = () => {
         if (!active) return;
@@ -195,17 +195,23 @@ export function PiCameraTwin({
   // Main rendering & computer vision morphological filter loop
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !isStreaming) return;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     let running = true;
     let animId: number;
+    let lastProcessedAt = 0;
 
     const processFrame = () => {
       if (!running) return;
 
       const now = performance.now();
+      if (now - lastProcessedAt < 1000 / 20) {
+        animId = requestAnimationFrame(processFrame);
+        return;
+      }
+      lastProcessedAt = now;
       frameCount.current++;
       if (now - lastFrameTime.current >= 1000) {
         setFps(frameCount.current);
