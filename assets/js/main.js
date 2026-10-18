@@ -9,7 +9,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const navLinks = document.querySelector('.nav-links');
   if (mobileToggle && navLinks) {
     mobileToggle.addEventListener('click', () => {
-      navLinks.classList.toggle('open');
+      const isExpanded = mobileToggle.getAttribute('aria-expanded') === 'true';
+      navLinks.classList.toggle('open', !isExpanded);
+      mobileToggle.setAttribute('aria-expanded', String(!isExpanded));
+    });
+    navLinks.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        navLinks.classList.remove('open');
+        mobileToggle.setAttribute('aria-expanded', 'false');
+      });
     });
   }
 
