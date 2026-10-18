@@ -23,6 +23,8 @@ npm run dev
 
 Open `http://localhost:3000/`. The server listens on port 3000 by default; set `PORT` to use a different port. The app starts in software mode when physical hardware is unavailable.
 
+For cloud deployments (Cloud Run / Cloud Build), configure the runtime to Node.js 22 (recommended) or Node.js 20.19+ to match the engine requirements in `package.json`.
+
 For a production build and server:
 
 ```bash
