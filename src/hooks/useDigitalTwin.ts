@@ -159,7 +159,7 @@ export function useDigitalTwin() {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
-      fetchTerminalOutputs().finally(flushPendingTerminalOutputs);
+      fetchTerminalOutputs().catch(() => undefined).finally(flushPendingTerminalOutputs);
     };
 
     ws.onmessage = (event) => {
